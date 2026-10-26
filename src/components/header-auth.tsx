@@ -29,7 +29,7 @@ export function HeaderAuth({ onSignIn }: { onSignIn?: () => void } = {}) {
   if (hydrated && wpUser) {
     return (
       <Button variant="ghost" size="sm" asChild>
-        <Link to="/account">{wpUser.name.split(" ")[0]}</Link>
+        <Link to="/dashboard">{wpUser.name.split(" ")[0]}</Link>
       </Button>
     );
   }
@@ -40,7 +40,7 @@ export function HeaderAuth({ onSignIn }: { onSignIn?: () => void } = {}) {
       size="sm"
       onClick={() => {
         if (onSignIn) onSignIn();
-        else showLogin({ reason: "trip", next: "/account" });
+        else showLogin({ reason: "trip", next: "/dashboard" });
       }}
     >
       <LogIn />
