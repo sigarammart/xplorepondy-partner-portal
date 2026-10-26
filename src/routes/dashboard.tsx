@@ -230,7 +230,21 @@ function OwnerBookings({
                     <p className="text-sm text-foreground">Time: {formatDisplayTime(reservation.startTime)}–{formatDisplayTime(reservation.endTime)}</p>
                     <p className="text-sm text-foreground">No. of Guests: {reservation.guests}</p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${reservation.checkedIn ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-foreground"}`}>
+                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${
+                    reservation.checkedIn
+                      ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-500"
+                      : reservation.status === "cancelled"
+                        ? "border-rose-500/30 bg-rose-500/15 text-rose-500"
+                        : reservation.status === "pending"
+                          ? "border-amber-500/30 bg-amber-500/15 text-amber-500"
+                          : reservation.status === "no-show"
+                            ? "border-slate-500/30 bg-slate-500/15 text-slate-400"
+                            : reservation.status === "confirmed"
+                              ? "border-sky-500/30 bg-sky-500/15 text-sky-500"
+                              : reservation.status === "completed"
+                                ? "border-violet-500/30 bg-violet-500/15 text-violet-500"
+                                : "border-border bg-muted text-foreground"
+                  }`}>
                     {reservation.checkedIn ? "Checked in" : reservation.status.replace("-", " ")}
                   </span>
                 </div>
