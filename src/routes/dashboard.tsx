@@ -538,15 +538,15 @@ function ListingOwnerDashboardPage() {
   const unreadNotifications = ownerNotifications.filter((item) => !item.read_at).length + ownerEventNotifications.filter((item) => !item.read_at).length;
 
   const dashboardNav = [
-    { key: "overview", label: "Overview", icon: ClipboardList, count: undefined, view: "menu" as const },
-    { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const },
-    { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const },
-    { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const },
-    { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings, view: "bookings" as const },
+    { key: "overview", label: "Overview", icon: ClipboardList, count: undefined, view: "menu" as const, bookingType: undefined, child: false },
+    { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const, bookingType: undefined, child: false },
+    { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const, bookingType: undefined, child: false },
+    { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const, bookingType: undefined, child: false },
+    { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings, view: "bookings" as const, bookingType: undefined, child: false },
     { key: "table-reservations", label: "Table Reservations", icon: CalendarDays, count: dashboard?.reservations.length ?? 0, view: "bookings" as const, bookingType: "table" as const, child: true },
     { key: "event-bookings", label: "Event Bookings", icon: CalendarDays, count: eventBookings.length, view: "bookings" as const, bookingType: "events" as const, child: true },
     { key: "experience-bookings", label: "Experience Bookings", icon: Ticket, count: experienceBookings.length, view: "bookings" as const, bookingType: "experiences" as const, child: true },
-    { key: "notifications", label: "Notifications", icon: Bell, count: unreadNotifications, view: "notifications" as const },
+    { key: "notifications", label: "Notifications", icon: Bell, count: unreadNotifications, view: "notifications" as const, bookingType: undefined, child: false },
   ];
 
   return (
