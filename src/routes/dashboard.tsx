@@ -11,6 +11,9 @@ import { useSession } from "@/store/session";
 import { formatDisplayDate, formatDisplayTime, formatDisplayDateTime } from "@/lib/date-time-format";
 import { fetchTableReservationNotifications, type TableReservationNotification } from "@/lib/wp-api";
 import { fetchEventInbox, type EventInboxItem } from "@/lib/events-api";
+import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { HeaderAuth } from "@/components/header-auth";
 
 export const Route = createFileRoute("/dashboard")({
   validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
@@ -46,7 +49,7 @@ export function OwnerTicketScanner({ email, identityToken, cameraRequest = false
     const stop = () => { stopped = true; if (frame) cancelAnimationFrame(frame); streamRef.current?.getTracks().forEach((track) => track.stop()); streamRef.current = null; };
     const start = async () => {
       try {
-        const Detector = (window as Window & { BarcodeDetector?: new (options?: { formats?: string[] }) => { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> } }).BarcodeDetector;
+        const Detector = (window as Window & { BarcodeDetector?: new (options?: { formats?: string[] }) => { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> }).BarcodeDetector;
         if (!Detector) throw new Error("Camera QR scanning is not supported in this browser. Paste the ticket QR text below instead.");
         if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access requires HTTPS and browser permission.");
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
@@ -297,7 +300,7 @@ function ExperienceOwnerBookingCard({
   return (
     <article id={`booking-experiences-${booking.id}`} className={`scroll-mt-24 rounded-xl border border-border/70 bg-background p-3 ${targetBookingId === booking.id ? "ring-2 ring-primary" : ""}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <h3 className="font-semibold">{booking.experience_title}</h3>
           <p className="text-xs text-muted-foreground">Booking ID: <span className="font-mono">#{booking.id}</span>{booking.submitted_at ? ` · Submitted ${formatDisplayDate(booking.submitted_at)} ${formatDisplayTime(booking.submitted_at.slice(11, 16))}` : ""}</p>
           <p className="mt-2 text-sm font-medium text-foreground">Tour Date: {formatDisplayDate(booking.date)} · {formatDisplayTime(booking.time)} · {booking.participants} participant(s)</p>
@@ -524,72 +527,126 @@ function ListingOwnerDashboardPage() {
     id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.name, url: item.siteUrl,
   }));
 
+  const activeView = view === "menu" ? "overview" : view;
+  const totalBookings = (dashboard?.reservations.length ?? 0) + eventBookings.length + experienceBookings.length;
+  const totalNotifications = ownerNotifications.length + ownerEventNotifications.length;
+  const pendingBookings =
+    (dashboard?.reservations.filter((item) => ["pending", "pending_review"].includes(item.status)).length ?? 0) +
+    eventBookings.filter((item) => ["pending", "pending_payment"].includes(item.status ?? "")).length +
+    experienceBookings.filter((item) => ["pending_review", "pending"].includes(item.status)).length;
+  const unreadNotifications = ownerNotifications.filter((item) => !item.read_at).length + ownerEventNotifications.filter((item) => !item.read_at).length;
+
+  const dashboardNav = [
+    { key: "overview", label: "Overview", icon: ClipboardList, count: undefined, view: "menu" as const },
+    { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const },
+    { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const },
+    { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const },
+    { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings, view: "bookings" as const },
+    { key: "table-reservations", label: "Table Reservations", icon: CalendarDays, count: dashboard?.reservations.length ?? 0, view: "listings" as const },
+    { key: "notifications", label: "Notifications", icon: Bell, count: unreadNotifications, view: "notifications" as const },
+  ];
+
   return (
-    <div className="mx-auto max-w-4xl px-0 py-0 sm:px-4 sm:py-6">
-      <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> Owner Dashboard
-      </Link>
-
-      <div className="mt-1 rounded-none bg-card p-0 sm:mt-3 sm:rounded-2xl sm:p-6 ring-0 sm:ring-1 sm:ring-border/70">
-        <div className="flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><Store className="size-6" /></div>
-          <div>
-            <h1 className="font-display text-xl font-semibold sm:text-2xl">Owner Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Manage listings, events, experiences, bookings and notifications in one place.</p>
-          </div>
+    <div className="xp-partner-shell">
+      <header className="xp-partner-header">
+        <Link to="/dashboard" search={{}} className="xp-partner-brand"><Logo /><span className="xp-partner-brand-label">PARTNER</span></Link>
+        <div className="xp-partner-header-right">
+          <a href="https://xplorepondy.com" target="_blank" rel="noreferrer" className="xp-partner-site-link"><ExternalLink className="size-4" /> View website</a>
+          <Link to="/dashboard" search={{ view: "notifications" }} aria-label="View notifications" className="xp-partner-icon-button"><Bell className="size-5" />{unreadNotifications > 0 && <span className="xp-partner-notification-dot">{Math.min(unreadNotifications, 99)}</span>}</Link>
+          <ThemeToggle />
+          <HeaderAuth />
         </div>
+      </header>
 
-        {loading && <p className="mt-4 text-sm text-muted-foreground">Loading reservation data…</p>}
-        {!loggedIn ? (
-          <div className="mt-4 rounded-xl border border-border/70 p-5 text-sm text-muted-foreground">
-            Sign in to view owner content and booking details. <Link to="/login" className="font-medium text-primary underline">Sign in</Link>
-          </div>
-        ) : (
-          <div className="mt-5">
-            {view === "menu" && (
+      {!loggedIn ? (
+        <main className="xp-partner-signed-out">
+          <section className="xp-partner-welcome">
+            <div className="xp-partner-eyebrow"><Store className="size-4" /> PARTNER WORKSPACE</div>
+            <h1>Everything your business needs, in one place.</h1>
+            <p>Manage listings, events, experiences, table reservations and bookings across Xplore Pondy.</p>
+            <div className="xp-partner-welcome-actions"><Button asChild size="lg"><Link to="/login">Sign in to your partner account</Link></Button><a href="https://xplorepondy.com" target="_blank" rel="noreferrer">Explore Xplore Pondy ↗</a></div>
+            <div className="xp-partner-feature-grid">
+              <div><Store /><strong>Listings</strong><span>Keep business details and photos up to date.</span></div>
+              <div><CalendarDays /><strong>Events</strong><span>Publish events and follow registrations.</span></div>
+              <div><Ticket /><strong>Experiences</strong><span>Manage activities, requests and capacity.</span></div>
+              <div><Bell /><strong>Bookings & alerts</strong><span>Respond to guest activity from one inbox.</span></div>
+            </div>
+          </section>
+        </main>
+      ) : (
+        <div className="xp-partner-app-layout">
+          <aside className="xp-partner-sidebar">
+            <div className="xp-partner-sidebar-label">WORKSPACE</div>
+            <nav aria-label="Partner portal navigation">
+              {dashboardNav.map((item) => (
+                <Link key={item.key} to="/dashboard" search={item.view === "menu" ? {} : { view: item.view }} aria-current={activeView === item.key || (item.key === "table-reservations" && activeView === "listings") ? "page" : undefined} className="xp-partner-nav-link">
+                  <item.icon className="size-4" /><span>{item.label}</span>{item.count !== undefined && <span className="xp-partner-nav-count">{item.count}</span>}
+                </Link>
+              ))}
+              <Link to="/qr-scan" className="xp-partner-nav-link"><QrCode className="size-4" /><span>Scan QR tickets</span></Link>
+              <Link to="/reservation-setup" search={{}} className="xp-partner-nav-link"><Settings2 className="size-4" /><span>Reservation setup</span></Link>
+            </nav>
+            <div className="xp-partner-sidebar-footer"><div className="xp-partner-online-dot" /> Connected to Xplore Pondy</div>
+          </aside>
+
+          <main className="xp-partner-main">
+            <div className="xp-partner-page-heading">
+              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "listings" ? "My Listings" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
+              <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" onClick={() => window.location.reload()}><LoaderCircle className="mr-2 size-4" />Refresh data</Button></div>
+            </div>
+
+            {activeView === "overview" && (
               <>
-                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+                <section className="xp-partner-welcome-strip">
+                  <div><span className="xp-partner-welcome-tag">Xplore Pondy Partner</span><h2>Your business, beautifully managed.</h2><p>Keep your listings fresh, track customer activity and stay on top of new bookings.</p></div>
+                  <div className="xp-partner-welcome-art" aria-hidden="true"><span className="xp-partner-art-sun"/><span className="xp-partner-art-wave one"/><span className="xp-partner-art-wave two"/><span className="xp-partner-art-palm">✦</span></div>
+                </section>
+
+                <section className="xp-partner-stats-grid" aria-label="Partner account summary">
                   {[
-                    { label: "Listings", count: visibleOwnerListings.length || dashboard?.listings.length || 0, hint: "Manage your directory listings", icon: Store, to: "/my-listings" },
-                    { label: "Events", count: events.length, hint: "Track publication status and registrations", icon: CalendarDays, to: "/my-events/" },
-                    { label: "Experiences", count: experiences.length, hint: "Manage experiences and booking requests", icon: Ticket, to: "/my-experiences" },
-                    { label: "Bookings", count: (dashboard?.reservations.length ?? 0) + eventBookings.length + experienceBookings.length, hint: "Review customer bookings across all three services", icon: ClipboardList, to: "/dashboard" },
-                  ].map((card) => (
-                    <Link key={card.label} to={card.to as never} {...(card.to === "/dashboard" ? { search: { view: "bookings" as const } } : {})} className="min-w-0 rounded-2xl border border-border/70 bg-background p-3 transition hover:border-primary/50 hover:bg-muted sm:p-4">
-                      <card.icon className="size-5 text-primary sm:size-6" />
-                      <div className="mt-2 text-xl font-semibold sm:mt-3 sm:text-2xl">{card.count}</div>
-                      <div className="font-semibold">{card.label}</div>
-                      <p className="mt-1 text-xs text-muted-foreground">{card.hint}</p>
-                    </Link>
-                  ))}
-                </div>
-                <section className="mt-4 rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Bell className="size-5" /></div>
-                      <div><h2 className="font-display text-lg font-semibold">Owner notifications</h2><p className="mt-1 text-sm text-muted-foreground">Listing reservations, event bookings and experience requests.</p></div>
+                    { label: "My Listings", value: visibleOwnerListings.length || dashboard?.listings.length || 0, note: "Business profiles", icon: Store, color: "cyan" },
+                    { label: "Active Events", value: events.filter((item) => item.status === "publish").length, note: `${events.length} total events`, icon: CalendarDays, color: "blue" },
+                    { label: "Experiences", value: experiences.length, note: "Activities & tours", icon: Ticket, color: "amber" },
+                    { label: "Total Bookings", value: totalBookings, note: `${pendingBookings} need attention`, icon: ClipboardList, color: "green" },
+                  ].map((stat) => <article className="xp-partner-stat-card" key={stat.label}><div className={`xp-partner-stat-icon ${stat.color}`}><stat.icon className="size-5" /></div><span className="xp-partner-stat-label">{stat.label}</span><strong>{loading || eventsLoading || experiencesLoading ? "…" : stat.value}</strong><span className="xp-partner-stat-note">{stat.note}</span></article>)}
+                </section>
+
+                <section className="xp-partner-content-grid">
+                  <article className="xp-partner-panel xp-partner-bookings-panel">
+                    <div className="xp-partner-panel-header"><div><h2>Booking activity</h2><p>Current reservations and customer requests</p></div><Link to="/dashboard" search={{ view: "bookings" }} className="xp-partner-text-link">View all <ArrowLeft className="size-3.5 rotate-180" /></Link></div>
+                    <div className="xp-partner-booking-summary">
+                      <button type="button" onClick={() => { setBookingType("table"); setView("bookings"); }}><span className="xp-partner-booking-summary-icon"><CalendarDays /></span><span><strong>Table reservations</strong><small>Guest seating requests</small></span><b>{dashboard?.reservations.length ?? 0}</b></button>
+                      <button type="button" onClick={() => { setBookingType("events"); setView("bookings"); }}><span className="xp-partner-booking-summary-icon blue"><CalendarDays /></span><span><strong>Event bookings</strong><small>Ticket registrations</small></span><b>{eventBookings.length}</b></button>
+                      <button type="button" onClick={() => { setBookingType("experiences"); setView("bookings"); }}><span className="xp-partner-booking-summary-icon amber"><Ticket /></span><span><strong>Experience requests</strong><small>Activities & tours</small></span><b>{experienceBookings.length}</b></button>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => window.location.reload()}>Refresh</Button>
-                  </div>
-                  {ownerNotificationsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading owner notifications…</p>
-                    : ownerNotificationsError ? <p role="alert" className="mt-4 text-sm text-destructive">{ownerNotificationsError}</p>
-                    : ownerNotifications.length + ownerEventNotifications.length === 0 ? <p className="mt-4 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">No owner notifications found.</p>
-                    : <div className="mt-3 space-y-2">
-                      {ownerEventNotifications.map((item) => {
-                        const targetBookingId = Number(item.booking_id ?? 0) || Number(item.body.match(/(?:booking|request|reservation)\s*#?([0-9]+)/i)?.[1] ?? 0) || undefined;
-                        return <Link key={`event-notice-${item.id}`} to="/dashboard" search={{ view: "bookings", bookingType: "events", ...(targetBookingId ? { bookingId: targetBookingId } : {}) }} className={`flex items-start gap-3 rounded-xl border p-3 transition hover:border-primary/50 ${item.read_at ? "border-border" : "border-primary/40 bg-primary/5"}`}>
-                        <Bell className="mt-0.5 size-4 shrink-0 text-primary" /><span className="min-w-0 flex-1"><span className="block font-semibold">{item.title}</span><span className="mt-1 block text-sm text-muted-foreground">{item.body}</span><span className="mt-1 block text-xs text-muted-foreground">Notification: {formatDisplayDateTime(item.created_at)}</span></span>
-                      </Link> })}
-                      {ownerNotifications.map((item) => {
-                        const notificationText = `${item.title ?? ""} ${item.body ?? ""}`;
-                        const targetBookingId = Number(item.reservation_id ?? 0) || Number((item as TableReservationNotification & { booking_id?: number | null }).booking_id ?? 0) || Number(notificationText.match(/(?:booking|request|reservation)\s*#?([0-9]+)/i)?.[1] ?? 0) || undefined;
-                        const isExperienceNotice = String(item.notification_type ?? "").toLowerCase().includes("experience") || /experience|request/i.test(notificationText);
-                        return <Link key={`owner-notice-${item.id}`} to="/dashboard" search={{ view: "bookings", bookingType: isExperienceNotice ? "experiences" : "table", ...(targetBookingId ? { bookingId: targetBookingId } : {}) }} className={`flex items-start gap-3 rounded-xl border p-3 transition hover:border-primary/50 ${item.read_at ? "border-border" : "border-primary/40 bg-primary/5"}`}>
-                        <Bell className="mt-0.5 size-4 shrink-0 text-primary" /><span className="min-w-0 flex-1"><span className="block font-semibold">{item.title}</span><span className="mt-1 block text-sm text-muted-foreground">{item.body}</span>{item.reservation_date && <span className="mt-1 block text-xs text-muted-foreground">Reservation: {formatDisplayDate(item.reservation_date)}{item.reservation_start_time ? ` · ${formatDisplayTime(item.reservation_start_time)}` : ""}</span>}<span className="mt-1 block text-xs text-muted-foreground">Notification: {formatDisplayDateTime(item.created_at)}</span></span>
-                      </Link>;
-                      })}
+                    <div className="xp-partner-panel-footer"><span><strong>{pendingBookings}</strong> booking items may need a response.</span><Link to="/dashboard" search={{ view: "bookings" }} className="xp-partner-text-link">Manage bookings <ArrowLeft className="size-3.5 rotate-180" /></Link></div>
+                  </article>
+
+                  <article className="xp-partner-panel xp-partner-quick-actions">
+                    <div className="xp-partner-panel-header"><div><h2>Quick actions</h2><p>Jump straight into common tasks</p></div></div>
+                    <div className="xp-partner-quick-grid">
+                      <Link to="/my-listings"><span className="quick-icon teal"><Store /></span><strong>Manage listings</strong><small>Edit details & photos</small></Link>
+                      <Link to="/submit-event"><span className="quick-icon violet"><CalendarDays /></span><strong>Create event</strong><small>Promote what’s on</small></Link>
+                      <Link to="/submit-experiences" search={{}}><span className="quick-icon orange"><Ticket /></span><strong>Add experience</strong><small>Publish an activity</small></Link>
+                      <Link to="/dashboard" search={{ view: "listings" }}><span className="quick-icon green"><Settings2 /></span><strong>Table reservations</strong><small>Setup availability</small></Link>
+                    </div>
+                  </article>
+                </section>
+
+                <section className="xp-partner-content-grid secondary">
+                  <article className="xp-partner-panel">
+                    <div className="xp-partner-panel-header"><div><h2>Latest notifications</h2><p>Updates from your partner account</p></div><Link to="/dashboard" search={{ view: "notifications" }} className="xp-partner-text-link">View inbox <ArrowLeft className="size-3.5 rotate-180" /></Link></div>
+                    {ownerNotificationsLoading ? <div className="xp-partner-empty"><LoaderCircle className="size-5 animate-spin" />Loading notifications…</div> : ownerNotificationsError ? <p role="alert" className="xp-partner-error">{ownerNotificationsError}</p> : totalNotifications === 0 ? <div className="xp-partner-empty"><Bell className="size-5" /><span>You’re all caught up. New booking alerts will appear here.</span></div> : <div className="xp-partner-notice-list">
+                      {[...ownerEventNotifications.map((item) => ({ key: `event-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "bookings" as const, bookingType: "events" as const, bookingId: Number(item.booking_id) || undefined } })), ...ownerNotifications.map((item) => ({ key: `notice-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "notifications" as const } }))].slice(0, 4).map((item) => <Link key={item.key} to="/dashboard" search={item.target} className="xp-partner-notice"><span className={`xp-partner-notice-icon ${item.unread ? "unread" : ""}`}><Bell className="size-4" /></span><span className="min-w-0 flex-1"><strong>{item.title}</strong><span>{item.body}</span><small>{formatDisplayDateTime(item.date)}</small></span>{item.unread && <i aria-label="Unread" />}</Link>)}
                     </div>}
-                  <Link to="/dashboard" search={{ view: "notifications" }} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">Open full notification inbox →</Link>
+                  </article>
+
+                  <article className="xp-partner-panel">
+                    <div className="xp-partner-panel-header"><div><h2>Business health</h2><p>A few things to keep your profile working hard</p></div></div>
+                    <div className="xp-partner-health"><span className="xp-partner-health-icon"><CheckCircle2 /></span><div><strong>Keep listings up to date</strong><p>Fresh photos and accurate hours help travelers choose your business.</p><Link to="/my-listings" className="xp-partner-text-link">Review listings <ArrowLeft className="size-3.5 rotate-180" /></Link></div></div>
+                    <div className="xp-partner-health"><span className="xp-partner-health-icon amber"><Bell /></span><div><strong>Respond to guest requests</strong><p>{pendingBookings ? `${pendingBookings} items may need action.` : "You have no obvious pending items in the loaded booking data."}</p><Link to="/dashboard" search={{ view: "bookings" }} className="xp-partner-text-link">Open bookings <ArrowLeft className="size-3.5 rotate-180" /></Link></div></div>
+                    <div className="xp-partner-health"><span className="xp-partner-health-icon blue"><Settings2 /></span><div><strong>Check table availability</strong><p>Make sure operating hours and capacity match your service.</p><Link to="/my-listings" className="xp-partner-text-link">Manage reservation settings <ArrowLeft className="size-3.5 rotate-180" /></Link></div></div>
+                  </article>
                 </section>
               </>
             )}
@@ -628,10 +685,7 @@ function ListingOwnerDashboardPage() {
                 )}
                 {bookingType === "experiences" && (
                   <div className="mt-3 space-y-2">
-                    {experienceBookingsLoading ? <p className="text-sm text-muted-foreground">Loading experience bookings…</p> : experienceBookingError ? <p className="rounded-xl border border-destructive/30 p-3 text-sm text-destructive">{experienceBookingError}</p> : experienceBookings.length === 0 ? <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No customer requests found for your experiences.</p> : experienceBookings.map((booking) => (
-                      <ExperienceOwnerBookingCard key={booking.id} booking={booking} email={email} identityToken={identityToken ?? undefined} targetBookingId={searchBookingType === "experiences" ? searchBookingId : undefined} onUpdated={(id, status) => setExperienceBookings((current) => current.map((item) => item.id === id ? { ...item, status } : item))} />
-                    ))}
-                  </div>
+                    {experienceBookingsLoading ? <p className="text-sm text-muted-foreground">Loading experience bookings…</p> : experienceBookingError ? <p className="rounded-xl border border-destructive/30 p-3 text-sm text-destructive">{experienceBookingError}</p> : experienceBookings.length === 0 ? <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No customer requests found for your experiences.</p> : experienceBookings.map((booking) => <ExperienceOwnerBookingCard key={booking.id} booking={booking} email={email} identityToken={identityToken ?? undefined} targetBookingId={searchBookingType === "experiences" ? searchBookingId : undefined} onUpdated={(id, status) => setExperienceBookings((current) => current.map((item) => item.id === id ? { ...item, status } : item))} />)}
                 )}
               </section>
             )}
@@ -639,140 +693,50 @@ function ListingOwnerDashboardPage() {
             {view === "listings" && (
               <section className="mt-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <h2 className="font-display text-xl font-semibold">Listing Owner</h2>
-                    <p className="text-sm text-muted-foreground">Choose a listing to manage its table bookings and reservation setup.</p>
-                  </div>
-                  <Button asChild size="sm"><Link to="/dashboard" search={{ view: "listings" }}>Manage listings</Link></Button>
+                  <div><h2 className="font-display text-xl font-semibold">Listing management</h2><p className="text-sm text-muted-foreground">Edit your directory listings and configure table reservation availability.</p></div>
+                  <Button asChild size="sm"><Link to="/my-listings">Open listing manager <ExternalLink className="ml-2 size-3.5" /></Link></Button>
                 </div>
-                {dashboard?.listings.length ? (
-                  <>
-                    <label className="mt-4 block text-sm font-medium">
-                      Select listing
-                      <select value={selectedListing} onChange={(e) => setSelectedListing(Number(e.target.value))} className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3">
-                        <option value={0}>All listings</option>
-                        {dashboard.listings.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
-                      </select>
-                    </label>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <Link
-                        to="/dashboard"
-                        search={{ view: "bookings" }}
-                        onClick={() => setBookingType("table")}
-                        className="group rounded-3xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted"
-                      >
-                        <CalendarDays className="size-6 text-primary" />
-                        <h3 className="mt-3 font-display text-lg font-semibold">View Bookings</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">View and manage reservations for {listing?.title || "all your listings"}.</p>
-                        <span className="mt-4 inline-block text-sm font-medium text-primary group-hover:underline">Open bookings →</span>
-                      </Link>
-                      {selectedListing ? (
-                        <Link
-                          to="/reservation-setup"
-                          search={{ listingId: selectedListing, listingTitle: listing?.title, listingSlug: listing?.slug }}
-                          className="group rounded-3xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted"
-                        >
-                          <Settings2 className="size-6 text-primary" />
-                          <h3 className="mt-3 font-display text-lg font-semibold">Setup Reservations</h3>
-                          <p className="mt-1 text-sm text-muted-foreground">Configure opening hours, slots, capacity and booking rules for {listing?.title || "this listing"}.</p>
-                          <span className="mt-4 inline-block text-sm font-medium text-primary group-hover:underline">Open setup →</span>
-                        </Link>
-                      ) : (
-                        <div aria-disabled="true" className="cursor-not-allowed rounded-3xl border border-border/50 bg-background/60 p-5 opacity-70">
-                          <Settings2 className="size-6 text-muted-foreground" />
-                          <h3 className="mt-3 font-display text-lg font-semibold">Setup Reservations</h3>
-                          <p className="mt-1 text-sm text-muted-foreground">Select one specific listing above to configure its opening hours, slots, capacity and booking rules.</p>
-                        </div>
-                      )}
-                    </div>
-                    <p className="mt-3 text-xs text-muted-foreground">{selectedListing ? `Selected listing: ${listing?.title || "Loading listing…"}.` : "All listings selected. Table bookings will include every listing; choose one listing above to manage its reservation setup."}</p>
-                  </>
-                ) : (
-                  <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
-                    {loading ? "Loading your reservation-enabled listings…" : "No listings are linked to this account yet. Check that the signed-in WordPress account owns the listing or has been linked to it."}
+                {dashboard?.listings.length ? <>
+                  <label className="mt-4 block text-sm font-medium">Select listing<select value={selectedListing} onChange={(e) => setSelectedListing(Number(e.target.value))} className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3"><option value={0}>All listings</option>{dashboard.listings.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <Link to="/dashboard" search={{ view: "bookings", bookingType: "table" }} className="group rounded-2xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted"><CalendarDays className="size-6 text-primary" /><h3 className="mt-3 font-display text-lg font-semibold">View table reservations</h3><p className="mt-1 text-sm text-muted-foreground">{selectedListing ? `Manage bookings for ${listing?.title || "the selected listing"}.` : "View reservations across all your listings."}</p><span className="mt-4 inline-block text-sm font-medium text-primary group-hover:underline">Open reservations →</span></Link>
+                    {selectedListing ? <Link to="/reservation-setup" search={{ listingId: selectedListing, listingTitle: listing?.title, listingSlug: listing?.slug }} className="group rounded-2xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted"><Settings2 className="size-6 text-primary" /><h3 className="mt-3 font-display text-lg font-semibold">Reservation availability</h3><p className="mt-1 text-sm text-muted-foreground">Configure opening hours, slots, capacity and booking rules.</p><span className="mt-4 inline-block text-sm font-medium text-primary group-hover:underline">Configure →</span></Link> : <div className="rounded-2xl border border-dashed border-border/70 p-5"><Settings2 className="size-6 text-muted-foreground" /><h3 className="mt-3 font-display text-lg font-semibold">Reservation availability</h3><p className="mt-1 text-sm text-muted-foreground">Select one listing above to configure its schedule.</p></div>}
                   </div>
-                )}
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <h3 className="font-semibold">Your directory listings</h3>
-                    <p className="text-sm text-muted-foreground">Listings associated with your WordPress account.</p>
-                  </div>
-                  <Button asChild size="sm" variant="outline"><Link to="/dashboard" search={{ view: "listings" }}>Manage listings</Link></Button>
-                </div>
-                {ownerContentLoading ? (
-                  <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin"/>Loading directory listings…</p>
-                ) : ownerContentError ? (
-                  <p className="mt-3 text-sm text-destructive">{ownerContentError}</p>
-                ) : visibleOwnerListings.length === 0 ? (
-                  <p className="mt-3 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No WordPress-author listings were returned for this account. Reservation management above uses the listing-owner bridge.</p>
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    {visibleOwnerListings.slice(0, 20).map((item) => (
-                      <div key={item.id ?? item.slug} className="flex items-center justify-between gap-3 rounded-xl border border-border/70 p-3">
-                        <div className="min-w-0"><p className="truncate font-medium">{item.title}</p><p className="truncate text-xs text-muted-foreground">{item.slug}</p></div>
-                        {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="shrink-0 text-sm font-medium text-primary">View <ExternalLink className="ml-1 inline size-3.5"/></a>}
-                      </div>
-                    ))}
-                    {visibleOwnerListings.length > 20 && <p className="text-xs text-muted-foreground">Showing 20 of {visibleOwnerListings.length} directory listings.</p>}
-                  </div>
-                )}
+                </> : <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">{loading ? "Loading your listings…" : "No reservation-enabled listings are linked to this account yet."}</div>}
+                <section className="mt-6"><div className="xp-partner-panel-header"><div><h2>Directory listings</h2><p>Listings associated with your WordPress owner account</p></div></div>{ownerContentLoading ? <p className="mt-3 text-sm text-muted-foreground">Loading listings…</p> : ownerContentError ? <p className="mt-3 text-sm text-destructive">{ownerContentError}</p> : visibleOwnerListings.length === 0 ? <p className="mt-3 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No directory listings are connected to this account.</p> : <div className="mt-3 space-y-2">{visibleOwnerListings.slice(0, 20).map((item) => <div key={item.id ?? item.slug} className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-3"><div className="min-w-0"><p className="truncate font-medium">{item.title}</p><p className="truncate text-xs text-muted-foreground">{item.slug}</p></div>{item.url && <a href={item.url} target="_blank" rel="noreferrer" className="shrink-0 text-sm font-medium text-primary">View listing ↗</a>}</div>)}</div>}</section>
               </section>
             )}
 
             {view === "events" && (
-              <section className="mt-5">
-                <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-xl font-semibold">Your events</h2><p className="text-sm text-muted-foreground">Publication status and registrations.</p></div><Button asChild size="sm"><Link to="/my-events">Manage events</Link></Button></div>
-                {eventsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading events…</p> : events.length === 0 ? <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">No events found yet.</div> : <div className="mt-3 space-y-2">{events.slice(0, 8).map((event) => <div key={event.id} className="flex flex-col gap-3 rounded-xl border border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 flex-1"><p className="truncate font-medium">{event.title}</p><p className="mt-1 text-xs text-muted-foreground">{event.start_datetime || "Date to be announced"} · {event.booking_count ?? 0} registrations</p></div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-muted px-2 py-1 text-xs">{event.status || "Unknown"}</span><Button asChild size="sm" variant="outline"><Link to="/my-events/$eventId/edit" params={{ eventId: String(event.id) }}>Edit event</Link></Button>{event.url && event.status === "publish" && <Button asChild size="sm" variant="ghost"><a href={event.url} target="_blank" rel="noreferrer">View event <ExternalLink className="ml-1 size-3.5" /></a></Button>}</div></div>)}</div>}
-                <Button asChild variant="outline" size="sm" className="mt-3"><Link to="/submit-event"><FilePlus2 className="mr-2 size-4"/>Submit an event</Link></Button>
-              </section>
+              <section className="mt-5"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-xl font-semibold">My events</h2><p className="text-sm text-muted-foreground">Publish and update events, then manage registrations.</p></div><Button asChild size="sm"><Link to="/submit-event"><FilePlus2 className="mr-2 size-4" />Create event</Link></Button></div>{eventsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading events…</p> : events.length === 0 ? <div className="xp-partner-empty mt-4"><CalendarDays className="size-6" /><span>No events found yet. Create your first event to start promoting it.</span></div> : <div className="mt-3 space-y-2">{events.map((event) => <div key={event.id} className="flex flex-col gap-3 rounded-xl border border-border/70 bg-background p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 flex-1"><p className="truncate font-medium">{event.title}</p><p className="mt-1 text-xs text-muted-foreground">{event.start_datetime || "Date to be announced"} · {event.booking_count ?? 0} registrations</p></div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-muted px-2 py-1 text-xs">{event.status || "Unknown"}</span><Button asChild size="sm" variant="outline"><Link to="/my-events/$eventId/edit" params={{ eventId: String(event.id) }}>Edit event</Link></Button>{event.url && event.status === "publish" && <Button asChild size="sm" variant="ghost"><a href={event.url} target="_blank" rel="noreferrer">View event <ExternalLink className="ml-1 size-3.5" /></a></Button>}</div></div>)}</div>}</section>
             )}
 
             {view === "experiences" && (
-              <section className="mt-5">
-                <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-xl font-semibold">Your experiences</h2><p className="text-sm text-muted-foreground">Review provider content and edit submitted experiences.</p></div><Button asChild size="sm"><Link to="/my-experiences">Manage experiences</Link></Button></div>
-                {experiencesLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading experiences…</p> : experiences.length === 0 ? <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">No experiences found yet.</div> : <div className="mt-3 space-y-2">{experiences.slice(0, 8).map((experience) => <div key={experience.id} className="flex flex-col gap-3 rounded-xl border border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 flex-1"><p className="truncate font-medium">{experience.title}</p><p className="mt-1 text-xs text-muted-foreground">{experience.status} · Updated {experience.modified || "—"}</p></div><div className="flex flex-wrap items-center gap-2"><Button asChild variant="outline" size="sm"><Link to="/my-experiences/$experienceId/edit" params={{ experienceId: String(experience.id) }}>Edit experience</Link></Button>{experience.status === "publish" && experience.url && <Button asChild variant="ghost" size="sm"><a href={experience.url} target="_blank" rel="noreferrer">View experience <ExternalLink className="ml-1 size-3.5" /></a></Button>}</div></div>)}</div>}
-                <Button asChild variant="outline" size="sm" className="mt-3"><Link to="/submit-experiences" search={{}}><FilePlus2 className="mr-2 size-4"/>Submit an experience</Link></Button>
-              </section>
+              <section className="mt-5"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-xl font-semibold">My experiences</h2><p className="text-sm text-muted-foreground">Manage your activity listings and booking requests.</p></div><Button asChild size="sm"><Link to="/submit-experiences" search={{}}><FilePlus2 className="mr-2 size-4" />Add experience</Link></Button></div>{experiencesLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading experiences…</p> : experiences.length === 0 ? <div className="xp-partner-empty mt-4"><Ticket className="size-6" /><span>No experiences found yet. Add your first activity or tour.</span></div> : <div className="mt-3 space-y-2">{experiences.map((experience) => <div key={experience.id} className="flex flex-col gap-3 rounded-xl border border-border/70 bg-background p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 flex-1"><p className="truncate font-medium">{experience.title}</p><p className="mt-1 text-xs text-muted-foreground">{experience.status} · Updated {experience.modified || "—"}</p></div><div className="flex flex-wrap items-center gap-2"><Button asChild variant="outline" size="sm"><Link to="/my-experiences/$experienceId/edit" params={{ experienceId: String(experience.id) }}>Edit experience</Link></Button>{experience.status === "publish" && experience.url && <Button asChild variant="ghost" size="sm"><a href={experience.url} target="_blank" rel="noreferrer">View experience <ExternalLink className="ml-1 size-3.5" /></a></Button>}</div></div>)}</section>
             )}
 
             {view === "notifications" && (
-              <section className="mt-5 rounded-xl border border-border/70 p-5">
-                <Bell className="size-7 text-primary"/>
-                <h2 className="mt-2 font-display text-xl font-semibold">Notifications</h2>
-                <p className="mt-1 text-sm text-muted-foreground">New event registrations, experience booking requests and table reservation updates are collected in your inbox.</p>
-                <Button asChild className="mt-3"><Link to="/dashboard" search={{ view: "notifications" }}>Open notification inbox</Link></Button>
-              </section>
+              <section className="mt-5"><div className="xp-partner-panel-header"><div><h2>Notifications inbox</h2><p>Updates related to your events, experiences and table reservations.</p></div><Button variant="outline" size="sm" onClick={() => window.location.reload()}>Refresh inbox</Button></div>{ownerNotificationsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading notifications…</p> : ownerNotificationsError ? <p role="alert" className="mt-4 text-sm text-destructive">{ownerNotificationsError}</p> : totalNotifications === 0 ? <div className="xp-partner-empty mt-4"><Bell className="size-6" /><span>No notifications yet. New booking and reservation updates will appear here.</span></div> : <div className="xp-partner-notice-list mt-3">{[...ownerEventNotifications.map((item) => ({ key: `event-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "bookings" as const, bookingType: "events" as const } })), ...ownerNotifications.map((item) => ({ key: `notice-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "bookings" as const, bookingType: "table" as const } }))].map((item) => <Link key={item.key} to="/dashboard" search={item.target} className="xp-partner-notice"><span className={`xp-partner-notice-icon ${item.unread ? "unread" : ""}`}><Bell className="size-4" /></span><span className="min-w-0 flex-1"><strong>{item.title}</strong><span>{item.body}</span><small>{formatDisplayDateTime(item.date)}</small></span>{item.unread && <i aria-label="Unread" />}</Link>)}</div>}</section>
             )}
-          </div>
-        )}
-      </div>
+          </main>
+        </div>
+      )}
+
       <nav aria-label="Owner dashboard navigation" className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur-md md:hidden">
         <ul className="grid grid-cols-5">
           {[
             { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0 },
             { key: "events", label: "Events", icon: CalendarDays, count: events.length },
             { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length },
-            { key: "bookings", label: "Bookings", icon: ClipboardList, count: (dashboard?.reservations.length ?? 0) + eventBookings.length + experienceBookings.length },
+            { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings },
           ].map((item) => (
             <li key={item.key}>
-              <Link
-                to="/dashboard"
-                search={{ view: item.key as "listings" | "events" | "experiences" | "bookings" }}
-                aria-current={view === item.key ? "page" : undefined}
-                className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-1 text-center text-[10px] font-medium transition-colors ${view === item.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                <item.icon className="size-5" />
-                <span>{item.label}</span>
-                <span className="absolute right-[14%] top-1.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 text-primary-foreground tabular-nums">{item.count}</span>
+              <Link to="/dashboard" search={{ view: item.key as "listings" | "events" | "experiences" | "bookings" }} aria-current={view === item.key ? "page" : undefined} className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-1 text-center text-[10px] font-medium transition-colors ${view === item.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                <item.icon className="size-5" /><span>{item.label}</span>
               </Link>
             </li>
           ))}
-          <li>
-            <Link to="/qr-scan" aria-label="Open QR code scanner" className="flex h-14 w-full flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary">
-              <QrCode className="size-5" />
-              <span>Scan QR</span>
-            </Link>
-          </li>
+          <li><Link to="/dashboard" search={{ view: "notifications" }} aria-label="Notifications" className="relative flex h-14 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary"><Bell className="size-5"/><span>Alerts</span>{unreadNotifications > 0 && <span className="absolute right-[14%] top-1.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 text-primary-foreground">{Math.min(unreadNotifications, 99)}</span>}</Link></li>
         </ul>
       </nav>
     </div>
