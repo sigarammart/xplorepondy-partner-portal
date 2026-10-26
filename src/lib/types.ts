@@ -137,9 +137,9 @@ export type GuideBase = {
   readTime: string;
   image: string;
   topic: string;
-  categories: string[];
-  tags: string[];
-  siteUrl: string;
+  categories?: string[];
+  tags?: string[];
+  siteUrl?: string;
   sections: GuideSection[];
 };
 
@@ -158,20 +158,6 @@ export type GuideSection = {
   heading?: string;
   body: string;
   blocks?: GuideBlock[];
-};
-
-export type Guide = {
-  slug: string;
-  title: string;
-  excerpt: string;
-  date: string;
-  readTime: string;
-  image: string;
-  topic: string;
-  categories?: string[];
-  tags?: string[];
-  siteUrl?: string;
-  sections: GuideSection[];
 };
 
 export type PondyEvent = {
