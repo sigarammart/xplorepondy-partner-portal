@@ -362,7 +362,7 @@ function ListingOwnerDashboardPage() {
   const [cameraRequest, setCameraRequest] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const identityToken = useSession((s) => s.wpIdentityToken);
-  const [ownerListings, setOwnerListings] = useState<Array<{ id?: number; wpId?: number; slug: string; title: string; url?: string }>>([]);
+  const [ownerListings, setOwnerListings] = useState<Array<{ id?: number; wpId?: number; slug: string; title: string; url?: string; siteViewCount?: number; appViewCount?: number }>>([]);
   const [ownerContentLoading, setOwnerContentLoading] = useState(false);
   const [ownerContentError, setOwnerContentError] = useState("");
   const [events, setEvents] = useState<EventAccountItem[]>([]);
@@ -503,7 +503,7 @@ function ListingOwnerDashboardPage() {
     void fetchWpAuthorContent({ data: { authorId: sessionUser.id } })
       .then((result) => {
         if (cancelled) return;
-        setOwnerListings((result.myListings ?? []).map((item) => ({ id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.title, url: item.url })));
+        setOwnerListings((result.myListings ?? []).map((item) => ({ id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.title, url: item.url, siteViewCount: item.siteViewCount ?? 0, appViewCount: item.appViewCount ?? 0 })));
       })
       .catch((reason) => { if (!cancelled) setOwnerContentError(reason instanceof Error ? reason.message : "Could not load owner listings."); })
       .finally(() => { if (!cancelled) setOwnerContentLoading(false); });
@@ -525,7 +525,7 @@ function ListingOwnerDashboardPage() {
 
   const listing = dashboard?.listings.find((item) => item.id === selectedListing);
   const visibleOwnerListings = ownerListings.length ? ownerListings : sessionListings.map((item) => ({
-    id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.name, url: item.siteUrl,
+    id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.name, url: item.siteUrl, siteViewCount: item.siteViewCount ?? 0, appViewCount: item.appViewCount ?? 0,
   }));
 
   const activeView = view === "menu" ? "overview" : view;
@@ -640,6 +640,31 @@ function ListingOwnerDashboardPage() {
                     { label: "Experiences", value: experiences.length, note: "Activities & tours", icon: Ticket, color: "amber" },
                     { label: "Total Bookings", value: totalBookings, note: `${pendingBookings} need attention`, icon: ClipboardList, color: "green" },
                   ].map((stat) => <article className="xp-partner-stat-card" key={stat.label}><div className={`xp-partner-stat-icon ${stat.color}`}><stat.icon className="size-5" /></div><span className="xp-partner-stat-label">{stat.label}</span><strong>{loading || eventsLoading || experiencesLoading ? "…" : stat.value}</strong><span className="xp-partner-stat-note">{stat.note}</span></article>)}
+                </section>
+
+                <section className="mt-5 rounded-2xl border border-border/70 bg-card p-4 sm:p-5" aria-label="Content views analytics">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div><h2 className="text-lg font-bold">Content views</h2><p className="mt-1 text-sm text-muted-foreground">Detail-page views for content you own across Xplore Pondy.</p></div>
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">All-time totals</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {[
+                      { label: "Listing views", site: visibleOwnerListings.reduce((sum, item) => sum + (item.siteViewCount ?? 0), 0), app: visibleOwnerListings.reduce((sum, item) => sum + (item.appViewCount ?? 0), 0), icon: Store },
+                      { label: "Event views", site: events.reduce((sum, item) => sum + (item.site_view_count ?? 0), 0), app: events.reduce((sum, item) => sum + (item.app_view_count ?? item.view_count ?? 0), 0), icon: CalendarDays },
+                      { label: "Experience views", site: experiences.reduce((sum, item) => sum + (item.site_view_count ?? 0), 0), app: experiences.reduce((sum, item) => sum + (item.app_view_count ?? item.view_count ?? 0), 0), icon: Ticket },
+                    ].map((item) => <article key={item.label} className="rounded-xl border border-border/70 bg-background p-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold"><item.icon className="size-4 text-primary" />{item.label}</div>
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <div><p className="text-[11px] leading-4 text-muted-foreground">xplorepondy.com</p><p className="mt-1 text-2xl font-bold tabular-nums">{item.site.toLocaleString("en-IN")}</p></div>
+                        <div><p className="text-[11px] leading-4 text-muted-foreground">app.xplorepondy.com</p><p className="mt-1 text-2xl font-bold tabular-nums">{item.app.toLocaleString("en-IN")}</p></div>
+                      </div>
+                    </article>)}
+                  </div>
+                  <div className="mt-4 border-t border-border/70 pt-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Your listings</h3><span className="text-xs text-muted-foreground">{visibleOwnerListings.length} listings</span></div>
+                    {ownerContentLoading ? <p className="mt-3 text-sm text-muted-foreground">Loading listing views…</p> : ownerContentError ? <p className="mt-3 text-sm text-destructive">Listing views are unavailable: {ownerContentError}</p> : visibleOwnerListings.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No owner listings found.</p> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[580px] text-left text-sm"><thead className="bg-muted/50 text-xs text-muted-foreground"><tr><th className="px-3 py-2 font-semibold">Listing</th><th className="px-3 py-2 font-semibold">xplorepondy.com</th><th className="px-3 py-2 font-semibold">app.xplorepondy.com</th><th className="px-3 py-2 font-semibold">Total</th></tr></thead><tbody>{visibleOwnerListings.slice(0, 10).map((item) => <tr key={item.wpId ?? item.id ?? item.slug} className="border-t border-border/70"><td className="max-w-[260px] px-3 py-3"><div className="truncate font-medium">{item.title}</div>{item.url && <a href={item.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View listing ↗</a>}</td><td className="px-3 py-3 tabular-nums">{(item.siteViewCount ?? 0).toLocaleString("en-IN")}</td><td className="px-3 py-3 tabular-nums">{(item.appViewCount ?? 0).toLocaleString("en-IN")}</td><td className="px-3 py-3 font-semibold tabular-nums">{((item.siteViewCount ?? 0) + (item.appViewCount ?? 0)).toLocaleString("en-IN")}</td></tr>)}</tbody></table>{visibleOwnerListings.length > 10 && <p className="mt-2 text-xs text-muted-foreground">Showing 10 of {visibleOwnerListings.length} listings.</p>}</div>}
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">Views are cumulative. Website and app totals use their respective counters. Event and experience site-specific counts display as 0 until the WordPress owner API returns that source counter.</p>
                 </section>
 
                 <section className="xp-partner-content-grid">
