@@ -15,7 +15,7 @@ The source app uses TanStack Start with Vite and Nitro server routes, not a stat
 3. Remove traveler-only routes and navigation. Retain only owner dashboard, listing management, reservation setup, supported event/experience owner workflows, login and required API handlers.
 4. Regenerate the TanStack route tree from the resulting route files during build; do not hand-maintain stale generated route entries.
 5. Update page metadata and app branding for Xplore Pondy Partner Portal. Remove traveler PWA/install behavior and do not ship the traveler service worker on this hostname.
-6. Configure independent secrets and origin/callback allowlists for `https://partner.xplorepondy.com`; never reuse preview defaults or copy `.env` files.
+6. Configure independent secrets and origin/callback allowlists for `https://partner.xplorepondy.com`; set `BETTER_AUTH_URL=https://partner.xplorepondy.com`, `VITE_AUTH_ENABLED=true`, `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `BETTER_AUTH_SECRET`, and `DATABASE_URL` in the partner deployment environment. Register `https://partner.xplorepondy.com` as the Google authorized JavaScript origin and `https://partner.xplorepondy.com/api/auth/callback/google` as the authorized redirect URI. Never reuse traveler-app secrets or commit `.env` files.
 7. Validate typecheck, tests and production build. Test owners with one and multiple listings, unauthorized access, WordPress session bridge, OAuth, logout, bookings and mobile layouts.
 8. Deploy to staging first; do not change `app.xplorepondy.com` production deployment during migration.
 
