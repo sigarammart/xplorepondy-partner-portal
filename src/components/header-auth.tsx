@@ -8,7 +8,7 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { useAuthModal } from "@/store/auth-modal";
 import { useSession } from "@/store/session";
 
-export function HeaderAuth({ onSignIn }: { onSignIn?: () => void } = {}) {
+export function HeaderAuth({ onSignIn, showSignOut = true }: { onSignIn?: () => void; showSignOut?: boolean } = {}) {
   const { user, isPending } = useCurrentUserState();
   const hydrated = useHydrated();
   const wpUser = useSession((s) => s.user);
@@ -21,7 +21,7 @@ export function HeaderAuth({ onSignIn }: { onSignIn?: () => void } = {}) {
   if (authEnabled && user && !user.isDevFallback) {
     return (
       <div className="max-w-[11rem] overflow-hidden sm:max-w-none [&_span.text-sm.font-medium]:hidden sm:[&_span.text-sm.font-medium]:inline">
-        <UserButton />
+        <UserButton showSignOut={showSignOut} />
       </div>
     );
   }
