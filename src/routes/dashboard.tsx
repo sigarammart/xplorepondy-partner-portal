@@ -729,11 +729,11 @@ function ListingOwnerDashboardPage() {
 
                 <section className="xp-partner-stats-grid" aria-label="Partner account summary">
                   {[
-                    { label: "My Listings", value: visibleOwnerListings.length || dashboard?.listings.length || 0, note: "Business profiles", icon: Store, color: "cyan" },
-                    { label: "Active Events", value: events.filter((item) => item.status === "publish").length, note: `${events.length} total events`, icon: CalendarDays, color: "blue" },
-                    { label: "Experiences", value: experiences.length, note: "Activities & tours", icon: Ticket, color: "amber" },
-                    { label: "Total Bookings", value: totalBookings, note: `${pendingBookings} need attention`, icon: ClipboardList, color: "green" },
-                  ].map((stat) => <article className="xp-partner-stat-card" key={stat.label}><div className={`xp-partner-stat-icon ${stat.color}`}><stat.icon className="size-5" /></div><span className="xp-partner-stat-label">{stat.label}</span><strong>{loading || eventsLoading || experiencesLoading ? "…" : stat.value}</strong><span className="xp-partner-stat-note">{stat.note}</span></article>)}
+                    { label: "My Listings", view: "listings" as const, value: visibleOwnerListings.length || dashboard?.listings.length || 0, note: "Business profiles", icon: Store, color: "cyan" },
+                    { label: "Active Events", view: "events" as const, value: events.filter((item) => item.status === "publish").length, note: `${events.length} total events`, icon: CalendarDays, color: "blue" },
+                    { label: "Experiences", view: "experiences" as const, value: experiences.length, note: "Activities & tours", icon: Ticket, color: "amber" },
+                    { label: "Total Bookings", view: "bookings" as const, value: totalBookings, note: `${pendingBookings} need attention`, icon: ClipboardList, color: "green" },
+                  ].map((stat) => <Link to="/dashboard" search={{ view: stat.view }} className="xp-partner-stat-card transition hover:-translate-y-0.5 hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" key={stat.label} aria-label={`Open ${stat.label}`}><div className={`xp-partner-stat-icon ${stat.color}`}><stat.icon className="size-5" /></div><span className="xp-partner-stat-label">{stat.label}</span><strong>{loading || eventsLoading || experiencesLoading ? "…" : stat.value}</strong><span className="xp-partner-stat-note">{stat.note}</span></Link>)}
                 </section>
 
                 <section className="mt-5 rounded-2xl border border-border/70 bg-card p-4 sm:p-5" aria-label="Content views analytics">
