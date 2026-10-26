@@ -776,7 +776,7 @@ function ListingOwnerDashboardPage() {
     { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const, bookingType: undefined, child: false },
     { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const, bookingType: undefined, child: false },
     { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings, view: "bookings" as const, bookingType: undefined, child: false },
-    { key: "table-reservations", label: "Table Reservations", icon: CalendarDays, count: dashboard?.reservations.length ?? 0, view: "bookings" as const, bookingType: "table" as const, child: true },
+    { key: "table-reservations", label: "Table Reservations", icon: CalendarDays, count: dashboard?.reservations.length ?? 0, pendingCount: dashboard?.reservations.filter((reservation) => reservation.status === "pending").length ?? 0, view: "bookings" as const, bookingType: "table" as const, child: true },
     { key: "event-bookings", label: "Event Bookings", icon: CalendarDays, count: eventBookings.length, view: "bookings" as const, bookingType: "events" as const, child: true },
     { key: "experience-bookings", label: "Experience Bookings", icon: Ticket, count: experienceBookings.length, view: "bookings" as const, bookingType: "experiences" as const, child: true },
     { key: "notifications", label: "Notifications", icon: Bell, count: unreadNotifications, view: "notifications" as const, bookingType: undefined, child: false },
@@ -809,7 +809,7 @@ function ListingOwnerDashboardPage() {
               >
                 <item.icon className="size-4 shrink-0" />
                 <span className="flex-1">{item.label}</span>
-                {item.count !== undefined && <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{item.count}</span>}
+                {item.count !== undefined && <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{item.count}</span>}{item.key === "table-reservations" && (item.pendingCount ?? 0) > 0 && <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-500">{item.pendingCount} pending</span>}
               </Link>
             ))}
             <Link to="/qr-scan" onClick={() => setMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted">
@@ -844,7 +844,7 @@ function ListingOwnerDashboardPage() {
             <nav aria-label="Partner portal navigation">
               {dashboardNav.map((item) => (
                 <Link key={item.key} to="/dashboard" search={item.view === "menu" ? {} : { view: item.view, ...(item.bookingType ? { bookingType: item.bookingType } : {}) }} aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : activeView === item.key ? "page" : undefined} className={"xp-partner-nav-link " + (item.child ? "ml-3 !min-h-10 !border-transparent !bg-transparent !pl-7 !text-sm hover:!bg-muted" : "")}>
-                  <item.icon className="size-4" /><span>{item.label}</span>{item.count !== undefined && <span className="xp-partner-nav-count">{item.count}</span>}
+                  <item.icon className="size-4" /><span>{item.label}</span>{item.count !== undefined && <span className="xp-partner-nav-count">{item.count}</span>}{item.key === "table-reservations" && (item.pendingCount ?? 0) > 0 && <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-500">{item.pendingCount} pending</span>}
                 </Link>
               ))}
               <Link to="/qr-scan" className="xp-partner-nav-link"><QrCode className="size-4" /><span>Scan QR tickets</span></Link>
