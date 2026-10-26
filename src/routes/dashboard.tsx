@@ -112,12 +112,14 @@ function formatReservationTime(time: string) {
 
 function OwnerBookings({
   dashboard,
+  listings,
   email,
   selectedListing,
   targetReservationId,
   onUpdated,
 }: {
   dashboard: TableReservationOwnerDashboard;
+  listings: Array<{ id: number; title: string }>;
   email: string;
   selectedListing: number;
   targetReservationId?: number;
@@ -128,7 +130,7 @@ function OwnerBookings({
   const [listingDropdownOpen, setListingDropdownOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [updatingId, setUpdatingId] = useState(0);
-  const listingMap = new Map(dashboard.listings.map((listing) => [listing.id, listing]));
+  const listingMap = new Map([...dashboard.listings, ...listings].map((listing) => [listing.id, listing]));
   const rows = dashboard.reservations.filter((r) =>
     (!targetReservationId || r.id === targetReservationId) &&
     (!listingFilter || r.listingId === listingFilter) &&
@@ -141,7 +143,7 @@ function OwnerBookings({
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-full sm:w-[min(100%,28rem)]">
           <button type="button" aria-haspopup="listbox" aria-expanded={listingDropdownOpen} onClick={() => { setListingDropdownOpen((open) => !open); setListingSearch(""); }} className="flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 text-left text-sm">
-            <span className="truncate">{listingFilter === 0 ? "All my listings" : dashboard.listings.find((listing) => listing.id === listingFilter)?.title ?? "Select listing"}</span>
+            <span className="truncate">{listingFilter === 0 ? "All my listings" : listings.find((listing) => listing.id === listingFilter)?.title ?? dashboard.listings.find((listing) => listing.id === listingFilter)?.title ?? "Select listing"}</span>
             <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
           </button>
           {listingDropdownOpen && <div className="absolute left-0 top-full z-30 mt-1 w-full overflow-hidden rounded-xl border border-border bg-card shadow-xl">
@@ -150,8 +152,8 @@ function OwnerBookings({
             </div>
             <div role="listbox" aria-label="Filter reservations by listing" className="max-h-64 overflow-y-auto p-1">
               <button type="button" role="option" aria-selected={listingFilter === 0} onClick={() => { setListingFilter(0); setListingDropdownOpen(false); setListingSearch(""); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted ${listingFilter === 0 ? "bg-primary/10 text-primary" : ""}`}>All my listings</button>
-              {dashboard.listings.filter((listing) => listing.title.toLowerCase().includes(listingSearch.trim().toLowerCase()) || String(listing.id).includes(listingSearch.trim())).map((listing) => <button key={listing.id} type="button" role="option" aria-selected={listingFilter === listing.id} onClick={() => { setListingFilter(listing.id); setListingDropdownOpen(false); setListingSearch(""); }} className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted ${listingFilter === listing.id ? "bg-primary/10 text-primary" : ""}`}>{listing.title}</button>)}
-              {dashboard.listings.filter((listing) => listing.title.toLowerCase().includes(listingSearch.trim().toLowerCase()) || String(listing.id).includes(listingSearch.trim())).length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No listings found.</p>}
+              {listings.filter((listing) => listing.title.toLowerCase().includes(listingSearch.trim().toLowerCase()) || String(listing.id).includes(listingSearch.trim())).map((listing) => <button key={listing.id} type="button" role="option" aria-selected={listingFilter === listing.id} onClick={() => { setListingFilter(listing.id); setListingDropdownOpen(false); setListingSearch(""); }} className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted ${listingFilter === listing.id ? "bg-primary/10 text-primary" : ""}`}>{listing.title}</button>)}
+              {listings.filter((listing) => listing.title.toLowerCase().includes(listingSearch.trim().toLowerCase()) || String(listing.id).includes(listingSearch.trim())).length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No listings found.</p>}
             </div>
           </div>}
         </div>
@@ -951,7 +953,7 @@ function ListingOwnerDashboardPage() {
                   ))}
                 </div>}
                 {bookingType === "table" && (
-                  dashboard ? <OwnerBookings dashboard={dashboard} email={email} selectedListing={selectedListing} targetReservationId={searchBookingType === "table" ? searchBookingId : undefined} onUpdated={(id, status) => setDashboard((current) => current ? { ...current, reservations: current.reservations.map((reservation) => reservation.id === id ? { ...reservation, status } : reservation) } : current)} /> : <p className="mt-4 text-sm text-muted-foreground">Loading table reservations…</p>
+                  dashboard ? <OwnerBookings dashboard={dashboard} listings={visibleOwnerListings} email={email} selectedListing={selectedListing} targetReservationId={searchBookingType === "table" ? searchBookingId : undefined} onUpdated={(id, status) => setDashboard((current) => current ? { ...current, reservations: current.reservations.map((reservation) => reservation.id === id ? { ...reservation, status } : reservation) } : current)} /> : <p className="mt-4 text-sm text-muted-foreground">Loading table reservations…</p>
                 )}
                 {bookingType === "events" && (
                   <div className="mt-3 space-y-2">
