@@ -493,7 +493,6 @@ export function TableReservationPanel({
                     <input className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm" type="tel" autoComplete="tel" placeholder="+91 98765 43210" value={details.phone} onChange={(event) => {
                       const phone = event.target.value;
                       setDetails((v) => ({ ...v, phone }));
-                                  clearReservationPhoneOtp();
                     }} />
                   </label>
                   <p className="text-xs text-muted-foreground">SMS verification is temporarily optional while our company billing account is being configured.</p>
