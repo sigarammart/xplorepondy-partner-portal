@@ -6054,11 +6054,11 @@ async function fetchAllAuthorListings(authorId: number, headers: HeadersInit): P
   if (!first.ok || !Array.isArray(first.data)) return [];
 
   const listings = [...first.data];
-  const declaredPages = Number(first.headers.get("X-WP-TotalPages") ?? 0);
-  // WordPress caps per_page at 100. Respect its pagination headers, with a
-  // defensive sequential fallback for responses where cached headers are absent.
-  const maxPages = declaredPages > 0 ? Math.min(declaredPages, 100) : 100;
-  for (let page = 2; page <= maxPages; page += 1) {
+  // Cached WordPress responses can carry stale/missing X-WP-TotalPages headers.
+  // Probe subsequent pages until the API returns a short/empty page instead of
+  // trusting that header, otherwise an owner with 632 listings may appear to
+  // have only the first 100.
+  for (let page = 2; page <= 100; page += 1) {
     const result = await wpGet<WpListing[]>(
       `/wp-json/wp/v2/listing?author=${authorId}&per_page=100&page=${page}&_embed=1&_fields=id,author,slug,link,title,content,excerpt,featured_media,listing_category,region,listing_feature,class_list,meta,xplore_archive_meta,xplore_meta,xplore_featured,xplore_view_count,_embedded`,
       headers,
@@ -6066,9 +6066,10 @@ async function fetchAllAuthorListings(authorId: number, headers: HeadersInit): P
     );
     if (!result.ok || !Array.isArray(result.data) || result.data.length === 0) break;
     listings.push(...result.data);
-    if (declaredPages <= 0 && result.data.length < 100) break;
+    if (result.data.length < 100) break;
   }
-  return listings;
+  // Defensively deduplicate if a cache layer returned overlapping pages.
+  return [...new Map(listings.map((listing) => [listing.id, listing])).values()];
 }
 
 async function loadAuthorContent(authorId: number, headers: HeadersInit) {
