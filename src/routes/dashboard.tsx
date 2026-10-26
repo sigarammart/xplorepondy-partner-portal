@@ -239,10 +239,10 @@ function EventOwnerBookingCard({
         <span>{booking.payment_status ? `Payment: ${booking.payment_status.replace(/_/g, " ")}` : ""}</span>{booking.checked_in && <span className="font-medium text-emerald-600">Checked in {booking.checked_in_at || ""}</span>}
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
-        {eventSlug ? (
-          <Link to="/events/$slug" params={{ slug: eventSlug }} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+        {eventSlug && booking.event_url ? (
+          <a href={booking.event_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
             View event <ExternalLink className="size-3.5" />
-          </Link>
+          </a>
         ) : <span className="text-xs text-muted-foreground">Event page unavailable</span>}
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           Update status
@@ -311,10 +311,10 @@ function ExperienceOwnerBookingCard({
       </div>
       {booking.notes?.trim() && <div className="mt-3 rounded-lg bg-muted/60 p-3 text-sm"><p className="mb-1 text-xs font-semibold text-muted-foreground">Notes from customer</p><p className="whitespace-pre-wrap break-words">{booking.notes}</p></div>}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
-        {experienceSlug ? (
-          <Link to="/experiences/$slug" params={{ slug: experienceSlug }} className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+        {experienceSlug && booking.experience_url ? (
+          <a href={booking.experience_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
             View experience <ExternalLink className="size-3.5" />
-          </Link>
+          </a>
         ) : <span className="text-xs text-muted-foreground">Experience page unavailable</span>}
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           Update status
@@ -589,7 +589,7 @@ function ListingOwnerDashboardPage() {
                       </Link>;
                       })}
                     </div>}
-                  <Link to="/notifications" search={{ audience: "owner" }} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">Open full notification inbox →</Link>
+                  <Link to="/dashboard" search={{ view: "notifications" }} className="mt-3 inline-block text-sm font-medium text-primary hover:underline">Open full notification inbox →</Link>
                 </section>
               </>
             )}
@@ -643,7 +643,7 @@ function ListingOwnerDashboardPage() {
                     <h2 className="font-display text-xl font-semibold">Listing Owner</h2>
                     <p className="text-sm text-muted-foreground">Choose a listing to manage its table bookings and reservation setup.</p>
                   </div>
-                  <Button asChild size="sm"><Link to="/account">Manage listings</Link></Button>
+                  <Button asChild size="sm"><Link to="/dashboard" search={{ view: "listings" }}>Manage listings</Link></Button>
                 </div>
                 {dashboard?.listings.length ? (
                   <>
@@ -697,7 +697,7 @@ function ListingOwnerDashboardPage() {
                     <h3 className="font-semibold">Your directory listings</h3>
                     <p className="text-sm text-muted-foreground">Listings associated with your WordPress account.</p>
                   </div>
-                  <Button asChild size="sm" variant="outline"><Link to="/account">Manage listings</Link></Button>
+                  <Button asChild size="sm" variant="outline"><Link to="/dashboard" search={{ view: "listings" }}>Manage listings</Link></Button>
                 </div>
                 {ownerContentLoading ? (
                   <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin"/>Loading directory listings…</p>
@@ -721,8 +721,8 @@ function ListingOwnerDashboardPage() {
 
             {view === "events" && (
               <section className="mt-5">
-                <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-xl font-semibold">Your events</h2><p className="text-sm text-muted-foreground">Publication status and registrations.</p></div><Button asChild size="sm"><Link to="/my-events/">Manage events</Link></Button></div>
-                {eventsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading events…</p> : events.length === 0 ? <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">No events found yet.</div> : <div className="mt-3 space-y-2">{events.slice(0, 8).map((event) => <div key={event.id} className="flex flex-col gap-3 rounded-xl border border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 flex-1"><p className="truncate font-medium">{event.title}</p><p className="mt-1 text-xs text-muted-foreground">{event.start_datetime || "Date to be announced"} · {event.booking_count ?? 0} registrations</p></div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-muted px-2 py-1 text-xs">{event.status || "Unknown"}</span><Button asChild size="sm" variant="outline"><Link to="/my-events/$eventId/edit" params={{ eventId: String(event.id) }}>Edit event</Link></Button>{event.slug && event.status === "publish" && <Button asChild size="sm" variant="ghost"><Link to="/events/$slug" params={{ slug: event.slug }}>View event <ExternalLink className="ml-1 size-3.5" /></Link></Button>}</div></div>)}</div>}
+                <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-xl font-semibold">Your events</h2><p className="text-sm text-muted-foreground">Publication status and registrations.</p></div><Button asChild size="sm"><Link to="/my-events">Manage events</Link></Button></div>
+                {eventsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading events…</p> : events.length === 0 ? <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">No events found yet.</div> : <div className="mt-3 space-y-2">{events.slice(0, 8).map((event) => <div key={event.id} className="flex flex-col gap-3 rounded-xl border border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 flex-1"><p className="truncate font-medium">{event.title}</p><p className="mt-1 text-xs text-muted-foreground">{event.start_datetime || "Date to be announced"} · {event.booking_count ?? 0} registrations</p></div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-muted px-2 py-1 text-xs">{event.status || "Unknown"}</span><Button asChild size="sm" variant="outline"><Link to="/my-events/$eventId/edit" params={{ eventId: String(event.id) }}>Edit event</Link></Button>{event.url && event.status === "publish" && <Button asChild size="sm" variant="ghost"><a href={event.url} target="_blank" rel="noreferrer">View event <ExternalLink className="ml-1 size-3.5" /></a></Button>}</div></div>)}</div>}
                 <Button asChild variant="outline" size="sm" className="mt-3"><Link to="/submit-event"><FilePlus2 className="mr-2 size-4"/>Submit an event</Link></Button>
               </section>
             )}
@@ -730,8 +730,8 @@ function ListingOwnerDashboardPage() {
             {view === "experiences" && (
               <section className="mt-5">
                 <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-xl font-semibold">Your experiences</h2><p className="text-sm text-muted-foreground">Review provider content and edit submitted experiences.</p></div><Button asChild size="sm"><Link to="/my-experiences">Manage experiences</Link></Button></div>
-                {experiencesLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading experiences…</p> : experiences.length === 0 ? <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">No experiences found yet.</div> : <div className="mt-3 space-y-2">{experiences.slice(0, 8).map((experience) => <div key={experience.id} className="flex flex-col gap-3 rounded-xl border border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 flex-1"><p className="truncate font-medium">{experience.title}</p><p className="mt-1 text-xs text-muted-foreground">{experience.status} · Updated {experience.modified || "—"}</p></div><div className="flex flex-wrap items-center gap-2"><Button asChild variant="outline" size="sm"><Link to="/my-experiences/$experienceId/edit" params={{ experienceId: String(experience.id) }}>Edit experience</Link></Button>{experience.status === "publish" && experience.slug && <Button asChild variant="ghost" size="sm"><Link to="/experiences/$slug" params={{ slug: experience.slug }}>View experience <ExternalLink className="ml-1 size-3.5" /></Link></Button>}</div></div>)}</div>}
-                <Button asChild variant="outline" size="sm" className="mt-3"><Link to="/submit-experiences"><FilePlus2 className="mr-2 size-4"/>Submit an experience</Link></Button>
+                {experiencesLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading experiences…</p> : experiences.length === 0 ? <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">No experiences found yet.</div> : <div className="mt-3 space-y-2">{experiences.slice(0, 8).map((experience) => <div key={experience.id} className="flex flex-col gap-3 rounded-xl border border-border/70 p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 flex-1"><p className="truncate font-medium">{experience.title}</p><p className="mt-1 text-xs text-muted-foreground">{experience.status} · Updated {experience.modified || "—"}</p></div><div className="flex flex-wrap items-center gap-2"><Button asChild variant="outline" size="sm"><Link to="/my-experiences/$experienceId/edit" params={{ experienceId: String(experience.id) }}>Edit experience</Link></Button>{experience.status === "publish" && experience.url && <Button asChild variant="ghost" size="sm"><a href={experience.url} target="_blank" rel="noreferrer">View experience <ExternalLink className="ml-1 size-3.5" /></a></Button>}</div></div>)}</div>}
+                <Button asChild variant="outline" size="sm" className="mt-3"><Link to="/submit-experiences" search={{}}><FilePlus2 className="mr-2 size-4"/>Submit an experience</Link></Button>
               </section>
             )}
 
@@ -740,7 +740,7 @@ function ListingOwnerDashboardPage() {
                 <Bell className="size-7 text-primary"/>
                 <h2 className="mt-2 font-display text-xl font-semibold">Notifications</h2>
                 <p className="mt-1 text-sm text-muted-foreground">New event registrations, experience booking requests and table reservation updates are collected in your inbox.</p>
-                <Button asChild className="mt-3"><Link to="/notifications">Open notification inbox</Link></Button>
+                <Button asChild className="mt-3"><Link to="/dashboard" search={{ view: "notifications" }}>Open notification inbox</Link></Button>
               </section>
             )}
           </div>
