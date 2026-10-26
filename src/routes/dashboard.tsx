@@ -364,6 +364,7 @@ function ListingOwnerDashboardPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const identityToken = useSession((s) => s.wpIdentityToken);
   const [ownerListings, setOwnerListings] = useState<Array<{ id?: number; wpId?: number; slug: string; title: string; url?: string; siteViewCount?: number; appViewCount?: number }>>([]);
+  const [ownerViewsSort, setOwnerViewsSort] = useState<"total-desc" | "site-desc" | "app-desc" | "name-asc">("total-desc");
   const [ownerContentLoading, setOwnerContentLoading] = useState(false);
   const [ownerContentError, setOwnerContentError] = useState("");
   const [events, setEvents] = useState<EventAccountItem[]>([]);
@@ -544,6 +545,17 @@ function ListingOwnerDashboardPage() {
     id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.name, url: item.siteUrl, siteViewCount: item.siteViewCount ?? 0, appViewCount: item.appViewCount ?? 0,
   }));
 
+  const sortedOwnerListings = [...visibleOwnerListings].sort((a, b) => {
+    const siteA = a.siteViewCount ?? 0;
+    const appA = a.appViewCount ?? 0;
+    const siteB = b.siteViewCount ?? 0;
+    const appB = b.appViewCount ?? 0;
+    if (ownerViewsSort === "site-desc") return siteB - siteA || (appB - appA) || a.title.localeCompare(b.title);
+    if (ownerViewsSort === "app-desc") return appB - appA || (siteB - siteA) || a.title.localeCompare(b.title);
+    if (ownerViewsSort === "name-asc") return a.title.localeCompare(b.title);
+    return (siteB + appB) - (siteA + appA) || a.title.localeCompare(b.title);
+  });
+
   const activeView = view === "menu" ? "overview" : view;
   const totalBookings = (dashboard?.reservations.length ?? 0) + eventBookings.length + experienceBookings.length;
   const totalNotifications = ownerNotifications.length + ownerEventNotifications.length;
@@ -677,8 +689,8 @@ function ListingOwnerDashboardPage() {
                     </article>)}
                   </div>
                   <div className="mt-4 border-t border-border/70 pt-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">Your listings</h3><span className="text-xs text-muted-foreground">{visibleOwnerListings.length} listings</span></div>
-                    {ownerContentLoading ? <p className="mt-3 text-sm text-muted-foreground">Loading listing views…</p> : ownerContentError ? <p className="mt-3 text-sm text-destructive">Listing views are unavailable: {ownerContentError}</p> : visibleOwnerListings.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No owner listings found.</p> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[580px] text-left text-sm"><thead className="bg-muted/50 text-xs text-muted-foreground"><tr><th className="px-3 py-2 font-semibold">Listing</th><th className="px-3 py-2 font-semibold">xplorepondy.com</th><th className="px-3 py-2 font-semibold">app.xplorepondy.com</th><th className="px-3 py-2 font-semibold">Total</th></tr></thead><tbody>{visibleOwnerListings.slice(0, 10).map((item) => <tr key={item.wpId ?? item.id ?? item.slug} className="border-t border-border/70"><td className="max-w-[260px] px-3 py-3"><div className="truncate font-medium">{item.title}</div>{item.url && <a href={item.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View listing ↗</a>}</td><td className="px-3 py-3 tabular-nums">{(item.siteViewCount ?? 0).toLocaleString("en-IN")}</td><td className="px-3 py-3 tabular-nums">{(item.appViewCount ?? 0).toLocaleString("en-IN")}</td><td className="px-3 py-3 font-semibold tabular-nums">{((item.siteViewCount ?? 0) + (item.appViewCount ?? 0)).toLocaleString("en-IN")}</td></tr>)}</tbody></table>{visibleOwnerListings.length > 10 && <p className="mt-2 text-xs text-muted-foreground">Showing 10 of {visibleOwnerListings.length} listings.</p>}</div>}
+                    <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">Your listings</h3><span className="text-xs text-muted-foreground">{visibleOwnerListings.length} listings</span></div><label className="flex items-center gap-2 text-xs text-muted-foreground">Sort by <select aria-label="Sort listings by views" value={ownerViewsSort} onChange={(event) => setOwnerViewsSort(event.target.value as typeof ownerViewsSort)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"><option value="total-desc">Most total views</option><option value="site-desc">Most website views</option><option value="app-desc">Most app views</option><option value="name-asc">Listing name A–Z</option></select></label></div>
+                    {ownerContentLoading ? <p className="mt-3 text-sm text-muted-foreground">Loading listing views…</p> : ownerContentError ? <p className="mt-3 text-sm text-destructive">Listing views are unavailable: {ownerContentError}</p> : visibleOwnerListings.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No owner listings found.</p> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[580px] text-left text-sm"><thead className="bg-muted/50 text-xs text-muted-foreground"><tr><th className="px-3 py-2 font-semibold">Listing</th><th className="px-3 py-2 font-semibold">xplorepondy.com</th><th className="px-3 py-2 font-semibold">app.xplorepondy.com</th><th className="px-3 py-2 font-semibold">Total</th></tr></thead><tbody>{sortedOwnerListings.slice(0, 10).map((item) => <tr key={item.wpId ?? item.id ?? item.slug} className="border-t border-border/70"><td className="max-w-[260px] px-3 py-3"><div className="truncate font-medium">{item.title}</div>{item.url && <a href={item.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View listing ↗</a>}</td><td className="px-3 py-3 tabular-nums">{(item.siteViewCount ?? 0).toLocaleString("en-IN")}</td><td className="px-3 py-3 tabular-nums">{(item.appViewCount ?? 0).toLocaleString("en-IN")}</td><td className="px-3 py-3 font-semibold tabular-nums">{((item.siteViewCount ?? 0) + (item.appViewCount ?? 0)).toLocaleString("en-IN")}</td></tr>)}</tbody></table>{visibleOwnerListings.length > 10 && <p className="mt-2 text-xs text-muted-foreground">Showing 10 of {visibleOwnerListings.length} listings.</p>}</div>}
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">Views are cumulative. Website and app totals use their respective counters. Event and experience site-specific counts display as 0 until the WordPress owner API returns that source counter.</p>
                 </section>
