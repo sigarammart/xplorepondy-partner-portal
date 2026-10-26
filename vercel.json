@@ -1,0 +1,3 @@
+{
+  "installCommand": "npm ci --omit=dev --no-audit --no-fund"
+}
