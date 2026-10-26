@@ -116,3 +116,39 @@ export const uploadOwnerListingImage = createServerFn({ method: "POST" })
     const { email, identityToken, ...upload } = data;
     return ownerRequest("/wp-json/xplore/v1/owner/media", "POST", upload, { email, identityToken });
   });
+
+
+const adminListingsSchema = ownerIdentitySchema.extend({
+  page: z.number().int().positive().optional().default(1),
+  perPage: z.number().int().positive().max(100).optional().default(100),
+});
+
+export const fetchAdminListings = createServerFn({ method: "GET" })
+  .validator(adminListingsSchema)
+  .handler(async ({ data }) => {
+    const { email, identityToken, page, perPage } = data;
+    return ownerRequest(`/wp-json/xplore/v1/admin/listings?page=${page}&per_page=${perPage}`, "GET", undefined, { email, identityToken });
+  });
+
+const assignAdminListingSchema = ownerIdentitySchema.extend({
+  listingId: z.number().int().positive(),
+  userEmail: z.string().trim().email(),
+});
+
+export const assignAdminListing = createServerFn({ method: "POST" })
+  .inputValidator((input: z.infer<typeof assignAdminListingSchema>) => assignAdminListingSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { email, identityToken, listingId, userEmail } = data;
+    return ownerRequest("/wp-json/xplore/v1/admin/assign-listing", "POST", { listing_id: listingId, user_email: userEmail }, { email, identityToken });
+  });
+
+export const fetchAdminListingClaims = createServerFn({ method: "GET" })
+  .validator(ownerIdentitySchema)
+  .handler(async ({ data }) => ownerRequest("/wp-json/xplore/v1/admin/claims", "GET", undefined, data));
+
+export const approveAdminListingClaim = createServerFn({ method: "POST" })
+  .inputValidator((input: z.infer<typeof assignAdminListingSchema>) => assignAdminListingSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { email, identityToken, listingId, userEmail } = data;
+    return ownerRequest("/wp-json/xplore/v1/admin/claims/approve", "POST", { listing_id: listingId, user_email: userEmail }, { email, identityToken });
+  });
