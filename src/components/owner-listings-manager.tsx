@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { createOwnerListingSubmission, fetchAdminListings, fetchOwnerListingFormSchema, fetchOwnerListings, submitOwnerListingEdit, uploadOwnerListingImage } from "@/lib/owner-listings";
 
 type OwnerManagedListing = {
-  id: number; title: string; description?: string; status: string; url?: string; owner_email?: string; author_email?: string; owner?: { email?: string }; author?: { email?: string };
+  id: number; title: string; description?: string; status: string; url?: string; owner_email?: string; author_email?: string; email?: string; owner?: { email?: string }; author?: { email?: string };
   modified_gmt?: string; featured_image?: string | null;
   fields?: Record<string, unknown>;
   categories?: Record<string, Array<{ id: number; name: string; slug: string }>>;
@@ -143,7 +143,7 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
           id: Number(item.id),
           title: typeof item.title === "string" ? item.title : item.title?.rendered ?? `Listing #${item.id}`,
           status: String(item.status ?? "publish"),
-          owner_email: typeof item.owner_email === "string" ? item.owner_email : typeof item.author_email === "string" ? item.author_email : typeof item.owner?.email === "string" ? item.owner.email : typeof item.author?.email === "string" ? item.author.email : "",
+          owner_email: typeof item.owner_email === "string" ? item.owner_email : typeof item.author_email === "string" ? item.author_email : typeof item.email === "string" ? item.email : typeof item.owner?.email === "string" ? item.owner.email : typeof item.author?.email === "string" ? item.author.email : "",
         })));
         if (!response.total_pages || page >= response.total_pages || !(response.items ?? []).length) break;
       }
