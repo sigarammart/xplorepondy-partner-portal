@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { useSession } from "@/store/session";
 import { useTheme } from "@/store/theme";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { PwaWelcomeSplash } from "@/components/pwa-welcome-splash";
 import "../styles.css";
 
 const APP_NAME = "Xplore Pondy Partner Portal";
@@ -71,6 +72,7 @@ function RootDocument() {
       <body>
         <AuthProvider>
           <PwaInstallPrompt />
+          <PwaWelcomeSplash />
           <Outlet />
           <Toaster
             theme={mode}
