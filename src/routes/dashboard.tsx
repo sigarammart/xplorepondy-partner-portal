@@ -188,6 +188,30 @@ function OwnerBookings({
 
   return (
     <div className="mt-4">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Filter reservations by status">
+        {[
+          { label: "Owner Pending", status: "pending", tone: "text-amber-500", active: "border-amber-500 bg-amber-500/15 ring-1 ring-amber-500/30" },
+          { label: "Confirmed", status: "confirmed", tone: "text-sky-500", active: "border-sky-500 bg-sky-500/15 ring-1 ring-sky-500/30" },
+          { label: "Cancelled", status: "cancelled", tone: "text-rose-500", active: "border-rose-500 bg-rose-500/15 ring-1 ring-rose-500/30" },
+          { label: "Completed", status: "completed", tone: "text-emerald-500", active: "border-emerald-500 bg-emerald-500/15 ring-1 ring-emerald-500/30" },
+          { label: "No Show", status: "no-show", tone: "text-muted-foreground", active: "border-slate-500 bg-slate-500/15 ring-1 ring-slate-500/30" },
+        ].map((item) => {
+          const count = dashboard.reservations.filter((reservation) => reservation.status === item.status).length;
+          const active = statusFilter === item.status;
+          return (
+            <button
+              key={item.status}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setStatusFilter((current) => current === item.status ? "" : item.status)}
+              className={"rounded-xl border px-3 py-3 text-left transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-4 " + (active ? item.active : "border-border/70 bg-card hover:border-border")}
+            >
+              <span className="block text-xs font-medium text-muted-foreground sm:text-sm">{item.label}</span>
+              <span className={"mt-1 block text-2xl font-bold tabular-nums " + item.tone}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-full sm:w-[min(100%,28rem)]">
           <button type="button" aria-haspopup="listbox" aria-expanded={listingDropdownOpen} onClick={() => { setListingDropdownOpen((open) => !open); setListingSearch(""); }} className="flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 text-left text-sm">
@@ -1058,22 +1082,6 @@ function ListingOwnerDashboardPage() {
             {view === "bookings" && (
               <section className="mt-5">
                 <div className="hidden md:block"><OwnerTicketScanner email={email} identityToken={identityToken ?? undefined} cameraRequest={cameraRequest} onCameraRequestHandled={() => setCameraRequest(false)} onTableCheckedIn={(id, checkedAt) => setDashboard((current) => current ? { ...current, reservations: current.reservations.map((reservation) => reservation.id === id ? { ...reservation, checkedIn: true, checkedInAt: checkedAt } : reservation) } : current)} /></div>
-                {bookingType === "table" && (
-                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Reservation status summary">
-                    {[
-                      { label: "Owner Pending", status: "pending", tone: "text-amber-500" },
-                      { label: "Confirmed", status: "confirmed", tone: "text-sky-500" },
-                      { label: "Cancelled", status: "cancelled", tone: "text-rose-500" },
-                      { label: "Completed", status: "completed", tone: "text-emerald-500" },
-                      { label: "No Show", status: "no-show", tone: "text-muted-foreground" },
-                    ].map((item) => (
-                      <article key={item.status} className="rounded-xl border border-border/70 bg-card px-3 py-3 sm:px-4">
-                        <p className="text-xs font-medium text-muted-foreground sm:text-sm">{item.label}</p>
-                        <p className={`mt-1 text-2xl font-bold tabular-nums ${item.tone}`}>{(dashboard?.reservations ?? []).filter((reservation) => reservation.status === item.status).length}</p>
-                      </article>
-                    ))}
-                  </div>
-                )}
                 {!searchBookingType && <div className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-3 sm:gap-2">
                   {[
                     { key: "table", label: "Table reservations", count: dashboard?.reservations.length ?? 0 },
