@@ -385,8 +385,8 @@ export function TableReservationPanel({
               </div>
               <Button className="mt-6 rounded-full px-7" onClick={onClose}>Done</Button>
               <Link
-                to="/account"
-                search={{ tab: "reservations" }}
+                to="/dashboard"
+                search={{ view: "bookings", bookingType: "table" }}
                 className="mt-3 text-sm font-medium text-primary hover:underline"
               >
                 View your recent reservations
