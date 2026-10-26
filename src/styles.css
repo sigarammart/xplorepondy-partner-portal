@@ -1088,19 +1088,20 @@ html.dark .xp-home-page .text-primary,
     position: fixed;
     top: 4rem;
     bottom: calc(4.5rem + env(safe-area-inset-bottom));
-    left: 0;
+    right: 0;
+    left: auto;
     z-index: 39;
     width: 90vw;
     max-width: 28rem;
     max-height: none;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-right: 1px solid var(--xp-border);
+    border-left: 1px solid var(--xp-border);
     border-bottom: 1px solid var(--xp-border);
-    border-radius: 0 1rem 1rem 0;
+    border-radius: 1rem 0 0 0;
     padding: .85rem .75rem max(.85rem, env(safe-area-inset-bottom));
     background: var(--xp-card);
-    box-shadow: 18px 0 42px rgb(0 0 0 / 28%);
+    box-shadow: -18px 0 42px rgb(0 0 0 / 28%);
   }
   .xp-partner-header .xp-partner-brand > span:not(:first-child) { display: none; }
   .xp-partner-header .xp-partner-brand img { max-width: 9rem; height: 2rem; }
