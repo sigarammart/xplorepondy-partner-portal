@@ -1030,6 +1030,22 @@ function ListingOwnerDashboardPage() {
             {view === "bookings" && (
               <section className="mt-5">
                 <div className="hidden md:block"><OwnerTicketScanner email={email} identityToken={identityToken ?? undefined} cameraRequest={cameraRequest} onCameraRequestHandled={() => setCameraRequest(false)} onTableCheckedIn={(id, checkedAt) => setDashboard((current) => current ? { ...current, reservations: current.reservations.map((reservation) => reservation.id === id ? { ...reservation, checkedIn: true, checkedInAt: checkedAt } : reservation) } : current)} /></div>
+                {bookingType === "table" && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Reservation status summary">
+                    {[
+                      { label: "Owner Pending", status: "pending", tone: "text-amber-500" },
+                      { label: "Confirmed", status: "confirmed", tone: "text-sky-500" },
+                      { label: "Cancelled", status: "cancelled", tone: "text-rose-500" },
+                      { label: "Completed", status: "completed", tone: "text-emerald-500" },
+                      { label: "No Show", status: "no-show", tone: "text-muted-foreground" },
+                    ].map((item) => (
+                      <article key={item.status} className="rounded-xl border border-border/70 bg-card px-3 py-3 sm:px-4">
+                        <p className="text-xs font-medium text-muted-foreground sm:text-sm">{item.label}</p>
+                        <p className={`mt-1 text-2xl font-bold tabular-nums ${item.tone}`}>{(dashboard?.reservations ?? []).filter((reservation) => reservation.status === item.status).length}</p>
+                      </article>
+                    ))}
+                  </div>
+                )}
                 {!searchBookingType && <div className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-3 sm:gap-2">
                   {[
                     { key: "table", label: "Table reservations", count: dashboard?.reservations.length ?? 0 },
