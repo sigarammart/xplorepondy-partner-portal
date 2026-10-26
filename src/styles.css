@@ -1116,3 +1116,26 @@ html.dark .xp-home-page .text-primary,
   .xp-partner-stat-icon { grid-row: auto; }
   .xp-partner-stat-card > strong, .xp-partner-stat-note { grid-column: auto; }
 }
+
+
+/* Statistics page skeletons mirror the dashboard surfaces. */
+.xp-skeleton {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--xp-muted) 78%, var(--xp-card));
+}
+.xp-skeleton::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--xp-fg) 9%, transparent), transparent);
+  animation: xp-skeleton-shimmer 1.45s ease-in-out infinite;
+}
+@keyframes xp-skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xp-skeleton::after { animation: none; transform: none; background: transparent; }
+}
