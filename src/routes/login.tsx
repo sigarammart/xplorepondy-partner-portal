@@ -110,7 +110,7 @@ function LoginPage() {
             <Button
               key={p.providerId}
               type="button"
-              variant={p.idp === "google" ? "outline" : "ghost"}
+              variant={p.providerId === "google" ? "outline" : "ghost"}
               size="lg"
               className="w-full bg-card"
               disabled={oauthPending != null}
@@ -119,7 +119,7 @@ function LoginPage() {
                 void signIn(p.providerId, { callbackURL: forceReauth ? returnTo : "/dashboard" }).catch(() => setOauthPending(null));
               }}
             >
-              {p.idp === "google" ? <GoogleMark /> : null}
+              {p.providerId === "google" ? <GoogleMark /> : null}
               {oauthPending === p.providerId ? "Opening Google…" : `Continue with ${p.label}`}
             </Button>
           ))}
