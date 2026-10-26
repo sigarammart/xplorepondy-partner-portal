@@ -167,7 +167,41 @@ export const fetchAdminListings = createServerFn({ method: "GET" })
       undefined,
       { email, identityToken },
     ) as { items?: Array<{ id?: number; app_view_count?: number }>; [key: string]: unknown };
-    return attachCanonicalAppViewCounts(payload);
+    const withViews = await attachCanonicalAppViewCounts(payload);
+    const items = (withViews as { items?: Array<Record<string, unknown>> }).items ?? [];
+    if (!items.length) return withViews;
+
+    // The reservation plugin stores its authoritative enabled flag in its own
+    // table (xp_table_settings), not listing post meta. Ask the plugin for these
+    // flags through a narrow admin-only endpoint. Do not infer enabled state
+    // from historical bookings or opening-hour metadata.
+    const secret = process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim();
+    if (!secret) return withViews;
+    try {
+      const response = await fetch(
+        `${WP_ORIGIN}/wp-json/xplore/v1/table-reservations/admin/enabled-listings?ids=${items.map((item) => Number(item.id)).filter((id) => Number.isSafeInteger(id) && id > 0).join(",")}`,
+        {
+          headers: {
+            Accept: "application/json",
+            "X-Xplore-PWA-Secret": secret,
+            Authorization: `Bearer ${secret}`,
+          },
+          cache: "no-store",
+        },
+      );
+      if (!response.ok) return withViews;
+      const result = await response.json() as { items?: Array<{ listing_id: number; enabled: boolean }> };
+      const enabled = new Map((result.items ?? []).map((item) => [Number(item.listing_id), Boolean(item.enabled)]));
+      return {
+        ...withViews,
+        items: items.map((item) => ({
+          ...item,
+          table_reservation_enabled: enabled.get(Number(item.id)) ?? false,
+        })),
+      };
+    } catch {
+      return withViews;
+    }
   });
 
 const assignAdminListingSchema = ownerIdentitySchema.extend({
