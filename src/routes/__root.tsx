@@ -5,6 +5,7 @@ import { NotFound } from "@/components/not-found";
 import { Toaster } from "sonner";
 import { useSession } from "@/store/session";
 import { useTheme } from "@/store/theme";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import "../styles.css";
 
 const APP_NAME = "Xplore Pondy Partner Portal";
@@ -32,6 +33,7 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32.png" },
       { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -53,6 +55,11 @@ function RootDocument() {
   // loaded on demand by Explore category/subcategory pages.
   useEffect(() => {
     void useSession.persist.rehydrate();
+    if ("serviceWorker" in navigator) {
+      void navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
+        console.error("Partner app service worker registration failed:", error);
+      });
+    }
   }, []);
 
   return (
@@ -63,6 +70,7 @@ function RootDocument() {
       </head>
       <body>
         <AuthProvider>
+          <PwaInstallPrompt />
           <Outlet />
           <Toaster
             theme={mode}
