@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Bell, CalendarDays, Camera, CheckCircle2, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, CheckCircle2, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,9 @@ import { HeaderAuth } from "@/components/header-auth";
 import { authEnabled, signOut } from "@/lib/auth/client";
 
 export const Route = createFileRoute("/dashboard")({
-  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
-    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings"].includes(String(search.view))
-      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings"
+  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
+    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics"].includes(String(search.view))
+      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics"
       : undefined,
     bookingType: ["table", "events", "experiences"].includes(String(search.bookingType))
       ? search.bookingType as "table" | "events" | "experiences"
@@ -361,7 +361,8 @@ function ListingOwnerDashboardPage() {
   const [dashboard, setDashboard] = useState<TableReservationOwnerDashboard | null>(null);
   const [selectedListing, setSelectedListing] = useState(searchListingId ?? 0);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings">(searchView ?? "menu");
+  const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics">(searchView ?? "menu");
+  const [statisticsListingFilter, setStatisticsListingFilter] = useState("all");
   const [cameraRequest, setCameraRequest] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const identityToken = useSession((s) => s.wpIdentityToken);
@@ -607,6 +608,7 @@ function ListingOwnerDashboardPage() {
     { key: "overview", label: "Overview", icon: ClipboardList, count: undefined, view: "menu" as const, bookingType: undefined, child: false },
     ...(isAdministrator ? [{ key: "admin-listings", label: "Admin: All Listings", icon: Settings2, count: adminListings.length || undefined, view: "admin-listings" as const, bookingType: undefined, child: false }] : []),
     { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const, bookingType: undefined, child: false },
+    { key: "statistics", label: "Statistics", icon: ChartNoAxesCombined, count: undefined, view: "statistics" as const, bookingType: undefined, child: false },
     { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const, bookingType: undefined, child: false },
     { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const, bookingType: undefined, child: false },
     { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings, view: "bookings" as const, bookingType: undefined, child: false },
@@ -689,7 +691,7 @@ function ListingOwnerDashboardPage() {
 
           <main className="xp-partner-main">
             <div className="xp-partner-page-heading">
-              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
+              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "statistics" ? "Statistics" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
               <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" onClick={() => window.location.reload()}><LoaderCircle className="mr-2 size-4" />Refresh data</Button><Button variant="ghost" size="sm" onClick={() => { useSession.getState().clearSession(); if (authEnabled) { void signOut().catch(() => { window.location.href = "/login"; }); } else { window.location.href = "/login"; } }}><X className="mr-2 size-4" />Sign out</Button></div>
             </div>
 
@@ -808,6 +810,66 @@ function ListingOwnerDashboardPage() {
                 </section>
               </>
             )}
+
+            {view === "statistics" && (() => {
+              const selectedListings = statisticsListingFilter === "all"
+                ? sortedOwnerListings
+                : sortedOwnerListings.filter((item) => String(item.wpId ?? item.id ?? item.slug) === statisticsListingFilter);
+              const totalSiteViews = selectedListings.reduce((sum, item) => sum + (item.siteViewCount ?? 0), 0);
+              const totalAppViews = selectedListings.reduce((sum, item) => sum + (item.appViewCount ?? 0), 0);
+              const totalListingViews = totalSiteViews + totalAppViews;
+              const totalEventSiteViews = events.reduce((sum, item) => sum + (item.site_view_count ?? 0), 0);
+              const totalEventAppViews = events.reduce((sum, item) => sum + (item.app_view_count ?? item.view_count ?? 0), 0);
+              const totalExperienceSiteViews = experiences.reduce((sum, item) => sum + (item.site_view_count ?? 0), 0);
+              const totalExperienceAppViews = experiences.reduce((sum, item) => sum + (item.app_view_count ?? item.view_count ?? 0), 0);
+              const topListings = [...selectedListings]
+                .sort((a, b) => ((b.siteViewCount ?? 0) + (b.appViewCount ?? 0)) - ((a.siteViewCount ?? 0) + (a.appViewCount ?? 0)))
+                .slice(0, 10);
+              const maxListingViews = Math.max(1, ...topListings.map((item) => (item.siteViewCount ?? 0) + (item.appViewCount ?? 0)));
+              const metricCards = [
+                { label: "Listing views", site: totalSiteViews, app: totalAppViews, icon: Store, color: "cyan" },
+                { label: "Event views", site: totalEventSiteViews, app: totalEventAppViews, icon: CalendarDays, color: "blue" },
+                { label: "Experience views", site: totalExperienceSiteViews, app: totalExperienceAppViews, icon: Ticket, color: "amber" },
+              ];
+              return <div className="mt-5 space-y-5">
+                <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div><div className="xp-partner-eyebrow">PERFORMANCE OVERVIEW</div><h2 className="mt-1 text-xl font-bold">Content statistics</h2><p className="mt-1 text-sm text-muted-foreground">Cumulative detail-page views across your Xplore Pondy content.</p></div>
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">All-time totals</span>
+                  </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-muted/40 p-3">
+                    <label className="flex flex-wrap items-center gap-2 text-sm font-medium">Filter by listing
+                      <select aria-label="Filter statistics by listing" value={statisticsListingFilter} onChange={(event) => setStatisticsListingFilter(event.target.value)} className="h-10 min-w-48 max-w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">
+                        <option value="all">All listings</option>
+                        {sortedOwnerListings.map((item) => <option key={item.wpId ?? item.id ?? item.slug} value={String(item.wpId ?? item.id ?? item.slug)}>{item.title}</option>)}
+                      </select>
+                    </label>
+                    <span className="text-xs text-muted-foreground">Date-range reporting requires dated view-event data; these counters currently provide lifetime totals.</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-primary/10 p-2 text-primary"><ChartNoAxesCombined className="size-4"/></span>Total listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{totalListingViews.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">Website + app</p></article>
+                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-cyan-500/10 p-2 text-cyan-600"><Store className="size-4"/></span>Website listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{totalSiteViews.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">xplorepondy.com</p></article>
+                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-sky-500/10 p-2 text-sky-600"><ExternalLink className="size-4"/></span>App listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{totalAppViews.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">app.xplorepondy.com</p></article>
+                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600"><CalendarDays className="size-4"/></span>Bookings</div><p className="mt-3 text-3xl font-bold tabular-nums">{totalBookings.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">Current booking records</p></article>
+                  </div>
+                </section>
+                <div className="grid gap-5 xl:grid-cols-2">
+                  <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3"><div><h2 className="font-bold">Top listings by views</h2><p className="mt-1 text-xs text-muted-foreground">Top 10 by combined lifetime views</p></div><ChartNoAxesCombined className="size-5 text-primary"/></div>
+                    {ownerContentLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading listing statistics…</p> : ownerContentError ? <p role="alert" className="mt-4 text-sm text-destructive">{ownerContentError}</p> : topListings.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">No listing view data is available.</p> : <div className="mt-5 space-y-4">{topListings.map((item, index) => { const site = item.siteViewCount ?? 0; const app = item.appViewCount ?? 0; const total = site + app; return <div key={item.wpId ?? item.id ?? item.slug} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5"><div className="truncate text-sm font-medium" title={item.title}>{index + 1}. {item.title}</div><div className="text-sm font-bold tabular-nums">{total.toLocaleString("en-IN")}</div><div className="col-span-2 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(total ? 1 : 0, total / maxListingViews * 100)}%` }}/></div><p className="col-span-2 text-[11px] text-muted-foreground">Website {site.toLocaleString("en-IN")} · App {app.toLocaleString("en-IN")}</p></div>; })}</div>}
+                  </section>
+                  <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+                    <h2 className="font-bold">Content type breakdown</h2><p className="mt-1 text-xs text-muted-foreground">Lifetime view totals from available counters</p>
+                    <div className="mt-4 space-y-3">{metricCards.map((item) => { const total = item.site + item.app; return <article key={item.label} className="rounded-xl border border-border/70 bg-background p-3"><div className="flex items-center gap-2 text-sm font-semibold"><item.icon className="size-4 text-primary"/>{item.label}<span className="ml-auto tabular-nums">{total.toLocaleString("en-IN")}</span></div><div className="mt-3 grid grid-cols-2 gap-3"><div><p className="text-xs text-muted-foreground">xplorepondy.com</p><p className="text-xl font-bold tabular-nums">{item.site.toLocaleString("en-IN")}</p></div><div><p className="text-xs text-muted-foreground">app.xplorepondy.com</p><p className="text-xl font-bold tabular-nums">{item.app.toLocaleString("en-IN")}</p></div></div></article>; })}</div>
+                    <p className="mt-3 text-xs text-muted-foreground">Event and experience website counts depend on the counters returned by WordPress.</p>
+                  </section>
+                </div>
+                <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Listing performance details</h2><p className="mt-1 text-xs text-muted-foreground">{selectedListings.length} listings in this view</p></div><label className="flex items-center gap-2 text-xs text-muted-foreground">Sort by <select aria-label="Sort statistics table" value={ownerViewsSort} onChange={(event) => setOwnerViewsSort(event.target.value as typeof ownerViewsSort)} className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"><option value="total-desc">Most total views</option><option value="site-desc">Most website views</option><option value="app-desc">Most app views</option><option value="name-asc">Name A–Z</option></select></label></div>
+                  {selectedListings.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">No listings match this filter.</p> : <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead className="bg-muted/50 text-xs text-muted-foreground"><tr><th className="px-3 py-2">Listing</th><th className="px-3 py-2">Website</th><th className="px-3 py-2">App</th><th className="px-3 py-2">Total</th></tr></thead><tbody>{selectedListings.slice().sort((a,b) => { const av=(a.siteViewCount??0)+(a.appViewCount??0); const bv=(b.siteViewCount??0)+(b.appViewCount??0); return ownerViewsSort==="name-asc" ? a.title.localeCompare(b.title) : ownerViewsSort==="site-desc" ? (b.siteViewCount??0)-(a.siteViewCount??0) : ownerViewsSort==="app-desc" ? (b.appViewCount??0)-(a.appViewCount??0) : bv-av; }).slice(0,50).map((item) => <tr key={item.wpId ?? item.id ?? item.slug} className="border-t border-border/70"><td className="px-3 py-3"><div className="font-medium">{item.title}</div>{item.slug && <a href={`https://app.xplorepondy.com/place/${encodeURIComponent(item.slug)}`} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">View in app ↗</a>}</td><td className="px-3 py-3 tabular-nums">{(item.siteViewCount??0).toLocaleString("en-IN")}</td><td className="px-3 py-3 tabular-nums">{(item.appViewCount??0).toLocaleString("en-IN")}</td><td className="px-3 py-3 font-semibold tabular-nums">{((item.siteViewCount??0)+(item.appViewCount??0)).toLocaleString("en-IN")}</td></tr>)}</tbody></table></div>}
+                </section>
+              </div>;
+            })()}
 
             {view === "bookings" && (
               <section className="mt-5">
@@ -941,15 +1003,16 @@ function ListingOwnerDashboardPage() {
       )}
 
       <nav aria-label="Owner dashboard navigation" className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur-md md:hidden">
-        <ul className="grid grid-cols-5">
+        <ul className="grid grid-cols-6">
           {[
             { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0 },
+            { key: "statistics", label: "Stats", icon: ChartNoAxesCombined, count: undefined },
             { key: "events", label: "Events", icon: CalendarDays, count: events.length },
             { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length },
             { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings },
           ].map((item) => (
             <li key={item.key}>
-              <Link to="/dashboard" search={{ view: item.key as "listings" | "events" | "experiences" | "bookings" }} aria-current={view === item.key ? "page" : undefined} className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-1 text-center text-[10px] font-medium transition-colors ${view === item.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+              <Link to="/dashboard" search={{ view: item.key as "listings" | "events" | "experiences" | "bookings" | "statistics" }} aria-current={view === item.key ? "page" : undefined} className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-1 text-center text-[10px] font-medium transition-colors ${view === item.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 <item.icon className="size-5" /><span>{item.label}</span>
               </Link>
             </li>
