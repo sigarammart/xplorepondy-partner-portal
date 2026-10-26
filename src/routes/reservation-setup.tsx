@@ -33,7 +33,7 @@ function ReservationSetupPage() {
   const [listingsLoading, setListingsLoading] = useState(true);
   const [listingSearch, setListingSearch] = useState("");
   const [listingDropdownOpen, setListingDropdownOpen] = useState(false);
-  const identityToken = useSession((s) => s.identityToken);
+  const identityToken = useSession((s) => s.wpIdentityToken);
 
   useEffect(() => {
     if (!email) { setListingsLoading(false); return; }
@@ -110,7 +110,7 @@ function ReservationSetupPage() {
   const selectedListing = ownerListings.find((item) => item.id === listingId);
   return <div className="xp-partner-shell">
     <header className="xp-partner-header"><Link to="/dashboard" search={{}} className="xp-partner-brand"><Logo /><span className="xp-partner-brand-label">PARTNER</span></Link><div className="xp-partner-header-right"><a href="https://xplorepondy.com" target="_blank" rel="noreferrer" className="xp-partner-site-link">View website ↗</a><ThemeToggle /><HeaderAuth /></div></header>
-    <div className="xp-partner-app-layout"><aside className="xp-partner-sidebar"><div className="xp-partner-sidebar-label">WORKSPACE</div><nav aria-label="Partner portal navigation">{shellNav.map((item) => <Link key={item.label} to={item.to as any} search={{}} className="xp-partner-nav-link"><item.icon className="size-4"/><span>{item.label}</span></Link>)}<Link to="/reservation-setup" search={{}} className="xp-partner-nav-link" aria-current="page"><Settings2 className="size-4"/><span>Reservation setup</span></Link></nav><div className="xp-partner-sidebar-footer"><div className="xp-partner-online-dot"/> Connected to Xplore Pondy</div></aside>
+    <div className="xp-partner-app-layout"><aside className="xp-partner-sidebar"><div className="xp-partner-sidebar-label">WORKSPACE</div><nav aria-label="Partner portal navigation">{shellNav.map((item) => <a key={item.label} href={item.to} className="xp-partner-nav-link"><item.icon className="size-4"/><span>{item.label}</span></a>)}<Link to="/reservation-setup" search={{}} className="xp-partner-nav-link" aria-current="page"><Settings2 className="size-4"/><span>Reservation setup</span></Link></nav><div className="xp-partner-sidebar-footer"><div className="xp-partner-online-dot"/> Connected to Xplore Pondy</div></aside>
     <main className="xp-partner-main"><div className="xp-partner-page-heading"><div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>Setup Reservation</h1><p>Select a listing and manage its table reservation availability.</p></div></div>
     <section className="mb-6 max-w-3xl rounded-2xl border border-border/70 bg-card p-5"><label className="mb-2 block text-sm font-medium">Select listing</label><div className="relative">
       <button type="button" aria-expanded={listingDropdownOpen} onClick={() => setListingDropdownOpen((open) => !open)} className="flex h-11 w-full items-center justify-between rounded-xl border border-border bg-background px-4 text-left text-sm"><span className={selectedListing ? "text-foreground" : "text-muted-foreground"}>{selectedListing?.title ?? (listingsLoading ? "Loading listings…" : "Choose a listing")}</span><ChevronDown className="size-4"/></button>
