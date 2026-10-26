@@ -477,6 +477,8 @@ function ListingOwnerDashboardPage() {
   const { view: searchView, bookingType: searchBookingType, bookingId: searchBookingId, listingId: searchListingId } = Route.useSearch();
   const [dashboard, setDashboard] = useState<TableReservationOwnerDashboard | null>(null);
   const [selectedListing, setSelectedListing] = useState(searchListingId ?? 0);
+  const [dashboardListingSearch, setDashboardListingSearch] = useState("");
+  const [dashboardListingDropdownOpen, setDashboardListingDropdownOpen] = useState(false);
   const [listingManagementDropdownOpen, setListingManagementDropdownOpen] = useState(false);
   const [listingManagementSearch, setListingManagementSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1150,11 +1152,43 @@ function ListingOwnerDashboardPage() {
                   {!ownerContentLoading && visibleOwnerListings.length === 0 && <div className="mt-5 rounded-2xl border border-dashed border-border p-6 text-center"><Store className="mx-auto size-8 text-muted-foreground" /><h3 className="mt-3 font-semibold">No listings found</h3><p className="mt-1 text-sm text-muted-foreground">No directory listings are currently attached to this account.</p></div>}
 
                   {!ownerContentLoading && visibleOwnerListings.length > 0 && <>
-                    <label htmlFor="dashboard-owner-listing-select" className="mt-6 block text-sm font-medium">Select listing</label>
-                    <select id="dashboard-owner-listing-select" value={selectedListing ? String(selectedListing) : "all"} onChange={(event) => setSelectedListing(event.target.value === "all" ? 0 : Number(event.target.value))} className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm">
-                      <option value="all">All listings</option>
-                      {visibleOwnerListings.map((item) => <option key={item.id ?? item.wpId ?? item.slug} value={String(item.id ?? item.wpId)}>{item.title}</option>)}
-                    </select>
+                    <div className="relative mt-6">
+                      <label id="dashboard-owner-listing-label" className="block text-sm font-medium">Select listing</label>
+                      <button
+                        id="dashboard-owner-listing-select"
+                        type="button"
+                        aria-labelledby="dashboard-owner-listing-label"
+                        aria-haspopup="listbox"
+                        aria-expanded={dashboardListingDropdownOpen}
+                        onClick={() => { setDashboardListingDropdownOpen((open) => !open); setDashboardListingSearch(""); }}
+                        className="mt-2 flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        <span className="truncate">{selectedListing ? visibleOwnerListings.find((item) => Number(item.id ?? item.wpId) === selectedListing)?.title ?? "Select listing" : "All listings"}</span>
+                        <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                      </button>
+                      {dashboardListingDropdownOpen && <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl ring-1 ring-border/80">
+                        <div className="border-b border-border p-2">
+                          <input
+                            autoFocus
+                            type="search"
+                            value={dashboardListingSearch}
+                            onChange={(event) => setDashboardListingSearch(event.target.value)}
+                            placeholder="Search listings..."
+                            aria-label="Search listings"
+                            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                          />
+                        </div>
+                        <div role="listbox" aria-labelledby="dashboard-owner-listing-label" className="max-h-64 overflow-y-auto p-1">
+                          <button type="button" role="option" aria-selected={!selectedListing} onClick={() => { setSelectedListing(0); setDashboardListingDropdownOpen(false); setDashboardListingSearch(""); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted ${!selectedListing ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}>All listings</button>
+                          {visibleOwnerListings.filter((item) => item.title.toLocaleLowerCase().includes(dashboardListingSearch.trim().toLocaleLowerCase()) || String(item.id ?? item.wpId ?? "").includes(dashboardListingSearch.trim())).map((item) => {
+                            const value = Number(item.id ?? item.wpId);
+                            const selected = selectedListing === value;
+                            return <button key={item.id ?? item.wpId ?? item.slug} type="button" role="option" aria-selected={selected} onClick={() => { setSelectedListing(value); setDashboardListingDropdownOpen(false); setDashboardListingSearch(""); }} className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted ${selected ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}>{item.title}</button>;
+                          })}
+                          {visibleOwnerListings.filter((item) => item.title.toLocaleLowerCase().includes(dashboardListingSearch.trim().toLocaleLowerCase()) || String(item.id ?? item.wpId ?? "").includes(dashboardListingSearch.trim())).length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No matching listings found.</p>}
+                        </div>
+                      </div>}
+                    </div>
                     <div className="mt-5 grid gap-3 sm:grid-cols-2">
                       <Link to="/dashboard" search={selectedListing ? { view: "bookings", bookingType: "table", listingId: selectedListing } : { view: "bookings", bookingType: "table" }} className="group rounded-2xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted">
                         <CalendarDays className="size-6 text-primary" />
