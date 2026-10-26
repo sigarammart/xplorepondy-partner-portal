@@ -34,16 +34,18 @@ function ReservationSetupPage() {
   const [listingSearch, setListingSearch] = useState("");
   const [listingDropdownOpen, setListingDropdownOpen] = useState(false);
   const identityToken = useSession((s) => s.wpIdentityToken);
+  // Only WordPress administrators may browse the complete directory. Partner
+  // accounts must use the owner-scoped endpoint, which returns listings assigned
+  // to their account and avoids selecting listings they cannot manage.
+  const isWordPressAdmin = Boolean(wpUser?.roles?.includes("administrator"));
 
   useEffect(() => {
-    if (!email) { setListingsLoading(false); return; }
+    if (!email) { setOwnerListings([]); setListingsLoading(false); return; }
     let cancelled = false;
     setListingsLoading(true);
+    setOwnerListings([]);
     void (async () => {
-      // Administrators can configure reservations for any directory listing.
-      // Load every page from the admin endpoint first; non-admin users fall
-      // back to the owner-scoped endpoint.
-      try {
+      if (isWordPressAdmin) {
         const all: Array<{ id: number; title?: string; slug?: string }> = [];
         for (let page = 1; page <= 20; page += 1) {
           const raw = await fetchAdminListings({ data: { email, ...(identityToken ? { identityToken } : {}), page, perPage: 100 } }) as {
@@ -53,13 +55,12 @@ function ReservationSetupPage() {
           all.push(...(raw.items ?? []));
           if (!raw.total_pages || page >= raw.total_pages || !(raw.items ?? []).length) break;
         }
-        if (!cancelled && all.length) {
+        if (!cancelled) {
           setOwnerListings(all.map((item) => ({ id: item.id, title: item.title || ("Listing #" + item.id), slug: item.slug || String(item.id) })));
-          return;
         }
-      } catch {
-        // Expected for partner accounts without administrator access.
+        return;
       }
+
       const raw = await fetchOwnerListings({ data: { email, ...(identityToken ? { identityToken } : {}) } });
       const result = raw as { items?: Array<{ id: number; title?: string; slug?: string }> };
       if (!cancelled) setOwnerListings((result.items ?? []).map((item) => ({ id: item.id, title: item.title || ("Listing #" + item.id), slug: item.slug || String(item.id) })));
@@ -67,7 +68,7 @@ function ReservationSetupPage() {
       .catch((error) => { if (!cancelled) toast.error(error instanceof Error ? error.message : "Could not load listings."); })
       .finally(() => { if (!cancelled) setListingsLoading(false); });
     return () => { cancelled = true; };
-  }, [email, identityToken]);
+  }, [email, identityToken, isWordPressAdmin]);
 
   const filteredListings = useMemo(() => ownerListings.filter((item) => (item.title + " " + item.slug).toLowerCase().includes(listingSearch.trim().toLowerCase())), [ownerListings, listingSearch]);
 
