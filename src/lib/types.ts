@@ -78,6 +78,10 @@ export type Listing = {
   image: string;
   siteUrl: string;
   wpId?: number;
+  /** Native WordPress/Listeo detail page views on xplorepondy.com. */
+  siteViewCount?: number;
+  /** Shared Xplore Pondy app detail page views on app.xplorepondy.com. */
+  appViewCount?: number;
   /** WordPress post author/user ID used for owner-only controls. */
   authorId?: number;
   featuredMediaId?: number;
