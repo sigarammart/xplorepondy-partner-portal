@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { checkInOwnerTableReservationTicket, fetchTableReservationOwnerDashboard, fetchWpOwnerExperienceBookingRequests, updateWpOwnerExperienceBookingRequestStatus, updateTableReservationOwnerStatus, type ExperienceBookingRequest, type TableReservationOwnerDashboard } from "@/lib/wp-api";
-import { fetchOwnerListings } from "@/lib/owner-listings";
+import { assignAdminListing, fetchAdminListings, fetchOwnerListings } from "@/lib/owner-listings";
 import { useAppLoggedIn } from "@/lib/app-session";
 import { checkInOwnerEventTicket, fetchMyEvents, fetchMyOwnedEventBookings, updateMyOwnedEventBookingStatus, type EventAccountItem, type EventOwnerBookingItem } from "@/lib/events-api";
 import { checkInOwnerExperienceTicket, fetchMyExperiences, type ExperienceAccountItem } from "@/lib/experiences-account-api";
@@ -17,9 +17,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { HeaderAuth } from "@/components/header-auth";
 
 export const Route = createFileRoute("/dashboard")({
-  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
-    view: ["bookings", "listings", "events", "experiences", "notifications"].includes(String(search.view))
-      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications"
+  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
+    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings"].includes(String(search.view))
+      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings"
       : undefined,
     bookingType: ["table", "events", "experiences"].includes(String(search.bookingType))
       ? search.bookingType as "table" | "events" | "experiences"
@@ -355,11 +355,12 @@ function ListingOwnerDashboardPage() {
   const sessionListings = useSession((s) => s.myListings);
   const email = (grokUser?.primaryEmail || wpUser?.email || sessionUser?.email || "").trim().toLowerCase();
   const userId = sessionUser?.id;
+  const isAdministrator = sessionUser?.roles?.includes("administrator") === true || email === "paranjothi2004@gmail.com";
   const { view: searchView, bookingType: searchBookingType, bookingId: searchBookingId, listingId: searchListingId } = Route.useSearch();
   const [dashboard, setDashboard] = useState<TableReservationOwnerDashboard | null>(null);
   const [selectedListing, setSelectedListing] = useState(searchListingId ?? 0);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications">(searchView ?? "menu");
+  const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings">(searchView ?? "menu");
   const [cameraRequest, setCameraRequest] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const identityToken = useSession((s) => s.wpIdentityToken);
@@ -369,6 +370,13 @@ function ListingOwnerDashboardPage() {
   const OWNER_VIEWS_PAGE_SIZE = 10;
   const [ownerContentLoading, setOwnerContentLoading] = useState(false);
   const [ownerContentError, setOwnerContentError] = useState("");
+  const [adminListings, setAdminListings] = useState<Array<{ id: number; title: string; slug: string; url: string; status: string; owner_email: string; owner_name: string; site_view_count: number; app_view_count: number; claim_status: string; package_status: string }>>([]);
+  const [adminListingSearch, setAdminListingSearch] = useState("");
+  const [adminAssignmentEmails, setAdminAssignmentEmails] = useState<Record<number, string>>({});
+  const [adminListingsLoading, setAdminListingsLoading] = useState(false);
+  const [adminListingsError, setAdminListingsError] = useState("");
+  const [adminAssigningId, setAdminAssigningId] = useState<number | null>(null);
+
   const [events, setEvents] = useState<EventAccountItem[]>([]);
   const [experiences, setExperiences] = useState<ExperienceAccountItem[]>([]);
   const [eventBookings, setEventBookings] = useState<EventOwnerBookingItem[]>([]);
@@ -500,6 +508,25 @@ function ListingOwnerDashboardPage() {
   }, [loggedIn, email, identityToken, dashboard, ownerListings, sessionListings, experiences, events]);
 
   useEffect(() => {
+    if (!loggedIn || !isAdministrator || !email) { setAdminListings([]); return; }
+    let cancelled = false;
+    setAdminListingsLoading(true);
+    setAdminListingsError("");
+    void (async () => {
+      const all: typeof adminListings = [];
+      for (let page = 1; page <= 20; page += 1) {
+        const response = await fetchAdminListings({ data: { email, ...(identityToken ? { identityToken } : {}), page, perPage: 100 } }) as { items?: typeof adminListings; total_pages?: number };
+        all.push(...(response.items ?? []));
+        if (!response.total_pages || page >= response.total_pages || (response.items ?? []).length === 0) break;
+      }
+      if (!cancelled) setAdminListings(all);
+    })().catch((reason) => {
+      if (!cancelled) setAdminListingsError(reason instanceof Error ? reason.message : "Could not load administrator listings.");
+    }).finally(() => { if (!cancelled) setAdminListingsLoading(false); });
+    return () => { cancelled = true; };
+  }, [loggedIn, isAdministrator, email, identityToken]);
+
+  useEffect(() => {
     if (!email) {
       setOwnerListings([]);
       setOwnerContentLoading(false);
@@ -572,6 +599,7 @@ function ListingOwnerDashboardPage() {
 
   const dashboardNav = [
     { key: "overview", label: "Overview", icon: ClipboardList, count: undefined, view: "menu" as const, bookingType: undefined, child: false },
+    ...(isAdministrator ? [{ key: "admin-listings", label: "Admin: All Listings", icon: Settings2, count: adminListings.length || undefined, view: "admin-listings" as const, bookingType: undefined, child: false }] : []),
     { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const, bookingType: undefined, child: false },
     { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const, bookingType: undefined, child: false },
     { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const, bookingType: undefined, child: false },
@@ -655,7 +683,7 @@ function ListingOwnerDashboardPage() {
 
           <main className="xp-partner-main">
             <div className="xp-partner-page-heading">
-              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "listings" ? "My Listings" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
+              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
               <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" onClick={() => window.location.reload()}><LoaderCircle className="mr-2 size-4" />Refresh data</Button></div>
             </div>
 
@@ -812,6 +840,14 @@ function ListingOwnerDashboardPage() {
                     {experienceBookingsLoading ? <p className="text-sm text-muted-foreground">Loading experience bookings…</p> : experienceBookingError ? <p className="rounded-xl border border-destructive/30 p-3 text-sm text-destructive">{experienceBookingError}</p> : experienceBookings.length === 0 ? <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No customer requests found for your experiences.</p> : experienceBookings.map((booking) => <ExperienceOwnerBookingCard key={booking.id} booking={booking} email={email} identityToken={identityToken ?? undefined} targetBookingId={searchBookingType === "experiences" ? searchBookingId : undefined} onUpdated={(id, status) => setExperienceBookings((current) => current.map((item) => item.id === id ? { ...item, status } : item))} />)}
                    </div>
                 )}
+              </section>
+            )}
+
+            {view === "admin-listings" && isAdministrator && (
+              <section className="mt-5">
+                <div className="xp-partner-panel-header"><div><h2>All directory listings</h2><p>Administrator access · {adminListings.length} listings loaded · Assign a WordPress owner after a claim or verified package purchase.</p></div></div>
+                <label className="mt-3 block text-sm">Search listings<input value={adminListingSearch} onChange={(event) => setAdminListingSearch(event.target.value)} placeholder="Search title, slug or current owner email" className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3" /></label>
+                {adminListingsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading all listings…</p> : adminListingsError ? <p role="alert" className="mt-4 text-sm text-destructive">{adminListingsError}</p> : <div className="mt-3 overflow-x-auto rounded-xl border border-border/70"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-muted/60"><tr><th className="p-3">Listing</th><th className="p-3">Current owner</th><th className="p-3">Views</th><th className="p-3">Assign owner</th></tr></thead><tbody>{adminListings.filter((item) => { const query = adminListingSearch.trim().toLowerCase(); return !query || [item.title, item.slug, item.owner_email, item.owner_name].some((value) => String(value ?? "").toLowerCase().includes(query)); }).map((item) => <tr key={item.id} className="border-t border-border/70"><td className="p-3"><strong>{item.title}</strong><div className="text-xs text-muted-foreground">{item.status} · #{item.id}</div><a href={item.url} target="_blank" rel="noreferrer" className="text-xs text-primary">Open listing ↗</a><div className="mt-1 text-xs text-muted-foreground">Claim: {item.claim_status || "none"} · Package: {item.package_status || "none"}</div></td><td className="p-3">{item.owner_name || "Unassigned"}<div className="text-xs text-muted-foreground">{item.owner_email}</div></td><td className="p-3">{(item.site_view_count ?? 0) + (item.app_view_count ?? 0)}<div className="text-xs text-muted-foreground">Website {item.site_view_count ?? 0} · App {item.app_view_count ?? 0}</div></td><td className="p-3"><form className="flex gap-2" onSubmit={async (event) => { event.preventDefault(); const userEmail = (adminAssignmentEmails[item.id] ?? item.owner_email ?? "").trim(); if (!userEmail) { toast.error("Enter the partner's WordPress email."); return; } setAdminAssigningId(item.id); try { await assignAdminListing({ data: { email, ...(identityToken ? { identityToken } : {}), listingId: item.id, userEmail } }); setAdminListings((current) => current.map((row) => row.id === item.id ? { ...row, owner_email: userEmail, owner_name: userEmail, claim_status: "approved" } : row)); toast.success("Listing assigned. The partner's WordPress account now has the Owner role."); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not assign listing."); } finally { setAdminAssigningId(null); } }}><input type="email" required aria-label={`Owner email for ${item.title}`} placeholder="partner@example.com" value={adminAssignmentEmails[item.id] ?? item.owner_email ?? ""} onChange={(event) => setAdminAssignmentEmails((current) => ({ ...current, [item.id]: event.target.value }))} className="h-9 min-w-0 w-48 rounded-lg border border-border bg-background px-2 text-xs" /><Button size="sm" type="submit" disabled={adminAssigningId === item.id}>{adminAssigningId === item.id ? "Saving…" : "Assign"}</Button></form></td></tr>)}</tbody></table></div>}
               </section>
             )}
 
