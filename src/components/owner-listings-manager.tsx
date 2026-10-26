@@ -208,10 +208,12 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
         const fields: Record<string, unknown> = { ...(item.fields ?? {}) };
         for (const key of Object.keys(emptyListingFields())) fields[key] = valueFor(key);
         const taxonomyTerms: Record<string, Array<{ id: number; name: string; slug: string }>> = {};
-        for (const groups of Object.values(raw._embedded ?? {})) {
-          for (const term of (groups as unknown as Array<{ id: number; name: string; slug: string; taxonomy?: string }>)) {
-            if (!term?.taxonomy || !Number.isFinite(Number(term.id))) continue;
-            (taxonomyTerms[term.taxonomy] ??= []).push({ id: Number(term.id), name: term.name, slug: term.slug });
+        for (const termGroups of Object.values(raw._embedded ?? {})) {
+          for (const group of termGroups) {
+            for (const term of group) {
+              if (!term?.taxonomy || !Number.isFinite(Number(term.id))) continue;
+              (taxonomyTerms[term.taxonomy] ??= []).push({ id: Number(term.id), name: term.name, slug: term.slug });
+            }
           }
         }
         const titleValue = typeof raw.title === "string" ? raw.title : raw.title?.rendered;
