@@ -1037,6 +1037,7 @@ type WpListingMeta = {
   "listeo-avg-rating"?: string | number;
   _combined_rating?: string | number;
   _combined_review_count?: string | number;
+  _listing_views_count?: string | number;
   google_review_count?: string | number;
   "listing-package"?: string | number;
   _geolocation_lat?: string;
@@ -1075,6 +1076,7 @@ type WpListing = {
   xplore_meta?: Record<string, unknown>;
   xplore_archive_meta?: Record<string, unknown>;
   xplore_featured?: boolean;
+  xplore_view_count?: number;
   yoast_head_json?: WpYoastHeadJson;
   _embedded?: {
     "wp:featuredmedia"?: WpMedia[];
@@ -2558,6 +2560,8 @@ function mapListing(
     image: archiveCard ? featuredImage : (image === FALLBACK_IMAGE[category] && local?.image ? local.image : image),
     siteUrl: raw.link ?? `${WP_ORIGIN}/listing/${raw.slug}/`,
     wpId: raw.id,
+    siteViewCount: Math.max(0, Number(metaRecord._listing_views_count ?? metaRecord.listing_views_count ?? 0) || 0),
+    appViewCount: Math.max(0, Number(raw.xplore_view_count ?? 0) || 0),
     authorId: raw.author || undefined,
     featuredMediaId: raw.featured_media || undefined,
     lat: archiveCard
@@ -4277,6 +4281,8 @@ export type WpExperienceItineraryStop = {
 
 type WpExperienceRest = {
   id: number;
+  xplore_view_count?: number;
+  meta?: Record<string, unknown>;
   slug: string;
   link?: string;
   date?: string;
@@ -4487,7 +4493,7 @@ async function mapWpExperienceWithImage(row: WpExperienceRest): Promise<WpExperi
   return experience;
 }
 
-const EXPERIENCE_REST_FIELDS = "id,slug,link,title,content,excerpt,featured_media,featured_image_url,gallery_image_urls,price,currency,pricing_model,duration,provider_name,max_participants,min_participants,languages,booking_type,pickup_included,private_group,cancellation_hours,reserve_pay_later,highlights,includes,excludes,important_info,faqs,meeting_point_name,meeting_point_address,meeting_point_lat,meeting_point_lng,itinerary_json,cancellation_policy,refund_policy,provider_details,gallery_ids,_embedded";
+const EXPERIENCE_REST_FIELDS = "id,slug,link,title,content,excerpt,featured_media,featured_image_url,gallery_image_urls,price,currency,pricing_model,duration,provider_name,max_participants,min_participants,languages,booking_type,pickup_included,private_group,cancellation_hours,reserve_pay_later,highlights,includes,excludes,important_info,faqs,meeting_point_name,meeting_point_address,meeting_point_lat,meeting_point_lng,itinerary_json,cancellation_policy,refund_policy,provider_details,gallery_ids,xplore_view_count,meta,_embedded";
 export const fetchWpExperiences = createServerFn({ method: "GET" })
   .validator(z.object({ page: z.number().int().min(1).max(100).default(1), perPage: z.number().int().min(1).max(48).default(24), search: z.string().trim().max(120).optional() }))
   .handler(async ({ data }) => {
@@ -6041,7 +6047,7 @@ export const fetchWpGuide = createServerFn({ method: "GET" })
 
 async function fetchAllAuthorListings(authorId: number, headers: HeadersInit): Promise<WpListing[]> {
   const first = await wpGet<WpListing[]>(
-    `/wp-json/wp/v2/listing?author=${authorId}&per_page=100&page=1&_embed=1`,
+    `/wp-json/wp/v2/listing?author=${authorId}&per_page=100&page=1&_embed=1&_fields=id,author,slug,link,title,content,excerpt,listing_category,region,listing_feature,class_list,meta,xplore_archive_meta,xplore_meta,xplore_featured,xplore_view_count,_embedded`,
     headers,
     20000,
   );
@@ -6054,7 +6060,7 @@ async function fetchAllAuthorListings(authorId: number, headers: HeadersInit): P
   const maxPages = declaredPages > 0 ? Math.min(declaredPages, 100) : 100;
   for (let page = 2; page <= maxPages; page += 1) {
     const result = await wpGet<WpListing[]>(
-      `/wp-json/wp/v2/listing?author=${authorId}&per_page=100&page=${page}&_embed=1`,
+      `/wp-json/wp/v2/listing?author=${authorId}&per_page=100&page=${page}&_embed=1&_fields=id,author,slug,link,title,content,excerpt,listing_category,region,listing_feature,class_list,meta,xplore_archive_meta,xplore_meta,xplore_featured,xplore_view_count,_embedded`,
       headers,
       20000,
     );
@@ -6078,8 +6084,8 @@ async function loadAuthorContent(authorId: number, headers: HeadersInit) {
       headers,
       15000,
     ),
-    wpGet<Array<{ id: number; slug: string; title?: { rendered?: string }; status?: string; date?: string; link?: string }>>(
-      `/wp-json/wp/v2/xplore_event?author=${authorId}&per_page=30&orderby=date&order=desc`,
+    wpGet<Array<{ id: number; slug: string; title?: { rendered?: string }; status?: string; date?: string; link?: string; xplore_view_count?: number; meta?: Record<string, unknown> }>>(
+      `/wp-json/wp/v2/xplore_event?author=${authorId}&per_page=30&orderby=date&order=desc&_fields=id,slug,title,status,date,link,xplore_view_count,meta`,
       headers,
       15000,
     ),
@@ -6108,6 +6114,8 @@ async function loadAuthorContent(authorId: number, headers: HeadersInit) {
         status: String(event.status ?? "unknown"),
         date: event.date ? new Date(event.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "",
         url: String(event.link ?? ""),
+        siteViewCount: Math.max(0, Number(event.meta?._listing_views_count ?? event.meta?.listing_views_count ?? 0) || 0),
+        appViewCount: Math.max(0, Number(event.xplore_view_count ?? 0) || 0),
       }))
     : [];
   return { myListings: mappedListings, myTrips, myExperiences, myEvents };
