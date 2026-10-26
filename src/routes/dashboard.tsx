@@ -31,6 +31,54 @@ export const Route = createFileRoute("/dashboard")({
   component: ListingOwnerDashboardPage,
 });
 
+function StatisticsSkeleton() {
+  return (
+    <div className="mt-5 space-y-5" role="status" aria-live="polite" aria-label="Loading statistics">
+      <span className="sr-only">Loading content statistics…</span>
+      <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex-1 space-y-3">
+            <div className="xp-skeleton h-3 w-36 rounded" />
+            <div className="xp-skeleton h-6 w-52 max-w-full rounded" />
+            <div className="xp-skeleton h-4 w-80 max-w-full rounded" />
+          </div>
+          <div className="xp-skeleton h-6 w-28 rounded-full" />
+        </div>
+        <div className="mt-5 flex flex-wrap items-end gap-4 rounded-xl bg-muted/40 p-3">
+          <div className="space-y-2"><div className="xp-skeleton h-3 w-20 rounded" /><div className="xp-skeleton h-10 w-40 max-w-full rounded-xl" /></div>
+          <div className="space-y-2"><div className="xp-skeleton h-3 w-28 rounded" /><div className="xp-skeleton h-10 w-64 max-w-full rounded-xl" /></div>
+          <div className="xp-skeleton h-3 w-72 max-w-full rounded" />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <article key={index} className="rounded-xl border border-border/70 bg-background p-4">
+              <div className="flex items-center gap-2"><div className="xp-skeleton size-8 shrink-0 rounded-lg" /><div className="xp-skeleton h-4 w-32 max-w-full rounded" /></div>
+              <div className="xp-skeleton mt-4 h-8 w-16 rounded" />
+              <div className="xp-skeleton mt-2 h-3 w-28 rounded" />
+            </article>
+          ))}
+        </div>
+      </section>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+          <div className="xp-skeleton h-5 w-48 rounded" /><div className="xp-skeleton mt-2 h-3 w-64 max-w-full rounded" />
+          <div className="mt-5 space-y-5">
+            {Array.from({ length: 5 }, (_, index) => <div key={index} className="space-y-2"><div className="flex justify-between gap-3"><div className="xp-skeleton h-4 w-40 max-w-[70%] rounded" /><div className="xp-skeleton h-4 w-12 rounded" /></div><div className="xp-skeleton h-2 w-full rounded-full" /><div className="xp-skeleton h-3 w-52 max-w-full rounded" /></div>)}
+          </div>
+        </section>
+        <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+          <div className="xp-skeleton h-5 w-52 rounded" /><div className="xp-skeleton mt-2 h-3 w-64 max-w-full rounded" />
+          <div className="mt-5 space-y-4">{Array.from({ length: 3 }, (_, index) => <div key={index} className="rounded-xl border border-border/70 bg-background p-3"><div className="xp-skeleton h-4 w-40 rounded" /><div className="mt-4 grid grid-cols-2 gap-3"><div><div className="xp-skeleton h-3 w-28 rounded" /><div className="xp-skeleton mt-2 h-6 w-14 rounded" /></div><div><div className="xp-skeleton h-3 w-28 rounded" /><div className="xp-skeleton mt-2 h-6 w-14 rounded" /></div></div></div>)}</div>
+        </section>
+      </div>
+      <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+        <div className="flex flex-wrap justify-between gap-3"><div className="space-y-2"><div className="xp-skeleton h-5 w-52 rounded" /><div className="xp-skeleton h-3 w-44 rounded" /></div><div className="xp-skeleton h-9 w-44 rounded-lg" /></div>
+        <div className="mt-5 space-y-3">{Array.from({ length: 5 }, (_, index) => <div key={index} className="grid grid-cols-4 gap-3 border-t border-border/70 py-3"><div className="xp-skeleton h-4 w-full rounded" /><div className="xp-skeleton h-4 w-16 rounded" /><div className="xp-skeleton h-4 w-16 rounded" /><div className="xp-skeleton h-4 w-16 rounded" /></div>)}</div>
+      </section>
+    </div>
+  );
+}
+
 export function OwnerTicketScanner({ email, identityToken, cameraRequest = false, onCameraRequestHandled, onTableCheckedIn, onCheckedIn }: { email: string; identityToken?: string; cameraRequest?: boolean; onCameraRequestHandled?: () => void; onTableCheckedIn?: (id: number, checkedAt: string) => void; onCheckedIn?: () => void }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -391,6 +439,7 @@ function ListingOwnerDashboardPage() {
   const [ownerViewsSort, setOwnerViewsSort] = useState<"total-desc" | "site-desc" | "app-desc" | "name-asc">("total-desc");
   const [ownerViewsPage, setOwnerViewsPage] = useState(1);
   const OWNER_VIEWS_PAGE_SIZE = 10;
+  const [statisticsReady, setStatisticsReady] = useState(false);
   const [ownerContentLoading, setOwnerContentLoading] = useState(false);
   const [ownerContentError, setOwnerContentError] = useState("");
   const [adminListings, setAdminListings] = useState<Array<{ id: number; title: string; slug: string; url: string; status: string; owner_email: string; owner_name: string; site_view_count: number; app_view_count: number; claim_status: string; package_status: string; table_reservation_enabled?: boolean; reservation_enabled?: boolean; booking_enabled?: boolean; has_table_reservations?: boolean }>>([]);
@@ -419,6 +468,7 @@ function ListingOwnerDashboardPage() {
   const [ownerNotificationsError, setOwnerNotificationsError] = useState("");
 
   useEffect(() => {
+    setStatisticsReady(false);
     setView(searchView ?? "menu");
     setBookingType(searchBookingType ?? "table");
     if (searchListingId) setSelectedListing(searchListingId);
@@ -562,6 +612,7 @@ function ListingOwnerDashboardPage() {
     let cancelled = false;
     setOwnerContentLoading(true);
     setOwnerContentError("");
+    setStatisticsReady(false);
     void fetchOwnerListings({ data: { email, ...(identityToken ? { identityToken } : {}) } })
       .then((rawResult) => {
         if (cancelled) return;
@@ -579,7 +630,7 @@ function ListingOwnerDashboardPage() {
         })));
       })
       .catch((reason) => { if (!cancelled) setOwnerContentError(reason instanceof Error ? reason.message : "Could not load owner listings."); })
-      .finally(() => { if (!cancelled) setOwnerContentLoading(false); });
+      .finally(() => { if (!cancelled) { setOwnerContentLoading(false); setStatisticsReady(true); } });
     return () => { cancelled = true; };
   }, [email, identityToken]);
 
@@ -836,7 +887,11 @@ function ListingOwnerDashboardPage() {
               </>
             )}
 
-            {view === "statistics" && (() => {
+            {view === "statistics" && !statisticsReady && (
+              <StatisticsSkeleton />
+            )}
+
+            {view === "statistics" && statisticsReady && (() => {
               const selectedListings = statisticsListingFilter === "all"
                 ? sortedOwnerListings
                 : sortedOwnerListings.filter((item) => String(item.wpId ?? item.id ?? item.slug) === statisticsListingFilter);
