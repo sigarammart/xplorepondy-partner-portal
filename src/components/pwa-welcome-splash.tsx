@@ -25,7 +25,6 @@ export function PwaWelcomeSplash() {
         alt="Welcome to Xplore Pondy Partner"
         fetchPriority="high"
       />
-      <span className="xp-partner-launch-caption">Xplore Pondy Partner</span>
     </div>
   );
 }
