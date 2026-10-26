@@ -137,7 +137,7 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
     if (isAdministrator) {
       const all: OwnerManagedListing[] = [];
       for (let page = 1; page <= 30; page += 1) {
-        const response = await fetchAdminListings({ data: { ...ownerIdentity, page, perPage: 100 } }) as { items?: Array<Partial<OwnerManagedListing> & { id: number; title?: string | { rendered?: string } }>; total_pages?: number };
+        const response = await fetchAdminListings({ data: { ...ownerIdentity, page, perPage: 100 } }) as { items?: Array<Omit<Partial<OwnerManagedListing>, "title"> & { id: number; title?: string | { rendered?: string } }>; total_pages?: number };
         all.push(...(response.items ?? []).map((item) => ({
           ...item,
           id: Number(item.id),
