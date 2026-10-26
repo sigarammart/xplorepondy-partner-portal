@@ -364,6 +364,7 @@ function ListingOwnerDashboardPage() {
   const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics">(searchView ?? "menu");
   const [statisticsListingFilter, setStatisticsListingFilter] = useState("all");
   const [statisticsListingSearch, setStatisticsListingSearch] = useState("");
+  const [statisticsListingDropdownOpen, setStatisticsListingDropdownOpen] = useState(false);
   const [statisticsTimeRange, setStatisticsTimeRange] = useState("all");
   const [cameraRequest, setCameraRequest] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -850,23 +851,44 @@ function ListingOwnerDashboardPage() {
                         <option value="all">All Time</option>
                       </select>
                     </label>
-                    <div className="flex min-w-64 max-w-full flex-col gap-2 text-sm font-medium">
-                      <label htmlFor="statistics-listing-search">Filter by listing</label>
-                      <input
-                        id="statistics-listing-search"
-                        type="search"
-                        value={statisticsListingSearch}
-                        onChange={(event) => setStatisticsListingSearch(event.target.value)}
-                        placeholder="Search listings…"
-                        aria-label="Search listings by name"
-                        className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                      />
-                      <select aria-label="Select listing for statistics" value={statisticsListingFilter} onChange={(event) => setStatisticsListingFilter(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">
-                        <option value="all">All listings</option>
-                        {sortedOwnerListings
-                          .filter((item) => item.title.toLocaleLowerCase().includes(statisticsListingSearch.trim().toLocaleLowerCase()))
-                          .map((item) => <option key={item.wpId ?? item.id ?? item.slug} value={String(item.wpId ?? item.id ?? item.slug)}>{item.title}</option>)}
-                      </select>
+                    <div className="relative flex min-w-64 max-w-full flex-col gap-2 text-sm font-medium">
+                      <label id="statistics-listing-label">Filter by listing</label>
+                      <button
+                        type="button"
+                        aria-labelledby="statistics-listing-label"
+                        aria-haspopup="listbox"
+                        aria-expanded={statisticsListingDropdownOpen}
+                        onClick={() => setStatisticsListingDropdownOpen((open) => !open)}
+                        className="flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 text-left text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        <span className="truncate">{statisticsListingFilter === "all" ? "All listings" : sortedOwnerListings.find((item) => String(item.wpId ?? item.id ?? item.slug) === statisticsListingFilter)?.title ?? "All listings"}</span>
+                        <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-4 shrink-0 text-muted-foreground"><path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </button>
+                      {statisticsListingDropdownOpen && <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-64 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl">
+                        <div className="border-b border-border p-2">
+                          <input
+                            autoFocus
+                            id="statistics-listing-search"
+                            type="search"
+                            value={statisticsListingSearch}
+                            onChange={(event) => setStatisticsListingSearch(event.target.value)}
+                            placeholder="Search listings…"
+                            aria-label="Search listings by name"
+                            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          />
+                        </div>
+                        <div role="listbox" aria-labelledby="statistics-listing-label" className="max-h-64 overflow-y-auto p-1">
+                          <button type="button" role="option" aria-selected={statisticsListingFilter === "all"} onClick={() => { setStatisticsListingFilter("all"); setStatisticsListingDropdownOpen(false); setStatisticsListingSearch(""); }} className={`w-full rounded-md px-3 py-2.5 text-left text-sm font-normal hover:bg-muted ${statisticsListingFilter === "all" ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}>All listings</button>
+                          {sortedOwnerListings
+                            .filter((item) => item.title.toLocaleLowerCase().includes(statisticsListingSearch.trim().toLocaleLowerCase()))
+                            .map((item) => {
+                              const value = String(item.wpId ?? item.id ?? item.slug);
+                              const selected = statisticsListingFilter === value;
+                              return <button key={item.wpId ?? item.id ?? item.slug} type="button" role="option" aria-selected={selected} onClick={() => { setStatisticsListingFilter(value); setStatisticsListingDropdownOpen(false); setStatisticsListingSearch(""); }} className={`w-full rounded-md px-3 py-2.5 text-left text-sm font-normal hover:bg-muted ${selected ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}>{item.title}</button>;
+                            })}
+                          {sortedOwnerListings.filter((item) => item.title.toLocaleLowerCase().includes(statisticsListingSearch.trim().toLocaleLowerCase())).length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No listings found.</p>}
+                        </div>
+                      </div>}
                     </div>
                     <span className="text-xs text-muted-foreground">{statisticsTimeRange === "all" ? "Showing lifetime totals. Date-range reports become available when dated view-event data is recorded." : "The selected range is ready in the interface, but these lifetime counters cannot be filtered by date yet. Dated analytics events are required for accurate period totals."}</span>
                   </div>
