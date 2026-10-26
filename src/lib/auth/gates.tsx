@@ -87,7 +87,7 @@ export function SignInButtons() {
  * gate-materialized — behind the gate the next request signs the viewer
  * straight back in, so a sign-out control there is a broken loop.
  */
-export function UserButton() {
+export function UserButton({ showSignOut = true }: { showSignOut?: boolean } = {}) {
   const user = useCurrentUser();
   // Sign-out can take a moment (and can fail when deployed), so the control
   // shows it is working and cannot be fired twice.
@@ -117,7 +117,7 @@ export function UserButton() {
           {label}
         </Link>
       </span>
-      {authEnabled && !gateSession && (
+      {showSignOut && authEnabled && !gateSession && (
         <button
           type="button"
           disabled={signingOut}
