@@ -363,6 +363,7 @@ function ListingOwnerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics">(searchView ?? "menu");
   const [statisticsListingFilter, setStatisticsListingFilter] = useState("all");
+  const [statisticsTimeRange, setStatisticsTimeRange] = useState("all");
   const [cameraRequest, setCameraRequest] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const identityToken = useSession((s) => s.wpIdentityToken);
@@ -838,13 +839,23 @@ function ListingOwnerDashboardPage() {
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">All-time totals</span>
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-muted/40 p-3">
+                    <label className="flex flex-wrap items-center gap-2 text-sm font-medium">Time Range
+                      <select aria-label="Filter statistics by time range" value={statisticsTimeRange} onChange={(event) => setStatisticsTimeRange(event.target.value)} className="h-10 min-w-40 max-w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">
+                        <option value="today">Today</option>
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                        <option value="year">Last Year</option>
+                        <option value="all">All Time</option>
+                      </select>
+                    </label>
                     <label className="flex flex-wrap items-center gap-2 text-sm font-medium">Filter by listing
                       <select aria-label="Filter statistics by listing" value={statisticsListingFilter} onChange={(event) => setStatisticsListingFilter(event.target.value)} className="h-10 min-w-48 max-w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">
                         <option value="all">All listings</option>
                         {sortedOwnerListings.map((item) => <option key={item.wpId ?? item.id ?? item.slug} value={String(item.wpId ?? item.id ?? item.slug)}>{item.title}</option>)}
                       </select>
                     </label>
-                    <span className="text-xs text-muted-foreground">Date-range reporting requires dated view-event data; these counters currently provide lifetime totals.</span>
+                    <span className="text-xs text-muted-foreground">{statisticsTimeRange === "all" ? "Showing lifetime totals. Date-range reports become available when dated view-event data is recorded." : "The selected range is ready in the interface, but these lifetime counters cannot be filtered by date yet. Dated analytics events are required for accurate period totals."}</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-primary/10 p-2 text-primary"><ChartNoAxesCombined className="size-4"/></span>Total listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{totalListingViews.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">Website + app</p></article>
