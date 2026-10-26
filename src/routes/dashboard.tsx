@@ -864,8 +864,8 @@ function ListingOwnerDashboardPage() {
                         <span className="truncate">{statisticsListingFilter === "all" ? "All listings" : sortedOwnerListings.find((item) => String(item.wpId ?? item.id ?? item.slug) === statisticsListingFilter)?.title ?? "All listings"}</span>
                         <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-4 shrink-0 text-muted-foreground"><path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       </button>
-                      {statisticsListingDropdownOpen && <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-64 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl">
-                        <div className="border-b border-border p-2">
+                      {statisticsListingDropdownOpen && <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-64 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl ring-1 ring-border/80">
+                        <div className="border-b border-border bg-card p-2">
                           <input
                             autoFocus
                             id="statistics-listing-search"
@@ -877,7 +877,7 @@ function ListingOwnerDashboardPage() {
                             className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary"
                           />
                         </div>
-                        <div role="listbox" aria-labelledby="statistics-listing-label" className="max-h-64 overflow-y-auto p-1">
+                        <div role="listbox" aria-labelledby="statistics-listing-label" className="max-h-64 overflow-y-auto bg-card p-1">
                           <button type="button" role="option" aria-selected={statisticsListingFilter === "all"} onClick={() => { setStatisticsListingFilter("all"); setStatisticsListingDropdownOpen(false); setStatisticsListingSearch(""); }} className={`w-full rounded-md px-3 py-2.5 text-left text-sm font-normal hover:bg-muted ${statisticsListingFilter === "all" ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}>All listings</button>
                           {sortedOwnerListings
                             .filter((item) => item.title.toLocaleLowerCase().includes(statisticsListingSearch.trim().toLocaleLowerCase()))
