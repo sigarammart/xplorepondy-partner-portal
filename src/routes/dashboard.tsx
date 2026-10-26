@@ -543,7 +543,9 @@ function ListingOwnerDashboardPage() {
     { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const },
     { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const },
     { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings, view: "bookings" as const },
-    { key: "table-reservations", label: "Table Reservations", icon: CalendarDays, count: dashboard?.reservations.length ?? 0, view: "listings" as const },
+    { key: "table-reservations", label: "Table Reservations", icon: CalendarDays, count: dashboard?.reservations.length ?? 0, view: "bookings" as const, bookingType: "table" as const, child: true },
+    { key: "event-bookings", label: "Event Bookings", icon: CalendarDays, count: eventBookings.length, view: "bookings" as const, bookingType: "events" as const, child: true },
+    { key: "experience-bookings", label: "Experience Bookings", icon: Ticket, count: experienceBookings.length, view: "bookings" as const, bookingType: "experiences" as const, child: true },
     { key: "notifications", label: "Notifications", icon: Bell, count: unreadNotifications, view: "notifications" as const },
   ];
 
@@ -567,10 +569,10 @@ function ListingOwnerDashboardPage() {
               <Link
                 key={item.key}
                 to="/dashboard"
-                search={item.view === "menu" ? {} : { view: item.view }}
-                aria-current={activeView === item.key || (item.key === "table-reservations" && activeView === "listings") ? "page" : undefined}
+                search={item.view === "menu" ? {} : { view: item.view, ...(item.bookingType ? { bookingType: item.bookingType } : {}) }}
+                aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : activeView === item.key ? "page" : undefined}
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
+                className={"flex items-center gap-3 rounded-xl py-2 text-sm font-medium text-foreground transition hover:bg-muted aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary " + (item.child ? "min-h-10 pl-10 pr-3 text-[13px]" : "min-h-11 px-3")}
               >
                 <item.icon className="size-4 shrink-0" />
                 <span className="flex-1">{item.label}</span>
@@ -608,7 +610,7 @@ function ListingOwnerDashboardPage() {
             <div className="xp-partner-sidebar-label">WORKSPACE</div>
             <nav aria-label="Partner portal navigation">
               {dashboardNav.map((item) => (
-                <Link key={item.key} to="/dashboard" search={item.view === "menu" ? {} : { view: item.view }} aria-current={activeView === item.key || (item.key === "table-reservations" && activeView === "listings") ? "page" : undefined} className="xp-partner-nav-link">
+                <Link key={item.key} to="/dashboard" search={item.view === "menu" ? {} : { view: item.view, ...(item.bookingType ? { bookingType: item.bookingType } : {}) }} aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : activeView === item.key ? "page" : undefined} className={"xp-partner-nav-link " + (item.child ? "ml-3 !min-h-10 !border-transparent !bg-transparent !pl-7 !text-sm hover:!bg-muted" : "")}>
                   <item.icon className="size-4" /><span>{item.label}</span>{item.count !== undefined && <span className="xp-partner-nav-count">{item.count}</span>}
                 </Link>
               ))}
@@ -718,7 +720,7 @@ function ListingOwnerDashboardPage() {
             {view === "bookings" && (
               <section className="mt-5">
                 <div className="hidden md:block"><OwnerTicketScanner email={email} identityToken={identityToken ?? undefined} cameraRequest={cameraRequest} onCameraRequestHandled={() => setCameraRequest(false)} onTableCheckedIn={(id, checkedAt) => setDashboard((current) => current ? { ...current, reservations: current.reservations.map((reservation) => reservation.id === id ? { ...reservation, checkedIn: true, checkedInAt: checkedAt } : reservation) } : current)} /></div>
-                <div className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-3 sm:gap-2">
+                {!searchBookingType && <div className="mt-2 grid grid-cols-3 gap-1.5 sm:mt-3 sm:gap-2">
                   {[
                     { key: "table", label: "Table reservations", count: dashboard?.reservations.length ?? 0 },
                     { key: "events", label: "Event bookings", count: eventBookings.length },
@@ -729,7 +731,7 @@ function ListingOwnerDashboardPage() {
                       <span className="mt-1 block text-xl font-semibold">{item.count}</span>
                     </button>
                   ))}
-                </div>
+                </div>}
                 {bookingType === "table" && (
                   dashboard ? <OwnerBookings dashboard={dashboard} email={email} selectedListing={selectedListing} targetReservationId={searchBookingType === "table" ? searchBookingId : undefined} onUpdated={(id, status) => setDashboard((current) => current ? { ...current, reservations: current.reservations.map((reservation) => reservation.id === id ? { ...reservation, status } : reservation) } : current)} /> : <p className="mt-4 text-sm text-muted-foreground">Loading table reservations…</p>
                 )}
