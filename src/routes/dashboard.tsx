@@ -686,6 +686,7 @@ function ListingOwnerDashboardPage() {
                 {bookingType === "experiences" && (
                   <div className="mt-3 space-y-2">
                     {experienceBookingsLoading ? <p className="text-sm text-muted-foreground">Loading experience bookings…</p> : experienceBookingError ? <p className="rounded-xl border border-destructive/30 p-3 text-sm text-destructive">{experienceBookingError}</p> : experienceBookings.length === 0 ? <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No customer requests found for your experiences.</p> : experienceBookings.map((booking) => <ExperienceOwnerBookingCard key={booking.id} booking={booking} email={email} identityToken={identityToken ?? undefined} targetBookingId={searchBookingType === "experiences" ? searchBookingId : undefined} onUpdated={(id, status) => setExperienceBookings((current) => current.map((item) => item.id === id ? { ...item, status } : item))} />)}
+                   </div>
                 )}
               </section>
             )}
