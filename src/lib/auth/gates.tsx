@@ -113,7 +113,7 @@ export function UserButton() {
         </span>
       )}
       <span className="text-sm font-medium">
-        <Link to="/account" className="hover:underline focus-visible:underline" aria-label={`Open account for ${label}`}>
+        <Link to="/dashboard" className="hover:underline focus-visible:underline" aria-label={`Open account for ${label}`}>
           {label}
         </Link>
       </span>
