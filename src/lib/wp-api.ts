@@ -2560,8 +2560,8 @@ function mapListing(
     image: archiveCard ? featuredImage : (image === FALLBACK_IMAGE[category] && local?.image ? local.image : image),
     siteUrl: raw.link ?? `${WP_ORIGIN}/listing/${raw.slug}/`,
     wpId: raw.id,
-    siteViewCount: Math.max(0, Number(metaRecord._listing_views_count ?? metaRecord.listing_views_count ?? 0) || 0),
-    appViewCount: Math.max(0, Number(raw.xplore_view_count ?? 0) || 0),
+    siteViewCount: Math.max(0, Number(metaRecord._listing_views_count ?? metaRecord.listing_views_count ?? raw.xplore_meta?._listing_views_count ?? raw.xplore_archive_meta?._listing_views_count ?? 0) || 0),
+    appViewCount: Math.max(0, Number(raw.xplore_view_count ?? metaRecord._xplore_view_count ?? metaRecord.xplore_view_count ?? 0) || 0),
     authorId: raw.author || undefined,
     featuredMediaId: raw.featured_media || undefined,
     lat: archiveCard
