@@ -4,7 +4,7 @@ import { resolvePlace, searchGooglePlacesOnly, type PlaceSuggestion } from "@/li
 import { CheckCircle2, ClipboardList, ExternalLink, FilePlus2, Pencil, RefreshCw, Store, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createOwnerListingSubmission, fetchOwnerListingFormSchema, fetchOwnerListings, submitOwnerListingEdit, uploadOwnerListingImage } from "@/lib/owner-listings";
+import { createOwnerListingSubmission, fetchAdminListings, fetchOwnerListingFormSchema, fetchOwnerListings, submitOwnerListingEdit, uploadOwnerListingImage } from "@/lib/owner-listings";
 
 type OwnerManagedListing = {
   id: number; title: string; description?: string; status: string; url?: string;
@@ -75,7 +75,7 @@ function statusClass(status: string) {
       : "bg-amber-500/10 text-amber-700";
 }
 
-export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsResolved, email, identityToken }: { loggedIn: boolean; allowedListingIds: number[]; listingsResolved: boolean; email?: string; identityToken?: string }) {
+export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListingIds, listingsResolved, email, identityToken }: { loggedIn: boolean; isAdministrator: boolean; allowedListingIds: number[]; listingsResolved: boolean; email?: string; identityToken?: string }) {
   const ownerIdentity = { email, identityToken };
   const [items, setItems] = useState<OwnerManagedListing[]>([]);
   const [listingPage, setListingPage] = useState(1);
@@ -106,7 +106,7 @@ export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsReso
   // Do not display or offer edits for posts returned by the secondary API unless
   // their IDs are also present in that verified owner-scoped list.
   const allowedIds = new Set(allowedListingIds);
-  const visibleItems = listingsResolved ? items.filter((item) => allowedIds.has(item.id)) : [];
+  const visibleItems = listingsResolved ? (isAdministrator ? items : items.filter((item) => allowedIds.has(item.id))) : [];
   const normalizedListingSearch = listingSearch.trim().toLocaleLowerCase();
   const filteredItems = visibleItems.filter((item) =>
     item.title.toLocaleLowerCase().includes(normalizedListingSearch) ||
@@ -131,11 +131,31 @@ export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsReso
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [addressQuery, formOpen]);
 
+  async function loadListingsAndSubmissions() {
+    const ownerResult = await fetchOwnerListings({ data: ownerIdentity }) as ListingsResponse;
+    let listingItems = Array.isArray(ownerResult.items) ? ownerResult.items : [];
+    if (isAdministrator) {
+      const all: OwnerManagedListing[] = [];
+      for (let page = 1; page <= 30; page += 1) {
+        const response = await fetchAdminListings({ data: { ...ownerIdentity, page, perPage: 100 } }) as { items?: Array<Partial<OwnerManagedListing> & { id: number; title?: string | { rendered?: string } }>; total_pages?: number };
+        all.push(...(response.items ?? []).map((item) => ({
+          ...item,
+          id: Number(item.id),
+          title: typeof item.title === "string" ? item.title : item.title?.rendered ?? `Listing #${item.id}`,
+          status: String(item.status ?? "publish"),
+        })));
+        if (!response.total_pages || page >= response.total_pages || !(response.items ?? []).length) break;
+      }
+      listingItems = all;
+    }
+    return { ...ownerResult, items: listingItems };
+  }
+
   async function refresh() {
     setLoading(true); setError("");
     try {
-      const result = await fetchOwnerListings({ data: ownerIdentity }) as ListingsResponse;
-      setItems(Array.isArray(result.items) ? result.items : []);
+      const result = await loadListingsAndSubmissions();
+      setItems(result.items);
       setListingPage(1);
       setSubmissions(Array.isArray(result.submissions) ? result.submissions : []);
     } catch (reason) {
@@ -147,13 +167,12 @@ export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsReso
     if (!loggedIn) { setItems([]); setSubmissions([]); return; }
     let cancelled = false;
     setLoading(true); setError("");
-    void Promise.all([fetchOwnerListings({ data: ownerIdentity }), fetchOwnerListingFormSchema({ data: ownerIdentity })])
+    void Promise.all([loadListingsAndSubmissions(), fetchOwnerListingFormSchema({ data: ownerIdentity })])
       .then(([listingsResult, schemaResult]) => {
         if (cancelled) return;
-        const data = listingsResult as ListingsResponse;
-        setItems(Array.isArray(data.items) ? data.items : []);
+        setItems(listingsResult.items);
         setListingPage(1);
-        setSubmissions(Array.isArray(data.submissions) ? data.submissions : []);
+        setSubmissions(Array.isArray(listingsResult.submissions) ? listingsResult.submissions : []);
         setSchema(schemaResult as FormSchema);
       })
       .catch((reason) => {
@@ -161,7 +180,7 @@ export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsReso
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [loggedIn, email, identityToken]);
+  }, [loggedIn, isAdministrator, email, identityToken]);
 
   function startNew() {
     setEditing(null); setTitle(""); setDescription(""); setFields(emptyListingFields()); setOpeningHours(emptyOpeningHours()); setGalleryUploads([]); setFeaturedUpload(null); setEnableReservation(false); setAddressQuery(""); setAddressHits([]); setTaxonomies({}); setTaxonomySearch({}); setFormError(""); setFormOpen(true);
