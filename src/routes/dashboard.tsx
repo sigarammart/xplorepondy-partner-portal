@@ -570,9 +570,14 @@ function ListingOwnerDashboardPage() {
   }, [email, userId]);
 
   const listing = dashboard?.listings.find((item) => item.id === selectedListing);
-  const visibleOwnerListings = ownerListings.length ? ownerListings : sessionListings.map((item) => ({
-    id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.name, url: item.siteUrl, siteViewCount: item.siteViewCount ?? 0, appViewCount: item.appViewCount ?? 0,
-  }));
+  const visibleOwnerListings = isAdministrator && adminListings.length
+    ? adminListings.map((item) => ({
+        id: item.id, wpId: item.id, slug: item.slug, title: item.title, url: item.url,
+        siteViewCount: item.site_view_count ?? 0, appViewCount: item.app_view_count ?? 0,
+      }))
+    : ownerListings.length ? ownerListings : sessionListings.map((item) => ({
+        id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.name, url: item.siteUrl, siteViewCount: item.siteViewCount ?? 0, appViewCount: item.appViewCount ?? 0,
+      }));
 
   const sortedOwnerListings = [...visibleOwnerListings].sort((a, b) => {
     const siteA = a.siteViewCount ?? 0;
