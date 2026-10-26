@@ -1,0 +1,809 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Use the app-selected theme class, never the operating-system preference, for Tailwind dark: utilities. */
+@custom-variant dark (&:where(html.dark, html.dark *));
+
+@theme {
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
+
+  --color-background: var(--xp-bg);
+  --color-foreground: var(--xp-fg);
+  --color-card: var(--xp-card);
+  --color-card-fg: var(--xp-card-fg);
+  --color-muted: var(--xp-muted);
+  --color-muted-foreground: var(--xp-muted-fg);
+  --color-primary: var(--xp-primary);
+  --color-primary-foreground: var(--xp-primary-fg);
+  --color-secondary: var(--xp-secondary);
+  --color-secondary-foreground: var(--xp-secondary-fg);
+  --color-accent: var(--xp-accent);
+  --color-accent-foreground: var(--xp-accent-fg);
+  --color-border: var(--xp-border);
+  --color-ring: var(--xp-ring);
+  --color-input: var(--xp-input);
+  --color-destructive: var(--xp-destructive);
+  --color-hero: #fff6e8;
+  --color-hero-muted: #b8cbd4;
+  --color-overlay: #07131a;
+  --color-logo-bg: #000000;
+  --color-star: var(--xp-mango);
+  --color-coral: var(--xp-coral);
+  --color-lagoon: var(--xp-lagoon);
+  --color-sea: var(--xp-sea);
+  --color-mango: var(--xp-mango);
+  --color-leaf: var(--xp-leaf);
+  --color-tile-coral: #05b9eb;
+  --color-tile-lagoon: #05b9eb;
+  --color-tile-sea: #05b9eb;
+  --color-tile-mango: #fff000;
+  --color-tile-leaf: #05b9eb;
+  --color-open: #0e7a42;
+  --color-closed: #b42318;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius: 0.75rem;
+
+  --shadow-soft: var(--xp-shadow);
+}
+
+html.dark,
+:root:not(.light),
+html.light .site-header {
+  color-scheme: dark;
+  --xp-bg: #000f1c;
+  --xp-fg: #f1f7f8;
+  --xp-card: #103544;
+  --xp-card-fg: #f1f7f8;
+  --xp-muted: #153b4b;
+  --xp-muted-fg: #b8cbd4;
+  --xp-primary: #05b9eb;
+  --xp-primary-fg: #062334;
+  --xp-secondary: #153b4b;
+  --xp-secondary-fg: #f1f7f8;
+  --xp-accent: #fff000;
+  --xp-accent-fg: #000f1c;
+  --xp-border: #2b5262;
+  --xp-ring: #05b9eb;
+  --xp-input: #2b5262;
+  --xp-destructive: #ff8b85;
+  --xp-coral: #05b9eb;
+  --xp-lagoon: #05b9eb;
+  --xp-sea: #000f1c;
+  --xp-mango: #fff000;
+  --xp-leaf: #05b9eb;
+  --xp-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 28px rgb(0 0 0 / 0.32);
+}
+
+html.light {
+  color-scheme: light;
+  --xp-bg: #f1f7f8;
+  --xp-fg: #000f1c;
+  --xp-card: #ffffff;
+  --xp-card-fg: #000f1c;
+  --xp-muted: #e8f2f5;
+  --xp-muted-fg: #526a78;
+  --xp-primary: #05b9eb;
+  --xp-primary-fg: #062334;
+  --xp-secondary: #e8f2f5;
+  --xp-secondary-fg: #000f1c;
+  --xp-accent: #fff000;
+  --xp-accent-fg: #000f1c;
+  --xp-border: #d7e4e9;
+  --xp-ring: #05b9eb;
+  --xp-input: #d7e4e9;
+  --xp-destructive: #c24732;
+  --xp-coral: #05b9eb;
+  --xp-lagoon: #05b9eb;
+  --xp-sea: #000f1c;
+  --xp-mango: #fff000;
+  --xp-leaf: #05b9eb;
+  --xp-shadow: 0 1px 2px rgb(28 25 20 / 0.05), 0 8px 24px rgb(28 25 20 / 0.07);
+}
+
+html.light .site-header {
+  --color-background: var(--xp-bg);
+  --color-foreground: var(--xp-fg);
+  --color-card: var(--xp-card);
+  --color-card-fg: var(--xp-card-fg);
+  --color-muted: var(--xp-muted);
+  --color-muted-foreground: var(--xp-muted-fg);
+  --color-primary: var(--xp-primary);
+  --color-primary-foreground: var(--xp-primary-fg);
+  --color-secondary: var(--xp-secondary);
+  --color-secondary-foreground: var(--xp-secondary-fg);
+  --color-accent: var(--xp-accent);
+  --color-accent-foreground: var(--xp-accent-fg);
+  --color-border: var(--xp-border);
+  --color-ring: var(--xp-ring);
+  --color-input: var(--xp-input);
+  --color-destructive: var(--xp-destructive);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    min-height: 100dvh;
+    background: var(--xp-bg);
+    color: var(--xp-fg);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    overscroll-behavior: none;
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: var(--font-display);
+    text-wrap: balance;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--xp-primary) 22%, transparent);
+  }
+
+  img {
+    outline: 1px solid color-mix(in oklab, var(--xp-fg) 10%, transparent);
+    outline-offset: -1px;
+  }
+}
+
+@keyframes xp-page-progress {
+  0% {
+    transform: translateX(-120%);
+  }
+  50% {
+    transform: translateX(160%);
+  }
+  100% {
+    transform: translateX(360%);
+  }
+}
+
+html.standalone {
+  overscroll-behavior: none;
+}
+
+html.standalone body {
+  user-select: none;
+}
+
+html.standalone input,
+html.standalone textarea {
+  user-select: text;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* Xplore Pondy homepage: shared structure, distinct light and dark presentations. */
+.xp-home-hero-shade {
+  background:
+    linear-gradient(90deg, rgb(0 15 28 / 86%) 0%, rgb(0 15 28 / 62%) 37%, rgb(0 15 28 / 12%) 78%, rgb(0 15 28 / 4%) 100%),
+    linear-gradient(0deg, rgb(0 15 28 / 24%), transparent 42%);
+}
+.xp-home-hero {
+  color: #fff;
+}
+html.light .xp-home-hero-shade {
+  background:
+    linear-gradient(90deg, rgb(0 15 28 / 82%) 0%, rgb(0 15 28 / 53%) 34%, rgb(0 15 28 / 5%) 72%, transparent 100%),
+    linear-gradient(0deg, rgb(0 15 28 / 14%), transparent 40%);
+}
+html.dark .xp-home-hero-shade,
+:root:not(.light) .xp-home-hero-shade {
+  background:
+    linear-gradient(90deg, rgb(2 15 25 / 94%) 0%, rgb(2 15 25 / 76%) 39%, rgb(2 15 25 / 24%) 78%, rgb(2 15 25 / 8%) 100%),
+    linear-gradient(0deg, rgb(2 15 25 / 44%), rgb(2 15 25 / 4%) 60%);
+}
+.xp-home-promo {
+  background: #000f1c;
+  color: #fff;
+}
+.xp-home-promo .xp-home-promo-accent {
+  color: #fff000;
+}
+html.light .xp-home-promo {
+  background: linear-gradient(110deg, #000f1c, #0c3b55);
+  box-shadow: 0 12px 30px rgb(0 15 28 / 12%);
+}
+html.dark .xp-home-promo,
+:root:not(.light) .xp-home-promo {
+  background: linear-gradient(110deg, #041521, #000f1c 62%, #0b344a);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 28%);
+}
+@media (max-width: 640px) {
+  .xp-home-hero-shade,
+  html.light .xp-home-hero-shade {
+    background:
+      linear-gradient(90deg, rgb(0 15 28 / 86%), rgb(0 15 28 / 38%)),
+      linear-gradient(0deg, rgb(0 15 28 / 28%), transparent 60%);
+  }
+  html.dark .xp-home-hero-shade,
+  :root:not(.light) .xp-home-hero-shade {
+    background: linear-gradient(90deg, rgb(2 15 25 / 92%), rgb(2 15 25 / 55%));
+  }
+}
+
+
+/* High-contrast dark mode surfaces and readable muted text. */
+html.dark,
+:root:not(.light) {
+  color-scheme: dark;
+}
+html.dark .text-muted-foreground,
+:root:not(.light) .text-muted-foreground {
+  color: #b8cbd4;
+}
+html.dark input::placeholder,
+:root:not(.light) input::placeholder,
+html.dark textarea::placeholder,
+:root:not(.light) textarea::placeholder {
+  color: #a7bdc8;
+  opacity: 1;
+}
+html.dark .bg-card,
+:root:not(.light) .bg-card {
+  color: var(--xp-card-fg);
+}
+html.dark .xp-home-hero .text-white,
+:root:not(.light) .xp-home-hero .text-white {
+  color: #ffffff;
+}
+html.dark .xp-home-hero .bg-white,
+:root:not(.light) .xp-home-hero .bg-white {
+  color: #000f1c;
+}
+
+
+/* Dark navy category chips for the homepage hero, in both themes. */
+.xp-home-category-chip {
+  background: rgb(5 24 38 / 88%);
+  color: #f1f7f8;
+  border: 1px solid rgb(140 184 205 / 42%);
+  backdrop-filter: blur(10px);
+}
+.xp-home-category-chip:hover {
+  background: #103b50;
+  border-color: #05b9eb;
+  color: #ffffff;
+}
+.xp-home-category-chip:focus-visible {
+  outline: 2px solid #05b9eb;
+  outline-offset: 3px;
+}
+
+
+/* Homepage 6×2 quick category tiles: match the dark navy hero chips. */
+.xp-home-quick-tile {
+  background: rgb(5 24 38 / 94%);
+  color: #f1f7f8;
+  border: 1px solid rgb(140 184 205 / 42%);
+}
+.xp-home-quick-tile svg {
+  color: #05b9eb !important;
+}
+.xp-home-quick-tile:hover {
+  background: #103b50;
+  border-color: #05b9eb;
+  color: #ffffff;
+  box-shadow: 0 8px 22px rgb(0 0 0 / 18%);
+}
+.xp-home-quick-tile:focus-visible {
+  outline: 2px solid #05b9eb;
+  outline-offset: 3px;
+}
+
+
+/* Dark search bar treatment from the Xplore Pondy homepage mockup. */
+.xp-home-search {
+  background: rgb(5 24 38 / 91%);
+  border: 1px solid rgb(140 184 205 / 65%);
+  color: #f1f7f8;
+  backdrop-filter: blur(12px);
+}
+.xp-home-search-input {
+  color: #f1f7f8 !important;
+  caret-color: #05b9eb;
+}
+.xp-home-search-input::placeholder {
+  color: #b8cbd4 !important;
+  opacity: 1;
+}
+.xp-home-search:focus-within {
+  border-color: #05b9eb;
+  box-shadow: 0 0 0 2px rgb(5 185 235 / 18%), 0 18px 40px rgb(0 0 0 / 24%);
+}
+.xp-home-search input:-webkit-autofill,
+.xp-home-search input:-webkit-autofill:hover,
+.xp-home-search input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f1f7f8;
+  box-shadow: 0 0 0 1000px #051826 inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
+
+/* Photo category cards: restrained corners and a stronger bottom text gradient. */
+.xp-home-photo-link {
+  border-radius: 9px;
+  background: #000f1c;
+  border-color: rgb(115 145 163 / 42%);
+  color: #f1f7f8;
+  box-shadow: 0 5px 18px rgb(0 0 0 / 12%);
+}
+.xp-home-photo-link:hover {
+  border-color: #05b9eb;
+  box-shadow: 0 9px 24px rgb(0 0 0 / 22%);
+}
+.xp-home-photo-shade {
+  background: linear-gradient(
+    to top,
+    rgb(0 15 28 / 98%) 0%,
+    rgb(0 15 28 / 92%) 16%,
+    rgb(0 15 28 / 76%) 34%,
+    rgb(0 15 28 / 42%) 56%,
+    rgb(0 15 28 / 12%) 78%,
+    rgb(0 15 28 / 0%) 100%
+  );
+}
+.xp-home-photo-link:focus-visible {
+  outline: 2px solid #05b9eb;
+  outline-offset: 3px;
+}
+
+
+/* WordPress-formatted experience descriptions */
+.xpe-experience-content {
+  overflow-wrap: anywhere;
+}
+.xpe-experience-content > :first-child {
+  margin-top: 0;
+}
+.xpe-experience-content > :last-child {
+  margin-bottom: 0;
+}
+.xpe-experience-content p {
+  margin: 0 0 1rem;
+}
+.xpe-experience-content h1,
+.xpe-experience-content h2,
+.xpe-experience-content h3,
+.xpe-experience-content h4,
+.xpe-experience-content h5,
+.xpe-experience-content h6 {
+  margin: 1.35rem 0 .65rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--foreground);
+}
+.xpe-experience-content h1 { font-size: 1.5rem; }
+.xpe-experience-content h2 { font-size: 1.3rem; }
+.xpe-experience-content h3 { font-size: 1.12rem; }
+.xpe-experience-content h4,
+.xpe-experience-content h5,
+.xpe-experience-content h6 { font-size: 1rem; }
+.xpe-experience-content ul,
+.xpe-experience-content ol {
+  margin: .65rem 0 1rem;
+  padding-left: 1.5rem;
+}
+.xpe-experience-content ul { list-style: disc; }
+.xpe-experience-content ol { list-style: decimal; }
+.xpe-experience-content li {
+  padding-left: .15rem;
+  margin: .25rem 0;
+}
+.xpe-experience-content li > ul,
+.xpe-experience-content li > ol {
+  margin-top: .35rem;
+  margin-bottom: .35rem;
+}
+.xpe-experience-content strong,
+.xpe-experience-content b { font-weight: 700; }
+.xpe-experience-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.xpe-experience-content blockquote {
+  margin: 1rem 0;
+  padding: .75rem 1rem;
+  border-left: 3px solid var(--primary);
+  background: var(--muted);
+  border-radius: 0 .5rem .5rem 0;
+}
+.xpe-experience-content figure { margin: 1rem 0; }
+.xpe-experience-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: .5rem;
+}
+.xpe-experience-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.xpe-experience-content th,
+.xpe-experience-content td {
+  border: 1px solid var(--border);
+  padding: .5rem .65rem;
+  text-align: left;
+}
+.xpe-experience-content hr {
+  margin: 1.25rem 0;
+  border-color: var(--border);
+}
+
+
+/* Restore the small mobile gutter globally. Owner Dashboard's compact
+   layout should not make unrelated pages (such as Home) edge-to-edge. */
+@media (max-width: 767px) {
+  /* Apply the global mobile gutter even on full-bleed Explore / Events / Nearby pages. Ask AI remains edge-to-edge because its viewport is a canvas. */
+  main.app-main-content:not(.app-main-content-no-gutter) {
+    padding-inline: 5px !important;
+  }
+}
+
+
+/* Keep the experience detail page from widening the document on mobile.
+   Use overflow-x: clip (not hidden/auto) so the sticky site header and fixed
+   mobile navigation remain anchored to the viewport while scrolling. */
+@media (max-width: 767px) {
+  html:has(.xpe-experience-page),
+  body:has(.xpe-experience-page) {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+
+  main.app-main-content:has(.xpe-experience-page) {
+    min-width: 0;
+  }
+
+  .xpe-experience-page {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+
+/* Render the WordPress listing post body with the same semantic structure
+   authored in WordPress (paragraphs, headings, lists, links and media). */
+.xplore-listing-content {
+  overflow-wrap: anywhere;
+}
+.xplore-listing-content > :first-child {
+  margin-top: 0;
+}
+.xplore-listing-content > :last-child {
+  margin-bottom: 0;
+}
+.xplore-listing-content p {
+  margin: 0 0 1rem;
+  text-wrap: pretty;
+}
+.xplore-listing-content h1,
+.xplore-listing-content h2,
+.xplore-listing-content h3,
+.xplore-listing-content h4,
+.xplore-listing-content h5,
+.xplore-listing-content h6 {
+  margin: 1.35rem 0 .65rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+.xplore-listing-content h1 { font-size: 1.5rem; }
+.xplore-listing-content h2 { font-size: 1.3rem; }
+.xplore-listing-content h3 { font-size: 1.12rem; }
+.xplore-listing-content h4,
+.xplore-listing-content h5,
+.xplore-listing-content h6 { font-size: 1rem; }
+.xplore-listing-content ul,
+.xplore-listing-content ol {
+  margin: .65rem 0 1rem;
+  padding-left: 1.5rem;
+}
+.xplore-listing-content ul { list-style: disc; }
+.xplore-listing-content ol { list-style: decimal; }
+.xplore-listing-content li {
+  margin: .25rem 0;
+  padding-left: .15rem;
+}
+.xplore-listing-content a {
+  color: var(--xp-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.xplore-listing-content img,
+.xplore-listing-content video {
+  max-width: 100%;
+  height: auto;
+  border-radius: .5rem;
+}
+.xplore-listing-content figure { margin: 1rem 0; }
+.xplore-listing-content blockquote {
+  margin: 1rem 0;
+  padding: .75rem 1rem;
+  border-left: 3px solid var(--xp-primary);
+  background: var(--xp-muted);
+  border-radius: 0 .5rem .5rem 0;
+}
+.xplore-listing-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.xplore-listing-content th,
+.xplore-listing-content td {
+  border: 1px solid var(--xp-border);
+  padding: .5rem .65rem;
+  text-align: left;
+}
+
+
+/* Brighter Xplore Pondy home refresh — logo cyan/yellow with ocean-navy contrast. */
+.xp-home-page {
+  --xp-home-cyan: #05b9eb;
+  --xp-home-yellow: #fff000;
+  --xp-home-navy: #061b2b;
+  position: relative;
+  isolation: isolate;
+}
+html.light .xp-home-page {
+  background:
+    radial-gradient(ellipse at 6% 19%, rgb(5 185 235 / 9%), transparent 29rem),
+    radial-gradient(ellipse at 96% 46%, rgb(255 240 0 / 10%), transparent 24rem);
+}
+html.dark .xp-home-page,
+:root:not(.light) .xp-home-page {
+  background:
+    radial-gradient(ellipse at 0% 12%, rgb(5 185 235 / 8%), transparent 28rem),
+    radial-gradient(ellipse at 100% 58%, rgb(255 240 0 / 5%), transparent 25rem);
+}
+.xp-home-page > section {
+  position: relative;
+}
+.xp-home-hero {
+  min-height: 28rem;
+  border-block: 3px solid var(--xp-home-cyan);
+  border-radius: 0 0 28px 28px;
+  box-shadow: 0 18px 42px rgb(0 15 28 / 15%);
+}
+.xp-home-hero-shade {
+  background:
+    linear-gradient(100deg, rgb(0 15 28 / 91%) 0%, rgb(0 15 28 / 72%) 35%, rgb(0 15 28 / 20%) 72%, rgb(0 15 28 / 5%) 100%),
+    linear-gradient(0deg, rgb(0 15 28 / 34%), transparent 48%);
+}
+html.light .xp-home-hero-shade {
+  background:
+    linear-gradient(100deg, rgb(0 15 28 / 89%) 0%, rgb(0 15 28 / 68%) 34%, rgb(0 15 28 / 15%) 71%, rgb(0 15 28 / 4%) 100%),
+    linear-gradient(0deg, rgb(0 15 28 / 28%), transparent 50%);
+}
+.xp-home-page h2 {
+  letter-spacing: -0.04em;
+}
+.xp-home-page h2::selection,
+.xp-home-page h3::selection {
+  background: var(--xp-home-yellow);
+  color: var(--xp-home-navy);
+}
+.xp-home-page .xp-home-quick-tile {
+  min-height: 4.3rem;
+  border: 1px solid rgb(5 185 235 / 25%);
+  border-radius: 15px;
+  box-shadow: 0 5px 14px rgb(0 15 28 / 7%);
+}
+html.light .xp-home-page .xp-home-quick-tile {
+  background: linear-gradient(145deg, #fff 0%, #e5f8fe 100%);
+  color: #061b2b;
+}
+html.dark .xp-home-page .xp-home-quick-tile,
+:root:not(.light) .xp-home-page .xp-home-quick-tile {
+  background: linear-gradient(145deg, #103544 0%, #061b2b 100%);
+  color: #f1f7f8;
+}
+.xp-home-page .xp-home-quick-tile svg {
+  color: var(--xp-home-cyan) !important;
+}
+.xp-home-page .xp-home-quick-tile:nth-child(4n) svg,
+.xp-home-page .xp-home-quick-tile:nth-child(4n + 1) svg {
+  color: #bd9c00 !important;
+}
+.xp-home-page .xp-home-quick-tile:hover {
+  transform: translateY(-3px);
+  border-color: var(--xp-home-cyan);
+  box-shadow: 0 10px 22px rgb(5 185 235 / 15%);
+}
+.xp-home-page .xp-home-photo-link {
+  min-height: 10rem;
+  border: 2px solid rgb(5 185 235 / 20%);
+  border-radius: 16px;
+}
+.xp-home-page .xp-home-photo-link:hover {
+  border-color: var(--xp-home-cyan);
+}
+.xp-home-page .xp-home-promo {
+  position: relative;
+  border: 1px solid rgb(5 185 235 / 55%);
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse at 85% 0%, rgb(5 185 235 / 32%), transparent 40%),
+    linear-gradient(115deg, #061b2b 0%, #0b3c53 70%, #057fa5 100%);
+  box-shadow: 0 16px 36px rgb(0 15 28 / 17%);
+}
+.xp-home-page .xp-home-promo::after {
+  content: "";
+  position: absolute;
+  right: 1.25rem;
+  bottom: -1.15rem;
+  width: 5rem;
+  height: 5rem;
+  border: 10px solid var(--xp-home-yellow);
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  opacity: .95;
+  pointer-events: none;
+}
+.xp-home-page .xp-home-promo .xp-home-promo-accent {
+  color: var(--xp-home-yellow);
+  text-shadow: 0 1px 0 rgb(0 0 0 / 12%);
+}
+.xp-home-page .xp-home-promo .text-primary-foreground\/70,
+.xp-home-page .xp-home-promo .text-primary-foreground\/80 {
+  color: #f1f7f8;
+}
+.xp-home-page .xp-home-promo a[data-slot="button"]:first-child,
+.xp-home-page .xp-home-promo a.bg-card {
+  background: var(--xp-home-yellow);
+  color: var(--xp-home-navy);
+  border: 1px solid var(--xp-home-yellow);
+  font-weight: 800;
+}
+.xp-home-page .xp-home-promo a.bg-card:hover {
+  background: #fff86a;
+}
+.xp-home-page .xp-home-search {
+  background: rgb(3 24 39 / 94%);
+  border: 2px solid rgb(255 255 255 / 90%);
+  box-shadow: 0 12px 30px rgb(0 15 28 / 30%);
+}
+.xp-home-page .xp-home-search:focus-within {
+  border-color: var(--xp-home-yellow);
+  box-shadow: 0 0 0 3px rgb(255 240 0 / 20%), 0 16px 38px rgb(0 15 28 / 25%);
+}
+.xp-home-page .xp-home-search button[type="submit"].bg-\[\#05b9eb\] {
+  color: #061b2b;
+  background: var(--xp-home-cyan);
+  font-weight: 800;
+}
+.xp-home-page .xp-home-search button[type="submit"].bg-\[\#05b9eb\]:hover {
+  background: #48d2f4;
+}
+.xp-home-page .xp-home-category-chip[aria-pressed="true"] {
+  background: var(--xp-home-yellow);
+  color: var(--xp-home-navy);
+  border-color: var(--xp-home-yellow);
+}
+.xp-home-page .bg-card.ring-1,
+.xp-home-page a.bg-card.ring-1 {
+  border-radius: 16px;
+  box-shadow: 0 5px 16px rgb(0 15 28 / 6%);
+}
+html.light .xp-home-page .bg-card.ring-1,
+html.light .xp-home-page a.bg-card.ring-1 {
+  background: linear-gradient(145deg, #fff 0%, #f9fdff 100%);
+  border-color: #d8edf4;
+}
+html.dark .xp-home-page .bg-card.ring-1,
+:root:not(.light) .xp-home-page .bg-card.ring-1 {
+  border-color: #245366;
+}
+.xp-home-page .text-primary {
+  color: #009bc6;
+}
+html.dark .xp-home-page .text-primary,
+:root:not(.light) .xp-home-page .text-primary {
+  color: #28cafa;
+}
+.xp-home-page a:focus-visible,
+.xp-home-page button:focus-visible {
+  outline: 3px solid var(--xp-home-yellow);
+  outline-offset: 3px;
+}
+@media (min-width: 768px) {
+  .xp-home-page {
+    padding-bottom: .5rem;
+  }
+  .xp-home-page > section:not(.xp-home-hero) {
+    margin-inline: auto;
+  }
+  .xp-home-page > section:not(.xp-home-hero) {
+    border-radius: 18px;
+  }
+  .xp-home-page .xp-home-hero {
+    min-height: 32rem;
+    border-radius: 0 0 32px 32px;
+  }
+}
+@media (max-width: 640px) {
+  .xp-home-page .xp-home-hero {
+    min-height: 0;
+    border-radius: 0 0 20px 20px;
+  }
+  .xp-home-page .xp-home-hero-shade,
+  html.light .xp-home-page .xp-home-hero-shade {
+    background:
+      linear-gradient(90deg, rgb(0 15 28 / 91%), rgb(0 15 28 / 65%)),
+      linear-gradient(0deg, rgb(0 15 28 / 30%), transparent 62%);
+  }
+  .xp-home-page .xp-home-quick-tile {
+    min-height: 4rem;
+    border-radius: 13px;
+  }
+  .xp-home-page .xp-home-photo-link {
+    min-height: 8rem;
+    border-radius: 13px;
+  }
+  .xp-home-page .xp-home-promo {
+    padding: 1.25rem;
+    border-radius: 20px;
+  }
+  .xp-home-page .xp-home-promo::after {
+    right: .6rem;
+    width: 3rem;
+    height: 3rem;
+    border-width: 7px;
+  }
+}
+
+/* Hide native horizontal scrollbars while preserving touch and drag scrolling. */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+
+
