@@ -552,6 +552,7 @@ function ListingOwnerDashboardPage() {
       <header className="xp-partner-header">
         <Link to="/dashboard" search={{}} className="xp-partner-brand"><Logo /><span className="xp-partner-brand-label">PARTNER</span></Link>
         <div className="xp-partner-header-right">
+          {loggedIn && <button type="button" className="xp-partner-icon-button md:hidden" aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={mobileMenuOpen} aria-controls="xp-partner-mobile-menu" onClick={() => setMobileMenuOpen((open) => !open)}>{mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}</button>}
           <a href="https://xplorepondy.com" target="_blank" rel="noreferrer" className="xp-partner-site-link"><ExternalLink className="size-4" /> View website</a>
           <Link to="/dashboard" search={{ view: "notifications" }} aria-label="View notifications" className="xp-partner-icon-button"><Bell className="size-5" />{unreadNotifications > 0 && <span className="xp-partner-notification-dot">{Math.min(unreadNotifications, 99)}</span>}</Link>
           <ThemeToggle />
