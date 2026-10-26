@@ -96,6 +96,7 @@ const SECTION_ORDER: Record<Category, string[]> = {
   places: PLACE_SECTIONS,
   activities: ACTIVITY_SECTIONS,
   stay: STAY_SECTIONS,
+  rentals: [],
   services: SERVICES_SECTIONS,
 };
 
