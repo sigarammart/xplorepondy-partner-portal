@@ -6047,7 +6047,7 @@ export const fetchWpGuide = createServerFn({ method: "GET" })
 
 async function fetchAllAuthorListings(authorId: number, headers: HeadersInit): Promise<WpListing[]> {
   const first = await wpGet<WpListing[]>(
-    `/wp-json/wp/v2/listing?author=${authorId}&per_page=100&page=1&_embed=1&_fields=id,author,slug,link,title,content,excerpt,listing_category,region,listing_feature,class_list,meta,xplore_archive_meta,xplore_meta,xplore_featured,xplore_view_count,_embedded`,
+    `/wp-json/wp/v2/listing?author=${authorId}&per_page=100&page=1&_embed=1&_fields=id,author,slug,link,title,content,excerpt,featured_media,listing_category,region,listing_feature,class_list,meta,xplore_archive_meta,xplore_meta,xplore_featured,xplore_view_count,_embedded`,
     headers,
     20000,
   );
@@ -6060,7 +6060,7 @@ async function fetchAllAuthorListings(authorId: number, headers: HeadersInit): P
   const maxPages = declaredPages > 0 ? Math.min(declaredPages, 100) : 100;
   for (let page = 2; page <= maxPages; page += 1) {
     const result = await wpGet<WpListing[]>(
-      `/wp-json/wp/v2/listing?author=${authorId}&per_page=100&page=${page}&_embed=1&_fields=id,author,slug,link,title,content,excerpt,listing_category,region,listing_feature,class_list,meta,xplore_archive_meta,xplore_meta,xplore_featured,xplore_view_count,_embedded`,
+      `/wp-json/wp/v2/listing?author=${authorId}&per_page=100&page=${page}&_embed=1&_fields=id,author,slug,link,title,content,excerpt,featured_media,listing_category,region,listing_feature,class_list,meta,xplore_archive_meta,xplore_meta,xplore_featured,xplore_view_count,_embedded`,
       headers,
       20000,
     );
