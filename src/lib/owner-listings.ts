@@ -123,9 +123,10 @@ const adminListingsSchema = ownerIdentitySchema.extend({
   perPage: z.number().int().positive().max(100).optional().default(100),
 });
 
-async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_count?: number }>(payload: T[] | { items?: T[]; [key: string]: unknown }) {
-  const isArray = Array.isArray(payload);
-  const items = (isArray ? payload : payload.items) as T[] | undefined;
+async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_count?: number }>(
+  payload: { items?: T[]; [key: string]: unknown },
+) {
+  const items = payload.items;
   if (!items?.length) return payload;
 
   const ids = [...new Set(items.map((item) => Number(item.id)).filter((id) => Number.isSafeInteger(id) && id > 0))];
@@ -143,11 +144,13 @@ async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_co
     if (!response.ok) return payload;
     const rows = await response.json() as Array<{ id: number; xplore_view_count?: number }>;
     const counts = new Map(rows.map((row) => [Number(row.id), Math.max(0, Number(row.xplore_view_count ?? 0) || 0)]));
-    const refreshed = items.map((item) => {
-      const id = Number(item.id);
-      return counts.has(id) ? { ...item, app_view_count: counts.get(id)! } : item;
-    });
-    return isArray ? refreshed : { ...payload, items: refreshed };
+    return {
+      ...payload,
+      items: items.map((item) => {
+        const id = Number(item.id);
+        return counts.has(id) ? { ...item, app_view_count: counts.get(id)! } : item;
+      }),
+    };
   } catch {
     // Preserve the admin endpoint result if the public REST field is unavailable.
     return payload;
