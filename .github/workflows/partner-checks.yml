@@ -21,9 +21,9 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Generate route tree and build bundle
+        run: npm run build:dev
       - name: Typecheck
         run: npm run typecheck
       - name: Unit tests
         run: npm test
-      - name: Development-mode production bundle
-        run: npm run build:dev
