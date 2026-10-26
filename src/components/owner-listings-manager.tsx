@@ -208,11 +208,16 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
         const fields: Record<string, unknown> = { ...(item.fields ?? {}) };
         for (const key of Object.keys(emptyListingFields())) fields[key] = valueFor(key);
         const taxonomyTerms: Record<string, Array<{ id: number; name: string; slug: string }>> = {};
-        for (const termGroups of Object.values(raw._embedded ?? {})) {
-          for (const group of termGroups) {
+        // WordPress _embedded contains several shapes (authors, featured
+        // media, terms, etc.). Only wp:term is a nested array; iterating every
+        // embedded property as term groups throws "t is not iterable".
+        const embeddedTerms = raw._embedded?.["wp:term"];
+        if (Array.isArray(embeddedTerms)) {
+          for (const group of embeddedTerms) {
+            if (!Array.isArray(group)) continue;
             for (const term of group) {
-              if (!term?.taxonomy || !Number.isFinite(Number(term.id))) continue;
-              (taxonomyTerms[term.taxonomy] ??= []).push({ id: Number(term.id), name: term.name, slug: term.slug });
+              if (!term || typeof term !== "object" || !term.taxonomy || !Number.isFinite(Number(term.id))) continue;
+              (taxonomyTerms[term.taxonomy] ??= []).push({ id: Number(term.id), name: String(term.name ?? ""), slug: String(term.slug ?? "") });
             }
           }
         }
