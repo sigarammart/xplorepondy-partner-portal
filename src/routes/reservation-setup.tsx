@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { fetchListingIdentityBySlug, fetchTableReservationOwnerSettings, saveTableReservationOwnerSettings, type TableReservationOwnerSettings } from "@/lib/wp-api";
-import { fetchOwnerListings } from "@/lib/owner-listings";
+import { fetchAdminListings, fetchOwnerListings } from "@/lib/owner-listings";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { HeaderAuth } from "@/components/header-auth";
@@ -38,9 +38,33 @@ function ReservationSetupPage() {
   useEffect(() => {
     if (!email) { setListingsLoading(false); return; }
     let cancelled = false;
-    void fetchOwnerListings({ data: { email, ...(identityToken ? { identityToken } : {}) } })
-      .then((raw) => { const result = raw as { items?: Array<{id:number;title?:string;slug?:string}> }; if (!cancelled) setOwnerListings((result.items ?? []).map((item) => ({ id:item.id, title:item.title || ("Listing #" + item.id), slug:item.slug || String(item.id) }))); })
-      .catch((error) => { if (!cancelled) toast.error(error instanceof Error ? error.message : "Could not load your listings."); })
+    setListingsLoading(true);
+    void (async () => {
+      // Administrators can configure reservations for any directory listing.
+      // Load every page from the admin endpoint first; non-admin users fall
+      // back to the owner-scoped endpoint.
+      try {
+        const all: Array<{ id: number; title?: string; slug?: string }> = [];
+        for (let page = 1; page <= 20; page += 1) {
+          const raw = await fetchAdminListings({ data: { email, ...(identityToken ? { identityToken } : {}), page, perPage: 100 } }) as {
+            items?: Array<{ id: number; title?: string; slug?: string }>;
+            total_pages?: number;
+          };
+          all.push(...(raw.items ?? []));
+          if (!raw.total_pages || page >= raw.total_pages || !(raw.items ?? []).length) break;
+        }
+        if (!cancelled && all.length) {
+          setOwnerListings(all.map((item) => ({ id: item.id, title: item.title || ("Listing #" + item.id), slug: item.slug || String(item.id) })));
+          return;
+        }
+      } catch {
+        // Expected for partner accounts without administrator access.
+      }
+      const raw = await fetchOwnerListings({ data: { email, ...(identityToken ? { identityToken } : {}) } });
+      const result = raw as { items?: Array<{ id: number; title?: string; slug?: string }> };
+      if (!cancelled) setOwnerListings((result.items ?? []).map((item) => ({ id: item.id, title: item.title || ("Listing #" + item.id), slug: item.slug || String(item.id) })));
+    })()
+      .catch((error) => { if (!cancelled) toast.error(error instanceof Error ? error.message : "Could not load listings."); })
       .finally(() => { if (!cancelled) setListingsLoading(false); });
     return () => { cancelled = true; };
   }, [email, identityToken]);
