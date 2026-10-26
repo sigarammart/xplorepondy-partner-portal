@@ -613,22 +613,34 @@ function ListingOwnerDashboardPage() {
     setOwnerContentLoading(true);
     setOwnerContentError("");
     setStatisticsReady(false);
-    void fetchOwnerListings({ data: { email, ...(identityToken ? { identityToken } : {}) } })
-      .then((rawResult) => {
+    const loadOwnerListingsWithCounters = async () => {
+      // Some WordPress installs expose the listing records before their view
+      // counters have finished syncing. Do not commit an all-zero response to
+      // the UI immediately; retry while the counters are still warming up.
+      let result: { items?: Array<{ id: number; title?: string; slug?: string; url?: string; site_view_count?: number; app_view_count?: number }> } = {};
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        result = await fetchOwnerListings({ data: { email, ...(identityToken ? { identityToken } : {}) } }) as typeof result;
         if (cancelled) return;
-        const result = rawResult as {
-          items?: Array<{ id: number; title?: string; slug?: string; url?: string; site_view_count?: number; app_view_count?: number }>;
-        };
-        setOwnerListings((result.items ?? []).map((item) => ({
-          id: item.id,
-          wpId: item.id,
-          slug: item.slug ?? String(item.id),
-          title: item.title ?? "Untitled listing",
-          url: item.url,
-          siteViewCount: Math.max(0, Number(item.site_view_count ?? 0) || 0),
-          appViewCount: Math.max(0, Number(item.app_view_count ?? 0) || 0),
-        })));
-      })
+        const items = result.items ?? [];
+        const hasAnyViews = items.some((item) =>
+          Math.max(0, Number(item.site_view_count ?? 0) || 0) +
+          Math.max(0, Number(item.app_view_count ?? 0) || 0) > 0
+        );
+        if (items.length === 0 || hasAnyViews || attempt === 4) break;
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
+      if (cancelled) return;
+      setOwnerListings((result.items ?? []).map((item) => ({
+        id: item.id,
+        wpId: item.id,
+        slug: item.slug ?? String(item.id),
+        title: item.title ?? "Untitled listing",
+        url: item.url,
+        siteViewCount: Math.max(0, Number(item.site_view_count ?? 0) || 0),
+        appViewCount: Math.max(0, Number(item.app_view_count ?? 0) || 0),
+      })));
+    };
+    void loadOwnerListingsWithCounters()
       .catch((reason) => { if (!cancelled) setOwnerContentError(reason instanceof Error ? reason.message : "Could not load owner listings."); })
       .finally(() => { if (!cancelled) { setOwnerContentLoading(false); setStatisticsReady(true); } });
     return () => { cancelled = true; };
