@@ -3,7 +3,8 @@ import { ArrowLeft, Bell, CalendarDays, Camera, CheckCircle2, ClipboardList, Ext
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { checkInOwnerTableReservationTicket, fetchTableReservationOwnerDashboard, fetchWpAuthorContent, fetchWpOwnerExperienceBookingRequests, updateWpOwnerExperienceBookingRequestStatus, updateTableReservationOwnerStatus, type ExperienceBookingRequest, type TableReservationOwnerDashboard } from "@/lib/wp-api";
+import { checkInOwnerTableReservationTicket, fetchTableReservationOwnerDashboard, fetchWpOwnerExperienceBookingRequests, updateWpOwnerExperienceBookingRequestStatus, updateTableReservationOwnerStatus, type ExperienceBookingRequest, type TableReservationOwnerDashboard } from "@/lib/wp-api";
+import { fetchOwnerListings } from "@/lib/owner-listings";
 import { useAppLoggedIn } from "@/lib/app-session";
 import { checkInOwnerEventTicket, fetchMyEvents, fetchMyOwnedEventBookings, updateMyOwnedEventBookingStatus, type EventAccountItem, type EventOwnerBookingItem } from "@/lib/events-api";
 import { checkInOwnerExperienceTicket, fetchMyExperiences, type ExperienceAccountItem } from "@/lib/experiences-account-api";
@@ -496,19 +497,34 @@ function ListingOwnerDashboardPage() {
   }, [loggedIn, email, identityToken, dashboard, ownerListings, sessionListings, experiences, events]);
 
   useEffect(() => {
-    if (!sessionUser?.id) return;
+    if (!email) {
+      setOwnerListings([]);
+      setOwnerContentLoading(false);
+      return;
+    }
     let cancelled = false;
     setOwnerContentLoading(true);
     setOwnerContentError("");
-    void fetchWpAuthorContent({ data: { authorId: sessionUser.id } })
-      .then((result) => {
+    void fetchOwnerListings({ data: { email, ...(identityToken ? { identityToken } : {}) } })
+      .then((rawResult) => {
         if (cancelled) return;
-        setOwnerListings((result.myListings ?? []).map((item) => ({ id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.name, url: item.siteUrl, siteViewCount: item.siteViewCount ?? 0, appViewCount: item.appViewCount ?? 0 })));
+        const result = rawResult as {
+          items?: Array<{ id: number; title?: string; slug?: string; url?: string; site_view_count?: number; app_view_count?: number }>;
+        };
+        setOwnerListings((result.items ?? []).map((item) => ({
+          id: item.id,
+          wpId: item.id,
+          slug: item.slug ?? String(item.id),
+          title: item.title ?? "Untitled listing",
+          url: item.url,
+          siteViewCount: Math.max(0, Number(item.site_view_count ?? 0) || 0),
+          appViewCount: Math.max(0, Number(item.app_view_count ?? 0) || 0),
+        })));
       })
       .catch((reason) => { if (!cancelled) setOwnerContentError(reason instanceof Error ? reason.message : "Could not load owner listings."); })
       .finally(() => { if (!cancelled) setOwnerContentLoading(false); });
     return () => { cancelled = true; };
-  }, [sessionUser?.id]);
+  }, [email, identityToken]);
 
   useEffect(() => {
     if (!email) { setLoading(false); return; }
