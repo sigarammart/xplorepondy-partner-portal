@@ -503,7 +503,7 @@ function ListingOwnerDashboardPage() {
     void fetchWpAuthorContent({ data: { authorId: sessionUser.id } })
       .then((result) => {
         if (cancelled) return;
-        setOwnerListings((result.myListings ?? []).map((item) => ({ id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.title, url: item.url, siteViewCount: item.siteViewCount ?? 0, appViewCount: item.appViewCount ?? 0 })));
+        setOwnerListings((result.myListings ?? []).map((item) => ({ id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.name, url: item.siteUrl, siteViewCount: item.siteViewCount ?? 0, appViewCount: item.appViewCount ?? 0 })));
       })
       .catch((reason) => { if (!cancelled) setOwnerContentError(reason instanceof Error ? reason.message : "Could not load owner listings."); })
       .finally(() => { if (!cancelled) setOwnerContentLoading(false); });
