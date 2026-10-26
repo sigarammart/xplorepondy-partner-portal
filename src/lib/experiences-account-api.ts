@@ -5,7 +5,7 @@ import { getSessionUser } from "@/lib/auth/verify.server";
 const WP_ORIGIN = "https://xplorepondy.com";
 
 export type ExperienceTerm = { id: number; name: string; slug: string };
-export type ExperienceAccountItem = { id: number; title: string; slug: string; status: string; excerpt: string; modified: string; url: string; image: string };
+export type ExperienceAccountItem = { id: number; title: string; slug: string; status: string; excerpt: string; modified: string; url: string; image: string; view_count?: number; site_view_count?: number; app_view_count?: number };
 export type ExperienceImage = { id: number; url: string; thumbnail: string; alt: string };
 export type ExperienceDraft = {
   id: number; title: string; content: string; excerpt: string; status: string;
