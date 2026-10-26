@@ -183,21 +183,22 @@ function OwnerBookings({
   const rows = dashboard.reservations.filter((r) =>
     (!targetReservationId || r.id === targetReservationId) &&
     (!listingFilter || r.listingId === listingFilter) &&
-    (!statusFilter || r.status === statusFilter)
+    (!statusFilter || (statusFilter === "checked-in" ? Boolean(r.checkedIn) : r.status === statusFilter))
   );
-  const statuses = ["pending", "confirmed", "cancelled", "completed", "no-show"];
+  const statuses = ["pending", "confirmed", "cancelled", "completed", "no-show", "checked-in"];
 
   return (
     <div className="mt-4">
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Filter reservations by status">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Filter reservations by status">
         {[
           { label: "Owner Pending", status: "pending", tone: "text-amber-500", active: "border-amber-500 bg-amber-500/15 ring-1 ring-amber-500/30" },
           { label: "Confirmed", status: "confirmed", tone: "text-sky-500", active: "border-sky-500 bg-sky-500/15 ring-1 ring-sky-500/30" },
           { label: "Cancelled", status: "cancelled", tone: "text-rose-500", active: "border-rose-500 bg-rose-500/15 ring-1 ring-rose-500/30" },
           { label: "Completed", status: "completed", tone: "text-emerald-500", active: "border-emerald-500 bg-emerald-500/15 ring-1 ring-emerald-500/30" },
           { label: "No Show", status: "no-show", tone: "text-muted-foreground", active: "border-slate-500 bg-slate-500/15 ring-1 ring-slate-500/30" },
+          { label: "Checked in", status: "checked-in", tone: "text-emerald-500", active: "border-emerald-500 bg-emerald-500/15 ring-1 ring-emerald-500/30" },
         ].map((item) => {
-          const count = dashboard.reservations.filter((reservation) => reservation.status === item.status).length;
+          const count = dashboard.reservations.filter((reservation) => item.status === "checked-in" ? Boolean(reservation.checkedIn) : reservation.status === item.status).length;
           const active = statusFilter === item.status;
           return (
             <button
@@ -232,7 +233,7 @@ function OwnerBookings({
         </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-card px-3 text-sm">
           <option value="">All statuses</option>
-          {statuses.map((status) => <option key={status} value={status}>{status.replace("-", " ")}</option>)}
+          {statuses.map((status) => <option key={status} value={status}>{status === "checked-in" ? "Checked in" : status.replace("-", " ")}</option>)}
         </select>
       </div>
 
@@ -292,6 +293,10 @@ function OwnerBookings({
                   <span>{reservation.guestPhone || "No phone"}</span>
                   <span className="truncate">{reservation.guestEmail}</span>
                 </div>
+                {reservation.checkedIn && <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600">
+                  <span className="font-semibold">Checked in</span>
+                  {reservation.checkedInAt ? <span>{formatDisplayDate(reservation.checkedInAt)} at {formatDisplayTime(reservation.checkedInAt.slice(11, 16))}</span> : <span>Check-in recorded</span>}
+                </div>}
                 {reservation.notes?.trim() && <div className="mt-3 p-3 text-sm"><p className="mb-1 text-xs font-semibold text-muted-foreground">Customer notes</p><p className="whitespace-pre-wrap break-words">{reservation.notes}</p></div>}
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
                   <span className="text-sm font-semibold text-foreground">Booking ID: <span className="font-mono text-base font-bold tracking-wide">#{formatReservationId(reservation.id)}</span>{reservation.checkedIn && <span className="ml-2 font-medium text-emerald-600">Checked in {reservation.checkedInAt || ""}</span>}</span>
