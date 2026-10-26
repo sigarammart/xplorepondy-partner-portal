@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Bell, CalendarDays, Camera, CheckCircle2, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, QrCode, Settings2, Store, Ticket, XCircle } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Camera, CheckCircle2, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -360,6 +360,7 @@ function ListingOwnerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications">(searchView ?? "menu");
   const [cameraRequest, setCameraRequest] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const identityToken = useSession((s) => s.wpIdentityToken);
   const [ownerListings, setOwnerListings] = useState<Array<{ id?: number; wpId?: number; slug: string; title: string; url?: string }>>([]);
   const [ownerContentLoading, setOwnerContentLoading] = useState(false);
@@ -557,6 +558,33 @@ function ListingOwnerDashboardPage() {
           <HeaderAuth />
         </div>
       </header>
+
+      {loggedIn && mobileMenuOpen && (
+        <nav id="xp-partner-mobile-menu" aria-label="Mobile partner portal navigation" className="border-b border-border bg-card px-3 py-3 shadow-sm md:hidden">
+          <div className="grid gap-1">
+            {dashboardNav.map((item) => (
+              <Link
+                key={item.key}
+                to="/dashboard"
+                search={item.view === "menu" ? {} : { view: item.view }}
+                aria-current={activeView === item.key || (item.key === "table-reservations" && activeView === "listings") ? "page" : undefined}
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary"
+              >
+                <item.icon className="size-4 shrink-0" />
+                <span className="flex-1">{item.label}</span>
+                {item.count !== undefined && <span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums">{item.count}</span>}
+              </Link>
+            ))}
+            <Link to="/qr-scan" onClick={() => setMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted">
+              <QrCode className="size-4 shrink-0" /><span>Scan QR tickets</span>
+            </Link>
+            <Link to="/reservation-setup" search={{}} onClick={() => setMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted">
+              <Settings2 className="size-4 shrink-0" /><span>Reservation setup</span>
+            </Link>
+          </div>
+        </nav>
+      )}
 
       {!loggedIn ? (
         <main className="xp-partner-signed-out">
