@@ -791,7 +791,7 @@ function ListingOwnerDashboardPage() {
           <a href="https://xplorepondy.com" target="_blank" rel="noreferrer" className="xp-partner-site-link"><ExternalLink className="size-4" /> View website</a>
           <Link to="/dashboard" search={{ view: "notifications" }} aria-label="View notifications" className="xp-partner-icon-button"><Bell className="size-5" />{unreadNotifications > 0 && <span className="xp-partner-notification-dot">{Math.min(unreadNotifications, 99)}</span>}</Link>
           <ThemeToggle />
-          <HeaderAuth />
+          <HeaderAuth showSignOut={false} />
           {loggedIn && <button type="button" className="xp-partner-icon-button md:hidden" aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"} aria-expanded={mobileMenuOpen} aria-controls="xp-partner-mobile-menu" onClick={() => setMobileMenuOpen((open) => !open)}>{mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}</button>}
         </div>
       </header>
@@ -819,6 +819,9 @@ function ListingOwnerDashboardPage() {
             <Link to="/reservation-setup" search={{}} onClick={() => setMobileMenuOpen(false)} className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted">
               <Settings2 className="size-4 shrink-0" /><span>Reservation setup</span>
             </Link>
+            <button type="button" onClick={() => { setMobileMenuOpen(false); useSession.getState().clearSession(); if (authEnabled) { void signOut().catch(() => { window.location.href = "/login"; }); } else { window.location.href = "/login"; } }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-foreground transition hover:bg-muted">
+              <X className="size-4 shrink-0" /><span>Sign out</span>
+            </button>
           </div>
         </nav>
       )}
