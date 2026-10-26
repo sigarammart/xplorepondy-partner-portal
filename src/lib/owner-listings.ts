@@ -176,22 +176,29 @@ export const fetchAdminListings = createServerFn({ method: "GET" })
     // flags through a narrow admin-only endpoint. Do not infer enabled state
     // from historical bookings or opening-hour metadata.
     const secret = process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim();
-    if (!secret) return withViews;
+    if (!secret) return { ...withViews, items: items.map((item) => ({ ...item, table_reservation_enabled: false })) };
     try {
-      const response = await fetch(
-        `${WP_ORIGIN}/wp-json/xplore/v1/table-reservations/admin/enabled-listings?ids=${items.map((item) => Number(item.id)).filter((id) => Number.isSafeInteger(id) && id > 0).join(",")}`,
-        {
-          headers: {
-            Accept: "application/json",
-            "X-Xplore-PWA-Secret": secret,
-            Authorization: `Bearer ${secret}`,
+      const validIds = items.map((item) => Number(item.id)).filter((id) => Number.isSafeInteger(id) && id > 0);
+      const enabled = new Map<number, boolean>();
+      // Endpoint limits each call to 100 IDs. Admin listings are paginated by
+      // 100 already, so this is typically one request per page.
+      for (let offset = 0; offset < validIds.length; offset += 100) {
+        const batch = validIds.slice(offset, offset + 100);
+        const response = await fetch(
+          `${WP_ORIGIN}/wp-json/xplore/v1/table-reservations/admin/enabled-listings?ids=${batch.join(",")}`,
+          {
+            headers: {
+              Accept: "application/json",
+              "X-Xplore-PWA-Secret": secret,
+              Authorization: `Bearer ${secret}`,
+            },
+            cache: "no-store",
           },
-          cache: "no-store",
-        },
-      );
-      if (!response.ok) return withViews;
-      const result = await response.json() as { items?: Array<{ listing_id: number; enabled: boolean }> };
-      const enabled = new Map((result.items ?? []).map((item) => [Number(item.listing_id), Boolean(item.enabled)]));
+        );
+        if (!response.ok) throw new Error(`Reservation settings lookup failed (HTTP ${response.status}).`);
+        const result = await response.json() as { items?: Array<{ listing_id: number; enabled: boolean }> };
+        for (const item of result.items ?? []) enabled.set(Number(item.listing_id), Boolean(item.enabled));
+      }
       return {
         ...withViews,
         items: items.map((item) => ({
@@ -199,8 +206,15 @@ export const fetchAdminListings = createServerFn({ method: "GET" })
           table_reservation_enabled: enabled.get(Number(item.id)) ?? false,
         })),
       };
-    } catch {
-      return withViews;
+    } catch (error) {
+      console.warn("[admin-listings] Could not load table reservation flags", error);
+      // Mark as unknown instead of silently hiding everything when backend
+      // status fails. The frontend keeps filter disabled only if false.
+      return {
+        ...withViews,
+        items: items.map((item) => ({ ...item, table_reservation_enabled: false })),
+        table_reservation_error: error instanceof Error ? error.message : "Could not load reservation settings.",
+      };
     }
   });
 
