@@ -15,6 +15,7 @@ import { fetchEventInbox, type EventInboxItem } from "@/lib/events-api";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { HeaderAuth } from "@/components/header-auth";
+import { OwnerListingsManager } from "@/components/owner-listings-manager";
 import { authEnabled, signOut } from "@/lib/auth/client";
 
 export const Route = createFileRoute("/dashboard")({
@@ -1136,49 +1137,45 @@ function ListingOwnerDashboardPage() {
 
             {view === "listings" && (
               <section className="mt-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div><h2 className="font-display text-xl font-semibold">Listing management</h2><p className="text-sm text-muted-foreground">Edit your directory listings and configure table reservation availability.</p></div>
-                  <Button asChild size="sm"><Link to="/my-listings">Open listing manager <ExternalLink className="ml-2 size-3.5" /></Link></Button>
+                <div className="rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:p-6">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Store className="size-6" /></div>
+                    <div><h2 className="font-display text-2xl font-semibold">Listing Owner</h2><p className="text-sm text-muted-foreground">Manage your directory listings and reservations.</p></div>
+                  </div>
+
+                  <OwnerListingsManager loggedIn={loggedIn} allowedListingIds={visibleOwnerListings.map((item) => Number(item.id ?? item.wpId)).filter((id) => Number.isFinite(id) && id > 0)} listingsResolved={!ownerContentLoading} email={email} identityToken={identityToken ?? undefined} />
+
+                  {ownerContentLoading && <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" />Loading your listings…</p>}
+                  {ownerContentError && <p role="alert" className="mt-4 rounded-xl border border-destructive/30 p-3 text-sm text-destructive">{ownerContentError}</p>}
+                  {!ownerContentLoading && visibleOwnerListings.length === 0 && <div className="mt-5 rounded-2xl border border-dashed border-border p-6 text-center"><Store className="mx-auto size-8 text-muted-foreground" /><h3 className="mt-3 font-semibold">No listings found</h3><p className="mt-1 text-sm text-muted-foreground">No directory listings are currently attached to this account.</p></div>}
+
+                  {!ownerContentLoading && visibleOwnerListings.length > 0 && <>
+                    <label htmlFor="dashboard-owner-listing-select" className="mt-6 block text-sm font-medium">Select listing</label>
+                    <select id="dashboard-owner-listing-select" value={selectedListing ? String(selectedListing) : "all"} onChange={(event) => setSelectedListing(event.target.value === "all" ? 0 : Number(event.target.value))} className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm">
+                      <option value="all">All listings</option>
+                      {visibleOwnerListings.map((item) => <option key={item.id ?? item.wpId ?? item.slug} value={String(item.id ?? item.wpId)}>{item.title}</option>)}
+                    </select>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                      <Link to="/dashboard" search={selectedListing ? { view: "bookings", bookingType: "table", listingId: selectedListing } : { view: "bookings", bookingType: "table" }} className="group rounded-2xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted">
+                        <CalendarDays className="size-6 text-primary" />
+                        <h3 className="mt-3 font-display text-lg font-semibold">View Bookings</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">{selectedListing ? `View and manage reservations for ${visibleOwnerListings.find((item) => Number(item.id ?? item.wpId) === selectedListing)?.title ?? "the selected listing"}.` : "View and manage reservations across all your listings."}</p>
+                        <span className="mt-4 inline-block text-sm font-medium text-primary group-hover:underline">Open bookings →</span>
+                      </Link>
+                      {selectedListing ? <Link to="/reservation-setup" search={{ listingId: selectedListing, listingTitle: visibleOwnerListings.find((item) => Number(item.id ?? item.wpId) === selectedListing)?.title, listingSlug: visibleOwnerListings.find((item) => Number(item.id ?? item.wpId) === selectedListing)?.slug }} className="group rounded-2xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted">
+                        <Settings2 className="size-6 text-primary" />
+                        <h3 className="mt-3 font-display text-lg font-semibold">Setup Reservations</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">Configure opening hours, slots, capacity and booking rules.</p>
+                        <span className="mt-4 inline-block text-sm font-medium text-primary group-hover:underline">Open setup →</span>
+                      </Link> : <div className="rounded-2xl border border-dashed border-border/70 bg-background/60 p-5">
+                        <Settings2 className="size-6 text-muted-foreground" />
+                        <h3 className="mt-3 font-display text-lg font-semibold">Setup Reservations</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">Select a specific listing above to configure its opening hours, slots, capacity and booking rules.</p>
+                      </div>}
+                    </div>
+                    <div className="mt-4 text-sm">{(() => { const listing = visibleOwnerListings.find((item) => Number(item.id ?? item.wpId) === selectedListing) ?? visibleOwnerListings[0]; return listing?.url ? <a href={listing.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">View listing ↗</a> : listing?.slug ? <a href={`https://xplorepondy.com/listing/${listing.slug}/`} target="_blank" rel="noreferrer" className="text-primary hover:underline">View listing ↗</a> : null; })()}</div>
+                  </>}
                 </div>
-                {dashboard?.listings.length ? <>
-                  <div className="relative mt-4 max-w-2xl">
-                    <label id="listing-management-select-label" className="block text-sm font-medium">Select listing</label>
-                    <button
-                      type="button"
-                      aria-labelledby="listing-management-select-label"
-                      aria-haspopup="listbox"
-                      aria-expanded={listingManagementDropdownOpen}
-                      onClick={() => setListingManagementDropdownOpen((open) => !open)}
-                      className="mt-2 flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      <span className="truncate">{selectedListing === 0 ? "All listings" : visibleOwnerListings.find((item) => item.id === selectedListing)?.title ?? dashboard.listings.find((item) => item.id === selectedListing)?.title ?? "All listings"}</span>
-                      <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="size-4 shrink-0 text-muted-foreground"><path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    </button>
-                    {listingManagementDropdownOpen && <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl ring-1 ring-border/80">
-                      <div className="border-b border-border bg-card p-2">
-                        <input
-                          autoFocus
-                          type="search"
-                          value={listingManagementSearch}
-                          onChange={(event) => setListingManagementSearch(event.target.value)}
-                          placeholder="Search listings…"
-                          aria-label="Search listings by name"
-                          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                        />
-                      </div>
-                      <div role="listbox" aria-labelledby="listing-management-select-label" className="max-h-64 overflow-y-auto bg-card p-1">
-                        <button type="button" role="option" aria-selected={selectedListing === 0} onClick={() => { setSelectedListing(0); setListingManagementDropdownOpen(false); setListingManagementSearch(""); }} className={`w-full rounded-md px-3 py-2.5 text-left text-sm font-normal hover:bg-muted ${selectedListing === 0 ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}>All listings</button>
-                        {visibleOwnerListings.filter((item) => item.id != null && item.title.toLocaleLowerCase().includes(listingManagementSearch.trim().toLocaleLowerCase())).map((item) => <button key={item.id} type="button" role="option" aria-selected={selectedListing === item.id} onClick={() => { setSelectedListing(item.id!); setListingManagementDropdownOpen(false); setListingManagementSearch(""); }} className={`w-full rounded-md px-3 py-2.5 text-left text-sm font-normal hover:bg-muted ${selectedListing === item.id ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}>{item.title}</button>)}
-                        {visibleOwnerListings.filter((item) => item.id != null && item.title.toLocaleLowerCase().includes(listingManagementSearch.trim().toLocaleLowerCase())).length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No listings found.</p>}
-                      </div>
-                    </div>}
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <Link to="/dashboard" search={{ view: "bookings", bookingType: "table" }} className="group rounded-2xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted"><CalendarDays className="size-6 text-primary" /><h3 className="mt-3 font-display text-lg font-semibold">View table reservations</h3><p className="mt-1 text-sm text-muted-foreground">{selectedListing ? `Manage bookings for ${listing?.title || "the selected listing"}.` : "View reservations across all your listings."}</p><span className="mt-4 inline-block text-sm font-medium text-primary group-hover:underline">Open reservations →</span></Link>
-                    {selectedListing ? <Link to="/reservation-setup" search={{ listingId: selectedListing, listingTitle: listing?.title, listingSlug: listing?.slug }} className="group rounded-2xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted"><Settings2 className="size-6 text-primary" /><h3 className="mt-3 font-display text-lg font-semibold">Reservation availability</h3><p className="mt-1 text-sm text-muted-foreground">Configure opening hours, slots, capacity and booking rules.</p><span className="mt-4 inline-block text-sm font-medium text-primary group-hover:underline">Configure →</span></Link> : <div className="rounded-2xl border border-dashed border-border/70 p-5"><Settings2 className="size-6 text-muted-foreground" /><h3 className="mt-3 font-display text-lg font-semibold">Reservation availability</h3><p className="mt-1 text-sm text-muted-foreground">Select one listing above to configure its schedule.</p></div>}
-                  </div>
-                </> : <div className="mt-4 rounded-xl border border-dashed p-5 text-sm text-muted-foreground">{loading ? "Loading your listings…" : "No reservation-enabled listings are linked to this account yet."}</div>}
-                <section className="mt-6"><div className="xp-partner-panel-header"><div><h2>Directory listings</h2><p>Listings associated with your WordPress owner account</p></div></div>{ownerContentLoading ? <p className="mt-3 text-sm text-muted-foreground">Loading listings…</p> : ownerContentError ? <p className="mt-3 text-sm text-destructive">{ownerContentError}</p> : visibleOwnerListings.length === 0 ? <p className="mt-3 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">No directory listings are connected to this account.</p> : <div className="mt-3 space-y-2">{visibleOwnerListings.slice(0, 20).map((item) => <div key={item.id ?? item.slug} className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-card p-3"><div className="min-w-0"><p className="truncate font-medium">{item.title}</p><p className="truncate text-xs text-muted-foreground">{item.slug}</p></div><div className="flex shrink-0 items-center gap-3">{item.id && <Link to="/my-listings" className="text-sm font-medium text-primary hover:underline">Edit</Link>}<a href={item.slug ? "https://app.xplorepondy.com/place/" + encodeURIComponent(item.slug) : item.url || "https://app.xplorepondy.com"} target="_blank" rel="noreferrer" className="text-sm font-medium text-primary">View listing ↗</a></div></div>)}</div>}</section>
               </section>
             )}
 
