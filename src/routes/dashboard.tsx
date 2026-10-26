@@ -1150,7 +1150,7 @@ function ListingOwnerDashboardPage() {
                     <div><h2 className="font-display text-2xl font-semibold">Listing Owner</h2><p className="text-sm text-muted-foreground">Manage your directory listings and reservations.</p></div>
                   </div>
 
-                  <OwnerListingsManager loggedIn={loggedIn} allowedListingIds={visibleOwnerListings.map((item) => Number(item.id ?? item.wpId)).filter((id) => Number.isFinite(id) && id > 0)} listingsResolved={!ownerContentLoading} email={email} identityToken={identityToken ?? undefined} />
+                  <OwnerListingsManager loggedIn={loggedIn} isAdministrator={isAdministrator} allowedListingIds={visibleOwnerListings.map((item) => Number(item.id ?? item.wpId)).filter((id) => Number.isFinite(id) && id > 0)} listingsResolved={!ownerContentLoading} email={email} identityToken={identityToken ?? undefined} />
 
                   {ownerContentLoading && <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" />Loading your listings…</p>}
                   {ownerContentError && <p role="alert" className="mt-4 rounded-xl border border-destructive/30 p-3 text-sm text-destructive">{ownerContentError}</p>}
