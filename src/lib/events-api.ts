@@ -138,7 +138,7 @@ export const fetchXploreEvents = createServerFn({ method: "GET" })
 
 export type EventAccountItem = {
   id: number; title?: string; slug?: string; status?: string; url?: string; start_datetime?: string;
-  venue_name?: string; booking_count?: number; reference?: string; event_id?: number; event_title?: string;
+  venue_name?: string; booking_count?: number; view_count?: number; site_view_count?: number; app_view_count?: number; reference?: string; event_id?: number; event_title?: string;
   event_url?: string; ticket_type?: string; quantity?: number; created_at?: string;
   attendee_name?: string; customer_name?: string; attendee_email?: string; customer_email?: string;
   attendee_phone?: string; customer_phone?: string; payment_status?: string; payment_method?: string;
