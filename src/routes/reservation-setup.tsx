@@ -82,9 +82,9 @@ function ReservationSetupPage() {
       <div>
         <h1 className="font-display text-3xl font-semibold">Setup Reservation</h1>
         {settings ? (
-          <Link to="/place/$slug" params={{ slug: settings.listingSlug }} className="mt-1 inline-flex text-sm font-medium text-primary hover:underline">
+          <a href={`https://xplorepondy.com/listing/${settings.listingSlug}/`} target="_blank" rel="noreferrer" className="mt-1 inline-flex text-sm font-medium text-primary hover:underline">
             {settings.listingTitle}
-          </Link>
+          </a>
         ) : (
           <p className="mt-1 text-sm text-muted-foreground">Listing #{listingId}</p>
         )}
