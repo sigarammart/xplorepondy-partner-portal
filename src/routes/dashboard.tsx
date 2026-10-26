@@ -49,7 +49,7 @@ export function OwnerTicketScanner({ email, identityToken, cameraRequest = false
     const stop = () => { stopped = true; if (frame) cancelAnimationFrame(frame); streamRef.current?.getTracks().forEach((track) => track.stop()); streamRef.current = null; };
     const start = async () => {
       try {
-        const Detector = (window as Window & { BarcodeDetector?: new (options?: { formats?: string[] }) => { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> }).BarcodeDetector;
+        const Detector = (window as Window & { BarcodeDetector?: new (options?: { formats?: string[] }) => { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> } }).BarcodeDetector;
         if (!Detector) throw new Error("Camera QR scanning is not supported in this browser. Paste the ticket QR text below instead.");
         if (!navigator.mediaDevices?.getUserMedia) throw new Error("Camera access requires HTTPS and browser permission.");
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
