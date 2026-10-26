@@ -123,11 +123,48 @@ const adminListingsSchema = ownerIdentitySchema.extend({
   perPage: z.number().int().positive().max(100).optional().default(100),
 });
 
+async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_count?: number }>(payload: T[] | { items?: T[]; [key: string]: unknown }) {
+  const isArray = Array.isArray(payload);
+  const items = (isArray ? payload : payload.items) as T[] | undefined;
+  if (!items?.length) return payload;
+
+  const ids = [...new Set(items.map((item) => Number(item.id)).filter((id) => Number.isSafeInteger(id) && id > 0))];
+  if (!ids.length) return payload;
+
+  try {
+    // The public WordPress REST field reads the canonical _xplore_view_count
+    // post meta used by the app tracking endpoint. The admin listing endpoint
+    // can return an older/inconsistent app_view_count value, so use this source
+    // to keep admin and owner dashboards in sync.
+    const response = await fetch(
+      `${WP_ORIGIN}/wp-json/wp/v2/listing?include=${ids.join(",")}&per_page=${Math.min(ids.length, 100)}&_fields=id,xplore_view_count`,
+      { headers: { Accept: "application/json" }, cache: "no-store" },
+    );
+    if (!response.ok) return payload;
+    const rows = await response.json() as Array<{ id: number; xplore_view_count?: number }>;
+    const counts = new Map(rows.map((row) => [Number(row.id), Math.max(0, Number(row.xplore_view_count ?? 0) || 0)]));
+    const refreshed = items.map((item) => {
+      const id = Number(item.id);
+      return counts.has(id) ? { ...item, app_view_count: counts.get(id)! } : item;
+    });
+    return isArray ? refreshed : { ...payload, items: refreshed };
+  } catch {
+    // Preserve the admin endpoint result if the public REST field is unavailable.
+    return payload;
+  }
+}
+
 export const fetchAdminListings = createServerFn({ method: "GET" })
   .validator(adminListingsSchema)
   .handler(async ({ data }) => {
     const { email, identityToken, page, perPage } = data;
-    return ownerRequest(`/wp-json/xplore/v1/admin/listings?page=${page}&per_page=${perPage}`, "GET", undefined, { email, identityToken });
+    const payload = await ownerRequest(
+      `/wp-json/xplore/v1/admin/listings?page=${page}&per_page=${perPage}`,
+      "GET",
+      undefined,
+      { email, identityToken },
+    ) as { items?: Array<{ id?: number; app_view_count?: number }>; [key: string]: unknown };
+    return attachCanonicalAppViewCounts(payload);
   });
 
 const assignAdminListingSchema = ownerIdentitySchema.extend({
