@@ -845,7 +845,7 @@ function ListingOwnerDashboardPage() {
             <nav aria-label="Partner portal navigation">
               {dashboardNav.map((item) => (
                 <Link key={item.key} to="/dashboard" search={item.view === "menu" ? {} : { view: item.view, ...(item.bookingType ? { bookingType: item.bookingType } : {}) }} aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : activeView === item.key ? "page" : undefined} className={"xp-partner-nav-link " + (item.child ? "ml-3 !min-h-10 !border-transparent !bg-transparent !pl-7 !text-sm hover:!bg-muted" : "")}>
-                  <item.icon className="size-4" /><span>{item.label}</span>{item.count !== undefined && <span className="xp-partner-nav-count">{item.count}</span>}{item.key === "table-reservations" && (item.pendingCount ?? 0) > 0 && <span className="xp-partner-nav-pending">{item.pendingCount} pending</span>}
+                  <item.icon className="size-4" /><span>{item.label}</span>{item.count !== undefined && <span className="xp-partner-nav-count">{item.key === "table-reservations" && (item.pendingCount ?? 0) > 0 ? `${item.pendingCount} Pending (${item.count})` : item.count}</span>}
                 </Link>
               ))}
               <Link to="/qr-scan" className="xp-partner-nav-link"><QrCode className="size-4" /><span>Scan QR tickets</span></Link>
