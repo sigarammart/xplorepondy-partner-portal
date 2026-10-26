@@ -937,7 +937,7 @@ html.dark .xp-home-page .text-primary,
 .xp-partner-feature-grid svg { width: 1.35rem; color: #24d0ed; }
 .xp-partner-feature-grid strong { font-size: .9rem; }
 .xp-partner-feature-grid span { color: #c4dce4; font-size: .77rem; line-height: 1.5; }
-.xp-partner-app-layout { display: grid; grid-template-columns: 18.5rem minmax(0,1fr); align-items: start; min-height: calc(100dvh - 4.6rem); }
+.xp-partner-app-layout { display: grid; grid-template-columns: 350px minmax(0,1fr); align-items: start; min-height: calc(100dvh - 4.6rem); }
 .xp-partner-sidebar {
   position: sticky;
   top: 4.6rem;
@@ -1066,7 +1066,7 @@ html.dark .xp-home-page .text-primary,
   .xp-partner-shell { padding-bottom: 0; }
 }
 @media (max-width: 1100px) {
-  .xp-partner-app-layout { grid-template-columns: 16rem minmax(0,1fr); }
+  .xp-partner-app-layout { grid-template-columns: 300px minmax(0,1fr); }
   .xp-partner-main { padding-inline: 1.2rem; }
   .xp-partner-content-grid { grid-template-columns: minmax(0,1fr); }
   .xp-partner-feature-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
