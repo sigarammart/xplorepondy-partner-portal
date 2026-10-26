@@ -870,7 +870,7 @@ function ListingOwnerDashboardPage() {
             {activeView === "overview" && (
               <>
                 <section className="xp-partner-welcome-strip">
-                  <img className="xp-partner-welcome-banner" src="https://xplorepondy.com/images/logos/partner-welcome-banner.jpg" alt="Welcome to Xplore Pondy Partner" />
+                  
                   <div className="xp-partner-welcome-copy"><span className="xp-partner-welcome-tag">Xplore Pondy Partner</span><h2>Your business, beautifully managed.</h2><p>Keep your listings fresh, track customer activity and stay on top of new bookings.</p></div>
                 </section>
 
