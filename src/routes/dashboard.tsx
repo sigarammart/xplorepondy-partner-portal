@@ -714,7 +714,7 @@ function ListingOwnerDashboardPage() {
                 <section className="mt-5 rounded-2xl border border-border/70 bg-card p-4 sm:p-5" aria-label="Content views analytics">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div><h2 className="text-lg font-bold">Content views</h2><p className="mt-1 text-sm text-muted-foreground">Detail-page views for content you own across Xplore Pondy.</p></div>
-                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">All-time totals</span>
+                    <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">All-time totals</span><Link to="/dashboard" search={{ view: "statistics" }} className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted">Detailed statistics <ArrowLeft className="size-3.5 rotate-180" /></Link></div>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
                     {[
