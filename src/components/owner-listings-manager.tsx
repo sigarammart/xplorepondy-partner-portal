@@ -4,7 +4,7 @@ import { resolvePlace, searchGooglePlacesOnly, type PlaceSuggestion } from "@/li
 import { CheckCircle2, ClipboardList, ExternalLink, FilePlus2, Pencil, RefreshCw, Store, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createOwnerListingSubmission, fetchAdminListings, fetchOwnerListingFormSchema, fetchOwnerListings, submitOwnerListingEdit, uploadOwnerListingImage } from "@/lib/owner-listings";
+import { createOwnerListingSubmission, fetchAdminListingDetail, fetchAdminListings, fetchOwnerListingFormSchema, fetchOwnerListings, submitOwnerListingEdit, uploadOwnerListingImage } from "@/lib/owner-listings";
 
 type OwnerManagedListing = {
   id: number; title: string; description?: string; status: string; url?: string; owner_email?: string; author_email?: string; email?: string; owner?: { email?: string }; author?: { email?: string };
@@ -186,20 +186,62 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
   function startNew() {
     setEditing(null); setTitle(""); setDescription(""); setFields(emptyListingFields()); setOpeningHours(emptyOpeningHours()); setGalleryUploads([]); setFeaturedUpload(null); setEnableReservation(false); setAddressQuery(""); setAddressHits([]); setTaxonomies({}); setTaxonomySearch({}); setFormError(""); setFormOpen(true);
   }
-  function startEdit(item: OwnerManagedListing) {
+  async function startEdit(item: OwnerManagedListing) {
+    setFormError("");
+    let source = item;
+    // The administrator directory endpoint is intentionally compact. Fetch the
+    // full WordPress REST record before opening the editor, otherwise only title
+    // and listing ID are present and every editable field appears blank.
+    if (isAdministrator && (!item.fields || Object.keys(item.fields).length === 0)) {
+      try {
+        const raw = await fetchAdminListingDetail({ data: { listingId: item.id, ...ownerIdentity } }) as {
+          id?: number;
+          title?: string | { rendered?: string };
+          content?: string | { rendered?: string };
+          excerpt?: string | { rendered?: string };
+          link?: string;
+          meta?: Record<string, unknown>;
+          _embedded?: Record<string, Array<Array<{ id: number; name: string; slug: string; taxonomy?: string }>>>;
+        };
+        const meta = raw.meta ?? {};
+        const valueFor = (key: string): unknown => meta[key] ?? meta[`_${key}`] ?? meta[key.replace(/^_/, "")] ?? "";
+        const fields: Record<string, unknown> = { ...(item.fields ?? {}) };
+        for (const key of Object.keys(emptyListingFields())) fields[key] = valueFor(key);
+        const taxonomyTerms: Record<string, Array<{ id: number; name: string; slug: string }>> = {};
+        for (const groups of Object.values(raw._embedded ?? {})) {
+          for (const term of (groups as unknown as Array<{ id: number; name: string; slug: string; taxonomy?: string }>)) {
+            if (!term?.taxonomy || !Number.isFinite(Number(term.id))) continue;
+            (taxonomyTerms[term.taxonomy] ??= []).push({ id: Number(term.id), name: term.name, slug: term.slug });
+          }
+        }
+        const titleValue = typeof raw.title === "string" ? raw.title : raw.title?.rendered;
+        const descriptionValue = typeof raw.content === "string" ? raw.content : raw.content?.rendered;
+        source = {
+          ...item,
+          title: titleValue ? titleValue.replace(/&#8217;/g, "’").replace(/&#038;/g, "&").replace(/&#8211;/g, "–").replace(/&#8212;/g, "—").replace(/&amp;/g, "&").replace(/<[^>]*>/g, "").trim() : item.title,
+          description: descriptionValue ? descriptionValue.replace(/<br\s*\/?\s*>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#8217;/g, "’").trim() : item.description,
+          url: raw.link ?? item.url,
+          fields,
+          categories: Object.keys(taxonomyTerms).length ? taxonomyTerms : item.categories,
+        };
+      } catch (reason) {
+        toast.error(reason instanceof Error ? reason.message : "Could not load the full listing details.");
+        return;
+      }
+    }
     const nextFields: Record<string, string> = emptyListingFields();
     for (const key of Object.keys(nextFields)) {
-      const value = item.fields?.[key];
+      const value = source.fields?.[key];
       nextFields[key] = Array.isArray(value) ? value.join(", ") : value == null ? "" : String(value);
     }
-    setOpeningHours(Object.fromEntries(OPENING_HOURS.map(({ key }) => [key, readIntervals(item.fields ?? {}, key)])));
+    setOpeningHours(Object.fromEntries(OPENING_HOURS.map(({ key }) => [key, readIntervals(source.fields ?? {}, key)])));
     for (const field of EDITABLE_FIELDS) {
-      const value = item.fields?.[field.key];
+      const value = source.fields?.[field.key];
       nextFields[field.key] = Array.isArray(value) ? value.join(", ") : value == null ? "" : String(value);
     }
     const nextTaxonomies: Record<string, number[]> = {};
-    for (const [taxonomy, terms] of Object.entries(item.categories ?? {})) nextTaxonomies[taxonomy] = terms.map((term) => term.id);
-    setEditing(item); setTitle(item.title); setDescription(item.description ?? ""); setEnableReservation(false);
+    for (const [taxonomy, terms] of Object.entries(source.categories ?? {})) nextTaxonomies[taxonomy] = terms.map((term) => term.id);
+    setEditing(source); setTitle(source.title); setDescription(source.description ?? ""); setEnableReservation(false);
     setFields(nextFields); setAddressQuery(nextFields.friendly_address || nextFields.address || ""); setAddressHits([]); setTaxonomies(nextTaxonomies); setTaxonomySearch({}); setFormError(""); setFormOpen(true);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
