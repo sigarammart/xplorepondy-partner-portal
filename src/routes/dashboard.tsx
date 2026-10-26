@@ -797,6 +797,8 @@ function ListingOwnerDashboardPage() {
       </header>
 
       {loggedIn && mobileMenuOpen && (
+        <>
+        <button type="button" className="xp-partner-mobile-menu-backdrop md:hidden" aria-label="Close navigation menu" onClick={() => setMobileMenuOpen(false)} />
         <nav id="xp-partner-mobile-menu" aria-label="Mobile partner portal navigation" className="border-b border-border bg-card px-3 py-3 shadow-sm md:hidden">
           <div className="grid gap-1">
             {dashboardNav.map((item) => (
@@ -824,6 +826,7 @@ function ListingOwnerDashboardPage() {
             </button>
           </div>
         </nav>
+        </>
       )}
 
       {!loggedIn ? (
