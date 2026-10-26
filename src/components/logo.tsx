@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 const PARTNER_LOGO_URL =
-  "https://xplorepondy.com/wp-content/uploads/2026/10/Xplore-Pondy-Partner-Logo.png";
+  "https://xplorepondy.com/images/logos/Xplore-Pondy-Partner-Logo-300.png";
 
 export function Logo({ className, mark = true }: { className?: string; mark?: boolean }) {
   return (
