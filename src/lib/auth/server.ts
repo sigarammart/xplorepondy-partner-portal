@@ -185,6 +185,9 @@ export const auth = betterAuth({
 
   // Native Google OAuth. Better Auth handles the direct callback at
   // `/api/auth/callback/google` instead of routing Google through the Grok broker.
+  // For production, BETTER_AUTH_URL must be the partner portal origin
+  // (https://partner.xplorepondy.com), not the traveler app origin. The deployer
+  // must also configure GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET.
   ...(googleConfigured
     ? {
         socialProviders: {
@@ -192,7 +195,7 @@ export const auth = betterAuth({
             clientId: googleClientId as string,
             clientSecret: googleClientSecret as string,
             // Let Better Auth derive the callback from the deployed BETTER_AUTH_URL.
-            // Production is https://app.xplorepondy.com; sandbox/local URLs remain dynamic.
+            // Production portal callback: https://partner.xplorepondy.com/api/auth/callback/google.
             prompt: "select_account",
           },
         },
