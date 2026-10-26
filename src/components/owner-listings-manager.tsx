@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { MapPin, LoaderCircle } from "lucide-react";
+import { MapPin, LoaderCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { resolvePlace, searchGooglePlacesOnly, type PlaceSuggestion } from "@/lib/places";
 import { CheckCircle2, ClipboardList, ExternalLink, FilePlus2, Pencil, RefreshCw, Store, X } from "lucide-react";
 import { toast } from "sonner";
@@ -78,6 +78,8 @@ function statusClass(status: string) {
 export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsResolved, email, identityToken }: { loggedIn: boolean; allowedListingIds: number[]; listingsResolved: boolean; email?: string; identityToken?: string }) {
   const ownerIdentity = { email, identityToken };
   const [items, setItems] = useState<OwnerManagedListing[]>([]);
+  const [listingPage, setListingPage] = useState(1);
+  const listingsPerPage = 10;
   const [submissions, setSubmissions] = useState<OwnerSubmission[]>([]);
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [loading, setLoading] = useState(false);
@@ -104,6 +106,8 @@ export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsReso
   // their IDs are also present in that verified owner-scoped list.
   const allowedIds = new Set(allowedListingIds);
   const visibleItems = listingsResolved ? items.filter((item) => allowedIds.has(item.id)) : [];
+  const totalListingPages = Math.max(1, Math.ceil(visibleItems.length / listingsPerPage));
+  const paginatedItems = visibleItems.slice((listingPage - 1) * listingsPerPage, listingPage * listingsPerPage);
 
   useEffect(() => {
     const query = addressQuery.trim();
@@ -125,6 +129,7 @@ export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsReso
     try {
       const result = await fetchOwnerListings({ data: ownerIdentity }) as ListingsResponse;
       setItems(Array.isArray(result.items) ? result.items : []);
+      setListingPage(1);
       setSubmissions(Array.isArray(result.submissions) ? result.submissions : []);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not load owner listings.");
@@ -140,6 +145,7 @@ export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsReso
         if (cancelled) return;
         const data = listingsResult as ListingsResponse;
         setItems(Array.isArray(data.items) ? data.items : []);
+        setListingPage(1);
         setSubmissions(Array.isArray(data.submissions) ? data.submissions : []);
         setSchema(schemaResult as FormSchema);
       })
@@ -214,11 +220,20 @@ export function OwnerListingsManager({ loggedIn, allowedListingIds, listingsReso
     {loading && <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin"/>Loading owner listing records…</p>}
     {error && <div role="alert" className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"><p className="font-medium">Owner listing service unavailable</p><p className="mt-1">{error}</p><p className="mt-1 text-xs">The latest plugin must be installed on WordPress and the server-side bridge secret configured before submissions can be sent.</p></div>}
     {!loading && !error && items.length === 0 && <div className="mt-4 rounded-2xl border border-dashed border-border p-5 text-center"><Store className="mx-auto size-7 text-muted-foreground"/><p className="mt-2 font-medium">No owner-managed listings found</p><p className="mt-1 text-sm text-muted-foreground">Submit a new directory listing for administrator review.</p><Button className="mt-3" onClick={startNew}><FilePlus2 className="mr-2 size-4"/>Add your first listing</Button></div>}
-    {visibleItems.length > 0 && <div className="mt-4 space-y-2">{visibleItems.map((item) => <article key={item.id} className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background p-3 sm:flex-row sm:items-center">
+    {visibleItems.length > 0 && <><div className="mt-4 space-y-2">{paginatedItems.map((item) => <article key={item.id} className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background p-3 sm:flex-row sm:items-center">
       {item.featured_image ? <img src={item.featured_image} alt="" className="size-16 shrink-0 rounded-xl object-cover"/> : <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Store className="size-6"/></div>}
       <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{item.title}</h3><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusClass(item.status)}`}>{statusLabel(item.status)}</span></div><p className="mt-1 text-xs text-muted-foreground">Listing ID: {item.id}{item.modified_gmt ? ` · Updated ${new Date(item.modified_gmt).toLocaleDateString()}` : ""}</p>{item.url && item.status === "publish" && <a href={item.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-primary hover:underline">View listing <ExternalLink className="ml-1 inline size-3.5"/></a>}</div>
       <Button size="sm" variant="outline" onClick={() => startEdit(item)}><Pencil className="mr-2 size-4"/>Propose edit</Button>
-    </article>)}</div>}
+    </article>)}</div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3">
+        <p className="text-xs text-muted-foreground">Showing {((listingPage - 1) * listingsPerPage) + 1}–{Math.min(listingPage * listingsPerPage, visibleItems.length)} of {visibleItems.length} listings</p>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" disabled={listingPage <= 1} onClick={() => setListingPage((page) => Math.max(1, page - 1))}><ChevronLeft className="mr-1 size-4"/>Previous</Button>
+          <span className="min-w-16 text-center text-xs tabular-nums text-muted-foreground">Page {listingPage} of {totalListingPages}</span>
+          <Button size="sm" variant="outline" disabled={listingPage >= totalListingPages} onClick={() => setListingPage((page) => Math.min(totalListingPages, page + 1))}>Next<ChevronRight className="ml-1 size-4"/></Button>
+        </div>
+      </div>
+    </>}
     {submissions.length > 0 && <div className="mt-6"><div className="flex items-center gap-2"><ClipboardList className="size-5 text-primary"/><h3 className="font-semibold">Submission history</h3></div><div className="mt-3 space-y-2">{submissions.map((submission) => <article key={submission.id} className="rounded-xl border border-border/70 p-3"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="font-medium">{submission.title}</p><p className="mt-1 text-xs text-muted-foreground">{submission.kind === "edit" ? `Edit request for listing #${submission.target_listing_id}` : "New listing request"}{submission.created_gmt ? ` · ${new Date(submission.created_gmt).toLocaleDateString()}` : ""}</p></div><span className={`rounded-full px-2 py-1 text-xs font-medium ${statusClass(submission.status)}`}>{statusLabel(submission.status)}</span></div>{submission.review_note && <p className="mt-2 rounded-lg bg-muted/60 p-2 text-sm"><strong>Admin note:</strong> {submission.review_note}</p>}</article>)}</div></div>}
     {formOpen && <div className="fixed inset-0 z-[100] flex items-end justify-center overflow-y-auto bg-black/60 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={editing ? "Propose listing edits" : "Submit a new listing"}>
       <form onSubmit={(event) => void submit(event)} className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-card p-4 shadow-2xl sm:rounded-3xl sm:p-6">
