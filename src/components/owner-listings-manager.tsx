@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { createOwnerListingSubmission, fetchAdminListings, fetchOwnerListingFormSchema, fetchOwnerListings, submitOwnerListingEdit, uploadOwnerListingImage } from "@/lib/owner-listings";
 
 type OwnerManagedListing = {
-  id: number; title: string; description?: string; status: string; url?: string;
+  id: number; title: string; description?: string; status: string; url?: string; owner_email?: string; author_email?: string; owner?: { email?: string }; author?: { email?: string };
   modified_gmt?: string; featured_image?: string | null;
   fields?: Record<string, unknown>;
   categories?: Record<string, Array<{ id: number; name: string; slug: string }>>;
@@ -143,6 +143,7 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
           id: Number(item.id),
           title: typeof item.title === "string" ? item.title : item.title?.rendered ?? `Listing #${item.id}`,
           status: String(item.status ?? "publish"),
+          owner_email: typeof item.owner_email === "string" ? item.owner_email : typeof item.author_email === "string" ? item.author_email : typeof item.owner?.email === "string" ? item.owner.email : typeof item.author?.email === "string" ? item.author.email : "",
         })));
         if (!response.total_pages || page >= response.total_pages || !(response.items ?? []).length) break;
       }
@@ -259,7 +260,7 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
     {!loading && !error && items.length === 0 && <div className="mt-4 rounded-2xl border border-dashed border-border p-5 text-center"><Store className="mx-auto size-7 text-muted-foreground"/><p className="mt-2 font-medium">No owner-managed listings found</p><p className="mt-1 text-sm text-muted-foreground">Submit a new directory listing for administrator review.</p><Button className="mt-3" onClick={startNew}><FilePlus2 className="mr-2 size-4"/>Add your first listing</Button></div>}
     {filteredItems.length > 0 && <><div className="mt-4 space-y-2">{paginatedItems.map((item) => <article key={item.id} className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background p-3 sm:flex-row sm:items-center">
       {item.featured_image ? <img src={item.featured_image} alt="" className="size-16 shrink-0 rounded-xl object-cover"/> : <div className="flex size-16 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Store className="size-6"/></div>}
-      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{item.title}</h3><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusClass(item.status)}`}>{statusLabel(item.status)}</span></div><p className="mt-1 text-xs text-muted-foreground">Listing ID: {item.id}{item.modified_gmt ? ` · Updated ${new Date(item.modified_gmt).toLocaleDateString()}` : ""}</p>{item.url && item.status === "publish" && <a href={item.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-primary hover:underline">View listing <ExternalLink className="ml-1 inline size-3.5"/></a>}</div>
+      <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{item.title}</h3><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusClass(item.status)}`}>{statusLabel(item.status)}</span></div><p className="mt-1 text-xs text-muted-foreground">Listing ID: {item.id}{item.modified_gmt ? ` · Updated ${new Date(item.modified_gmt).toLocaleDateString()}` : ""}</p>{item.owner_email && <p className="mt-1 text-xs text-muted-foreground">Owner email: <a href={`mailto:${item.owner_email}`} className="font-medium text-foreground hover:text-primary hover:underline">{item.owner_email}</a></p>}{item.url && item.status === "publish" && <a href={item.url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-sm font-medium text-primary hover:underline">View listing <ExternalLink className="ml-1 inline size-3.5"/></a>}</div>
       <Button size="sm" variant="outline" onClick={() => startEdit(item)}><Pencil className="mr-2 size-4"/>Propose edit</Button>
     </article>)}</div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3">
