@@ -53,14 +53,14 @@ function LoginPage() {
   const requestedRedirect = loginQuery?.get("redirect") ?? "";
   const returnTo = requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//")
     ? requestedRedirect
-    : "/account";
+    : "/dashboard";
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [oauthPending, setOauthPending] = useState<string | null>(null);
 
   useEffect(() => {
     if (isPending || forceReauth) return;
-    if (googleUser || (hydrated && user)) void navigate({ to: "/account" });
+    if (googleUser || (hydrated && user)) void navigate({ to: "/dashboard" });
   }, [hydrated, user, googleUser, isPending, navigate, forceReauth]);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -87,7 +87,7 @@ function LoginPage() {
       });
       toast.success(`Signed in as ${result.user.name}`);
       if (forceReauth) window.location.assign(returnTo);
-      else void navigate({ to: "/account" });
+      else void navigate({ to: "/dashboard" });
     } catch {
       setError("Could not sign in. Check your username and password.");
     } finally {
@@ -116,7 +116,7 @@ function LoginPage() {
               disabled={oauthPending != null}
               onClick={() => {
                 setOauthPending(p.providerId);
-                void signIn(p.providerId, { callbackURL: forceReauth ? returnTo : "/account" }).catch(() => setOauthPending(null));
+                void signIn(p.providerId, { callbackURL: forceReauth ? returnTo : "/dashboard" }).catch(() => setOauthPending(null));
               }}
             >
               {p.idp === "google" ? <GoogleMark /> : null}
@@ -170,7 +170,7 @@ function LoginPage() {
         Google sign-in is handled securely. Your username and password go only to xplorepondy.com.
       </p>
       <p className="mt-6 text-center text-sm">
-        <Link to="/" className="text-muted-foreground hover:text-foreground">
+        <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
           Continue without signing in
         </Link>
       </p>
