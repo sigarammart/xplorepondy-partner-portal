@@ -221,7 +221,21 @@ function OwnerBookings({
           {rows.map((reservation) => {
             const listing = listingMap.get(reservation.listingId);
             return (
-              <div key={reservation.id} id={`booking-table-${reservation.id}`} className={`scroll-mt-24 rounded-xl border border-border/70 bg-background p-3 ${targetReservationId === reservation.id ? "ring-2 ring-primary" : ""}`}>
+              <div key={reservation.id} id={`booking-table-${reservation.id}`} className={`scroll-mt-24 rounded-xl border p-3 transition-colors ${
+                reservation.checkedIn
+                  ? "border-emerald-500/35 bg-emerald-500/[0.07]"
+                  : reservation.status === "cancelled"
+                    ? "border-rose-500/35 bg-rose-500/[0.07]"
+                    : reservation.status === "pending"
+                      ? "border-amber-500/35 bg-amber-500/[0.07]"
+                      : reservation.status === "no-show"
+                        ? "border-slate-500/35 bg-slate-500/[0.07]"
+                        : reservation.status === "confirmed"
+                          ? "border-sky-500/25 bg-sky-500/[0.04]"
+                          : reservation.status === "completed"
+                            ? "border-violet-500/30 bg-violet-500/[0.06]"
+                            : "border-border/70 bg-background"
+              } ${targetReservationId === reservation.id ? "ring-2 ring-primary" : ""}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="font-semibold">{listing?.title ?? `Listing #${reservation.listingId}`}</h3>
