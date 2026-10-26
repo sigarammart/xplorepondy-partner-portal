@@ -293,7 +293,7 @@ function OwnerBookings({
                 </div>
                 {reservation.notes?.trim() && <div className="mt-3 p-3 text-sm"><p className="mb-1 text-xs font-semibold text-muted-foreground">Customer notes</p><p className="whitespace-pre-wrap break-words">{reservation.notes}</p></div>}
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
-                  <span className="text-xs text-muted-foreground">Booking ID: <span className="font-mono">#{formatReservationId(reservation.id)}</span>{reservation.checkedIn && <span className="ml-2 font-medium text-emerald-600">Checked in {reservation.checkedInAt || ""}</span>}</span>
+                  <span className="text-sm font-semibold text-foreground">Booking ID: <span className="font-mono text-base font-bold tracking-wide">#{formatReservationId(reservation.id)}</span>{reservation.checkedIn && <span className="ml-2 font-medium text-emerald-600">Checked in {reservation.checkedInAt || ""}</span>}</span>
                   <select
                     value={reservation.status}
                     disabled={updatingId === reservation.id}
