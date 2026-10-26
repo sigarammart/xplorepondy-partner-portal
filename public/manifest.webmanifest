@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Xplore Pondy Partner Portal",
+  "short_name": "Xplore Partner",
+  "description": "Manage your Xplore Pondy listings, reservations, events and experiences.",
+  "start_url": "/login",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000f1c",
+  "theme_color": "#000f1c",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
