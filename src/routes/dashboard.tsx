@@ -860,7 +860,7 @@ function ListingOwnerDashboardPage() {
           <main className="xp-partner-main">
             <div className="xp-partner-page-heading">
               <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "statistics" ? "Statistics" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
-              <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" onClick={() => window.location.reload()}><LoaderCircle className="mr-2 size-4" />Refresh data</Button><Button variant="ghost" size="sm" onClick={() => { useSession.getState().clearSession(); if (authEnabled) { void signOut().catch(() => { window.location.href = "/login"; }); } else { window.location.href = "/login"; } }}><X className="mr-2 size-4" />Sign out</Button></div>
+              <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" onClick={() => window.location.reload()}><LoaderCircle className="mr-2 size-4" />Refresh data</Button></div>
             </div>
 
             {activeView === "overview" && (
