@@ -1063,7 +1063,7 @@ function ListingOwnerDashboardPage() {
               </Link>
             </li>
           ))}
-          <li><Link to="/dashboard" search={{ view: "notifications" }} aria-label="Notifications" className="relative flex h-14 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary"><Bell className="size-5"/><span>Alerts</span>{unreadNotifications > 0 && <span className="absolute right-[14%] top-1.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 text-primary-foreground">{Math.min(unreadNotifications, 99)}</span>}</Link></li>
+          <li><Link to="/qr-scan" aria-label="Scan QR tickets" className="flex h-14 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium text-muted-foreground hover:bg-primary/10 hover:text-primary"><QrCode className="size-5"/><span>QR Scan</span></Link></li>
         </ul>
       </nav>
     </div>
