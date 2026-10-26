@@ -662,6 +662,41 @@ function ListingOwnerDashboardPage() {
                   </article>
                 </section>
 
+                <section className="mt-5 overflow-hidden rounded-2xl border border-border/80 bg-card">
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
+                    <div><h2 className="text-lg font-bold">Recent bookings</h2><p className="mt-1 text-sm text-muted-foreground">Latest guest activity across your business</p></div>
+                    <Link to="/dashboard" search={{ view: "bookings" }} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">View all bookings <ArrowLeft className="size-3.5 rotate-180" /></Link>
+                  </div>
+                  {loading ? (
+                    <div className="flex items-center gap-2 px-5 py-8 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" />Loading recent bookings…</div>
+                  ) : (dashboard?.reservations.length ?? 0) === 0 ? (
+                    <div className="px-5 py-8 text-sm text-muted-foreground">No table reservations yet. New guest bookings will appear here.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[690px] border-collapse text-left">
+                        <thead className="bg-muted/60 text-[11px] uppercase tracking-wide text-muted-foreground">
+                          <tr><th className="px-5 py-3 font-semibold">Guest</th><th className="px-5 py-3 font-semibold">Service</th><th className="px-5 py-3 font-semibold">Date</th><th className="px-5 py-3 font-semibold">Guests</th><th className="px-5 py-3 font-semibold">Status</th></tr>
+                        </thead>
+                        <tbody>
+                          {[...(dashboard?.reservations ?? [])].sort((a, b) => new Date(`${b.reservationDate}T${b.startTime || "00:00"}`).getTime() - new Date(`${a.reservationDate}T${a.startTime || "00:00"}`).getTime()).slice(0, 5).map((reservation) => {
+                            const service = dashboard?.listings.find((item) => item.id === reservation.listingId)?.title ?? `Listing #${reservation.listingId}`;
+                            const dateLabel = reservation.reservationDate ? new Date(`${reservation.reservationDate}T12:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "Date not set";
+                            const status = String(reservation.status || "pending").replace(/[_-]/g, " ");
+                            const statusClass = /confirm/.test(status) ? "bg-emerald-500/10 text-emerald-600" : /cancel/.test(status) ? "bg-red-500/10 text-red-600" : /complete|check.?in/.test(status) ? "bg-sky-500/10 text-sky-600" : "bg-amber-500/15 text-amber-700";
+                            return <tr key={reservation.id} className="border-t border-border/70 text-sm">
+                              <td className="px-5 py-3.5"><div className="font-semibold">{reservation.guestName || "Guest"}</div></td>
+                              <td className="max-w-[260px] px-5 py-3.5"><span className="block truncate">{service}</span></td>
+                              <td className="whitespace-nowrap px-5 py-3.5 text-xs text-muted-foreground">{dateLabel}, {reservation.startTime ? formatReservationTime(reservation.startTime) : "Time not set"}</td>
+                              <td className="px-5 py-3.5">{reservation.guests}</td>
+                              <td className="px-5 py-3.5"><span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusClass}`}>{status}</span></td>
+                            </tr>;
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+
                 <section className="xp-partner-content-grid secondary">
                   <article className="xp-partner-panel">
                     <div className="xp-partner-panel-header"><div><h2>Latest notifications</h2><p>Updates from your partner account</p></div><Link to="/dashboard" search={{ view: "notifications" }} className="xp-partner-text-link">View inbox <ArrowLeft className="size-3.5 rotate-180" /></Link></div>
