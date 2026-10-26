@@ -1,19 +1,14 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
-import { PreviewHostBridge } from "@/components/preview-host-bridge";
-import { CacheWorker } from "@/components/cache-worker";
-import { AppShell } from "@/components/layout";
 import { NotFound } from "@/components/not-found";
 import { Toaster } from "sonner";
-import { useTrip } from "@/store/trip";
 import { useSession } from "@/store/session";
 import { useTheme } from "@/store/theme";
-import { useGeo } from "@/store/geo";
 import "../styles.css";
 
 const APP_NAME = "Xplore Pondy Partner Portal";
-const PWA_NAME = "Xplore Partner";
+const PWA_NAME = "Xplore Pondy Partner Portal";
 
 const THEME_BOOT = `(function(){try{var m=localStorage.getItem("xp-color-mode");var r=document.documentElement;if(m==="light"){r.classList.add("light");r.classList.remove("dark")}else{r.classList.add("dark");r.classList.remove("light")}}catch(e){}})();`;
 
@@ -46,8 +41,6 @@ export const Route = createRootRoute({
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap",
       },
-      { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
   }),
   component: RootDocument,
@@ -55,14 +48,11 @@ export const Route = createRootRoute({
 
 function RootDocument() {
   const mode = useTheme((s) => s.mode);
-  const hydrateGeo = useGeo((s) => s.hydrate);
 
   // Do not hydrate the entire listing directory at app startup. Listing data is
   // loaded on demand by Explore category/subcategory pages.
   useEffect(() => {
-    void useTrip.persist.rehydrate();
     void useSession.persist.rehydrate();
-    hydrateGeo();
   }, []);
 
   return (
@@ -72,12 +62,8 @@ function RootDocument() {
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
       </head>
       <body>
-        <PreviewHostBridge />
-        <CacheWorker />
         <AuthProvider>
-          <AppShell>
-            <Outlet />
-          </AppShell>
+          <Outlet />
           <Toaster
             theme={mode}
             position="top-center"
