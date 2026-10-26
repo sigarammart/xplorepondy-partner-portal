@@ -840,9 +840,10 @@ function ListingOwnerDashboardPage() {
                     <div><div className="xp-partner-eyebrow">PERFORMANCE OVERVIEW</div><h2 className="mt-1 text-xl font-bold">Content statistics</h2><p className="mt-1 text-sm text-muted-foreground">Cumulative detail-page views across your Xplore Pondy content.</p></div>
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">All-time totals</span>
                   </div>
-                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl bg-muted/40 p-3">
-                    <label className="flex flex-wrap items-center gap-2 text-sm font-medium">Time Range
-                      <select aria-label="Filter statistics by time range" value={statisticsTimeRange} onChange={(event) => setStatisticsTimeRange(event.target.value)} className="h-10 min-w-40 max-w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">
+                  <div className="mt-4 flex flex-wrap items-end gap-4 rounded-xl bg-muted/40 p-3">
+                    <div className="flex min-w-40 max-w-full flex-col gap-2 text-sm font-medium">
+                      <label htmlFor="statistics-time-range">Time Range</label>
+                      <select id="statistics-time-range" aria-label="Filter statistics by time range" value={statisticsTimeRange} onChange={(event) => setStatisticsTimeRange(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">
                         <option value="today">Today</option>
                         <option value="7">Last 7 Days</option>
                         <option value="30">Last 30 Days</option>
@@ -850,7 +851,7 @@ function ListingOwnerDashboardPage() {
                         <option value="year">Last Year</option>
                         <option value="all">All Time</option>
                       </select>
-                    </label>
+                    </div>
                     <div className="relative flex min-w-64 max-w-full flex-col gap-2 text-sm font-medium">
                       <label id="statistics-listing-label">Filter by listing</label>
                       <button
