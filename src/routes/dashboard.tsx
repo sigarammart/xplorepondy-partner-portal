@@ -363,6 +363,7 @@ function ListingOwnerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics">(searchView ?? "menu");
   const [statisticsListingFilter, setStatisticsListingFilter] = useState("all");
+  const [statisticsListingSearch, setStatisticsListingSearch] = useState("");
   const [statisticsTimeRange, setStatisticsTimeRange] = useState("all");
   const [cameraRequest, setCameraRequest] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -849,12 +850,24 @@ function ListingOwnerDashboardPage() {
                         <option value="all">All Time</option>
                       </select>
                     </label>
-                    <label className="flex flex-wrap items-center gap-2 text-sm font-medium">Filter by listing
-                      <select aria-label="Filter statistics by listing" value={statisticsListingFilter} onChange={(event) => setStatisticsListingFilter(event.target.value)} className="h-10 min-w-48 max-w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">
+                    <div className="flex min-w-64 max-w-full flex-col gap-2 text-sm font-medium">
+                      <label htmlFor="statistics-listing-search">Filter by listing</label>
+                      <input
+                        id="statistics-listing-search"
+                        type="search"
+                        value={statisticsListingSearch}
+                        onChange={(event) => setStatisticsListingSearch(event.target.value)}
+                        placeholder="Search listings…"
+                        aria-label="Search listings by name"
+                        className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      />
+                      <select aria-label="Select listing for statistics" value={statisticsListingFilter} onChange={(event) => setStatisticsListingFilter(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">
                         <option value="all">All listings</option>
-                        {sortedOwnerListings.map((item) => <option key={item.wpId ?? item.id ?? item.slug} value={String(item.wpId ?? item.id ?? item.slug)}>{item.title}</option>)}
+                        {sortedOwnerListings
+                          .filter((item) => item.title.toLocaleLowerCase().includes(statisticsListingSearch.trim().toLocaleLowerCase()))
+                          .map((item) => <option key={item.wpId ?? item.id ?? item.slug} value={String(item.wpId ?? item.id ?? item.slug)}>{item.title}</option>)}
                       </select>
-                    </label>
+                    </div>
                     <span className="text-xs text-muted-foreground">{statisticsTimeRange === "all" ? "Showing lifetime totals. Date-range reports become available when dated view-event data is recorded." : "The selected range is ready in the interface, but these lifetime counters cannot be filtered by date yet. Dated analytics events are required for accurate period totals."}</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
