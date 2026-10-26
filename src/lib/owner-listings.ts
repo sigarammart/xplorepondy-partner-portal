@@ -157,6 +157,21 @@ async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_co
   }
 }
 
+export const fetchAdminListingDetail = createServerFn({ method: "GET" })
+  .validator(ownerIdentitySchema.extend({ listingId: z.number().int().positive() }))
+  .handler(async ({ data }) => {
+    const { listingId, email, identityToken } = data;
+    // Fetch the individual public listing record server-side so the edit form
+    // gets its content, registered meta fields, and taxonomy terms—not only
+    // the summary fields returned by the paginated administrator directory.
+    return ownerRequest(
+      `/wp-json/wp/v2/listing/${listingId}?_embed=1`,
+      "GET",
+      undefined,
+      { email, identityToken },
+    );
+  });
+
 export const fetchAdminListings = createServerFn({ method: "GET" })
   .validator(adminListingsSchema)
   .handler(async ({ data }) => {
