@@ -124,6 +124,8 @@ function OwnerBookings({
   onUpdated: (id: number, status: string) => void;
 }) {
   const [listingFilter, setListingFilter] = useState(selectedListing);
+  const [listingSearch, setListingSearch] = useState("");
+  const [listingDropdownOpen, setListingDropdownOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [updatingId, setUpdatingId] = useState(0);
   const listingMap = new Map(dashboard.listings.map((listing) => [listing.id, listing]));
@@ -137,10 +139,22 @@ function OwnerBookings({
   return (
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-2">
-        <select value={listingFilter} onChange={(e) => setListingFilter(Number(e.target.value))} className="h-10 max-w-full rounded-lg border border-border bg-card px-3 text-sm">
-          <option value={0}>All my listings</option>
-          {dashboard.listings.map((listing) => <option key={listing.id} value={listing.id}>{listing.title}</option>)}
-        </select>
+        <div className="relative w-full max-w-full sm:w-[min(100%,28rem)]">
+          <button type="button" aria-haspopup="listbox" aria-expanded={listingDropdownOpen} onClick={() => { setListingDropdownOpen((open) => !open); setListingSearch(""); }} className="flex h-10 w-full items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 text-left text-sm">
+            <span className="truncate">{listingFilter === 0 ? "All my listings" : dashboard.listings.find((listing) => listing.id === listingFilter)?.title ?? "Select listing"}</span>
+            <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+          </button>
+          {listingDropdownOpen && <div className="absolute left-0 top-full z-30 mt-1 w-full overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+            <div className="border-b border-border p-2">
+              <input autoFocus type="search" value={listingSearch} onChange={(event) => setListingSearch(event.target.value)} placeholder="Search listings..." aria-label="Search listings" className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div role="listbox" aria-label="Filter reservations by listing" className="max-h-64 overflow-y-auto p-1">
+              <button type="button" role="option" aria-selected={listingFilter === 0} onClick={() => { setListingFilter(0); setListingDropdownOpen(false); setListingSearch(""); }} className={`w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted ${listingFilter === 0 ? "bg-primary/10 text-primary" : ""}`}>All my listings</button>
+              {dashboard.listings.filter((listing) => listing.title.toLowerCase().includes(listingSearch.trim().toLowerCase()) || String(listing.id).includes(listingSearch.trim())).map((listing) => <button key={listing.id} type="button" role="option" aria-selected={listingFilter === listing.id} onClick={() => { setListingFilter(listing.id); setListingDropdownOpen(false); setListingSearch(""); }} className={`block w-full rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted ${listingFilter === listing.id ? "bg-primary/10 text-primary" : ""}`}>{listing.title}</button>)}
+              {dashboard.listings.filter((listing) => listing.title.toLowerCase().includes(listingSearch.trim().toLowerCase()) || String(listing.id).includes(listingSearch.trim())).length === 0 && <p className="px-3 py-4 text-sm text-muted-foreground">No listings found.</p>}
+            </div>
+          </div>}
+        </div>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 rounded-lg border border-border bg-card px-3 text-sm">
           <option value="">All statuses</option>
           {statuses.map((status) => <option key={status} value={status}>{status.replace("-", " ")}</option>)}
