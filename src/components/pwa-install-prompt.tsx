@@ -59,7 +59,7 @@ export function PwaInstallPrompt() {
   return (
     <aside className="xp-pwa-install-banner" role="dialog" aria-label="Install Xplore Pondy Partner app">
       <div className="xp-pwa-install-mark" aria-hidden="true">
-        <img src="/icon-192.png" alt="" />
+        <img src="https://xplorepondy.com/images/logos/square-xp-partner-logo.png" alt="" />
       </div>
       <div className="xp-pwa-install-copy">
         <strong>Install Partner app</strong>
