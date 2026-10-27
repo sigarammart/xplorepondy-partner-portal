@@ -334,6 +334,17 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
       />
     </div>}
     {loading && <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin"/>Loading owner listing records…</p>}
+    {loading && isAdministrator && items.length > 0 && <div role="status" aria-live="polite" className="mt-3 flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+      <LoaderCircle className="size-5 shrink-0 animate-spin text-primary" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">Loading page {Math.min(listingPage + 1, totalListingPages)}…</p>
+        <div className="mt-2 flex gap-2" aria-hidden="true">
+          <span className="h-2 flex-1 animate-pulse rounded-full bg-primary/20" />
+          <span className="h-2 flex-1 animate-pulse rounded-full bg-primary/30 [animation-delay:150ms]" />
+          <span className="h-2 flex-1 animate-pulse rounded-full bg-primary/20 [animation-delay:300ms]" />
+        </div>
+      </div>
+    </div>}
     {error && <div role="alert" className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"><p className="font-medium">Owner listing service unavailable</p><p className="mt-1">{error}</p><p className="mt-1 text-xs">The latest plugin must be installed on WordPress and the server-side bridge secret configured before submissions can be sent.</p></div>}
     {!loading && !error && items.length === 0 && <div className="mt-4 rounded-2xl border border-dashed border-border p-5 text-center"><Store className="mx-auto size-7 text-muted-foreground"/><p className="mt-2 font-medium">No owner-managed listings found</p><p className="mt-1 text-sm text-muted-foreground">Submit a new directory listing for administrator review.</p><Button className="mt-3" onClick={startNew}><FilePlus2 className="mr-2 size-4"/>Add your first listing</Button></div>}
     {filteredItems.length > 0 && <><div className="mt-4 space-y-2">{paginatedItems.map((item) => <article key={item.id} className="flex flex-col gap-3 rounded-2xl border border-border/70 bg-background p-3 sm:flex-row sm:items-center">
