@@ -327,7 +327,7 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
       <input
         type="search"
         value={listingSearch}
-        onChange={(event) => { setListingSearch(event.target.value); if (isAdministrator) void loadAdminListingPage(1); else setListingPage(1); }}
+        onChange={(event) => { setListingSearch(event.target.value); if (!isAdministrator) setListingPage(1); }}
         placeholder="Search your listings by name, ID, or status..."
         aria-label="Search managed directory listings"
         className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
