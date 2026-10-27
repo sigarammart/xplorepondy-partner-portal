@@ -503,6 +503,9 @@ function ListingOwnerDashboardPage() {
   const [ownerContentLoading, setOwnerContentLoading] = useState(false);
   const [ownerContentError, setOwnerContentError] = useState("");
   const [adminListings, setAdminListings] = useState<Array<{ id: number; title: string; slug: string; url: string; status: string; owner_email: string; owner_name: string; site_view_count: number; app_view_count: number; claim_status: string; package_status: string; table_reservation_enabled?: boolean; reservation_enabled?: boolean; booking_enabled?: boolean; has_table_reservations?: boolean }>>([]);
+  const [adminAllListings, setAdminAllListings] = useState<Array<{ id: number; title: string; slug: string; url: string; status: string; owner_email: string; owner_name: string; site_view_count: number; app_view_count: number; claim_status: string; package_status: string; table_reservation_enabled?: boolean; reservation_enabled?: boolean; booking_enabled?: boolean; has_table_reservations?: boolean }>>([]);
+  const [adminAllListingsLoaded, setAdminAllListingsLoaded] = useState(false);
+  const [adminAllListingsLoading, setAdminAllListingsLoading] = useState(false);
   const [adminListingsPage, setAdminListingsPage] = useState(1);
   const [adminListingsTotalPages, setAdminListingsTotalPages] = useState(1);
   const [adminListingsTotalCount, setAdminListingsTotalCount] = useState(0);
@@ -673,6 +676,44 @@ function ListingOwnerDashboardPage() {
   }, [loggedIn, isAdministrator, email, identityToken, adminListingsPage]);
 
   useEffect(() => {
+    if (!loggedIn || !isAdministrator || !email) {
+      setAdminAllListings([]);
+      setAdminAllListingsLoaded(false);
+      setAdminAllListingsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setAdminAllListingsLoading(true);
+    setAdminAllListingsLoaded(false);
+    void (async () => {
+      // Statistics and listing filters must use the full directory, not only
+      // the 10-row page currently visible in Admin: All Listings.
+      const pageSize = 100;
+      const first = await fetchAdminListings({
+        data: { email, ...(identityToken ? { identityToken } : {}), page: 1, perPage: pageSize },
+      }) as { items?: typeof adminAllListings; total_pages?: number; total?: number };
+      const totalPages = Math.max(1, Number(first.total_pages) || Math.ceil((Number(first.total) || (first.items ?? []).length) / pageSize));
+      const remaining = await Promise.all(Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) =>
+        fetchAdminListings({
+          data: { email, ...(identityToken ? { identityToken } : {}), page: index + 2, perPage: pageSize },
+        }) as Promise<{ items?: typeof adminAllListings }>
+      ));
+      if (cancelled) return;
+      setAdminAllListings([...(first.items ?? []), ...remaining.flatMap((response) => response.items ?? [])]);
+      setAdminAllListingsLoaded(true);
+    })().catch((reason) => {
+      if (!cancelled) {
+        setAdminAllListings([]);
+        setAdminAllListingsLoaded(false);
+        console.error("Could not load the full administrator listing directory for statistics.", reason);
+      }
+    }).finally(() => {
+      if (!cancelled) setAdminAllListingsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [loggedIn, isAdministrator, email, identityToken]);
+
+  useEffect(() => {
     if (!email) {
       setOwnerListings([]);
       setOwnerContentLoading(false);
@@ -731,7 +772,7 @@ function ListingOwnerDashboardPage() {
   // Keep statistics in a loading state until either the dedicated owner-list
   // endpoint or the session's listing store has supplied view counters. The
   // owner endpoint can return an empty list before the session store hydrates.
-  const statisticsDataLoading = ownerContentLoading || (!ownerContentError && ownerListings.length === 0 && sessionListings.length === 0);
+  const statisticsDataLoading = isAdministrator ? (adminAllListingsLoading || !adminAllListingsLoaded) : (ownerContentLoading || (!ownerContentError && ownerListings.length === 0 && sessionListings.length === 0));
 
   const sessionListingsById = new Map(sessionListings.map((item) => [
     String(item.wpId ?? item.id ?? item.slug),
@@ -739,7 +780,7 @@ function ListingOwnerDashboardPage() {
   ]));
   const sessionListingsBySlug = new Map(sessionListings.map((item) => [String(item.slug ?? ""), item]));
   const visibleOwnerListings = isAdministrator
-    ? adminListings.map((item) => ({
+    ? (adminAllListingsLoaded ? adminAllListings : adminListings).map((item) => ({
         id: item.id, wpId: item.id, slug: item.slug, title: item.title, url: item.url,
         siteViewCount: item.site_view_count ?? 0, appViewCount: item.app_view_count ?? 0,
       }))
@@ -787,7 +828,7 @@ function ListingOwnerDashboardPage() {
 
   const dashboardNav = [
     { key: "overview", label: "Overview", icon: ClipboardList, count: undefined, view: "menu" as const, bookingType: undefined, child: false },
-    ...(isAdministrator ? [{ key: "admin-listings", label: "Admin: All Listings", icon: Settings2, count: adminListings.length || undefined, view: "admin-listings" as const, bookingType: undefined, child: false }] : []),
+    ...(isAdministrator ? [{ key: "admin-listings", label: "Admin: All Listings", icon: Settings2, count: adminListingsTotalCount || adminListings.length || undefined, view: "admin-listings" as const, bookingType: undefined, child: false }] : []),
     { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const, bookingType: undefined, child: false },
     { key: "statistics", label: "Statistics", icon: ChartNoAxesCombined, count: undefined, view: "statistics" as const, bookingType: undefined, child: false },
     { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const, bookingType: undefined, child: false },
