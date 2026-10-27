@@ -79,6 +79,7 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
   const ownerIdentity = { email, identityToken };
   const [items, setItems] = useState<OwnerManagedListing[]>([]);
   const [listingPage, setListingPage] = useState(1);
+  const [listingPageCount, setListingPageCount] = useState(1);
   const [listingSearch, setListingSearch] = useState("");
   const listingsPerPage = 10;
   const [submissions, setSubmissions] = useState<OwnerSubmission[]>([]);
@@ -113,8 +114,8 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
     String(item.id).includes(normalizedListingSearch) ||
     item.status.toLocaleLowerCase().includes(normalizedListingSearch)
   );
-  const totalListingPages = Math.max(1, Math.ceil(filteredItems.length / listingsPerPage));
-  const paginatedItems = filteredItems.slice((listingPage - 1) * listingsPerPage, listingPage * listingsPerPage);
+  const totalListingPages = isAdministrator ? listingPageCount : Math.max(1, Math.ceil(filteredItems.length / listingsPerPage));
+  const paginatedItems = isAdministrator ? filteredItems : filteredItems.slice((listingPage - 1) * listingsPerPage, listingPage * listingsPerPage);
 
   useEffect(() => {
     const query = addressQuery.trim();
@@ -131,25 +132,51 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [addressQuery, formOpen]);
 
-  async function loadListingsAndSubmissions() {
+  async function loadListingsAndSubmissions(page = 1) {
     const ownerResult = await fetchOwnerListings({ data: ownerIdentity }) as ListingsResponse;
-    let listingItems = Array.isArray(ownerResult.items) ? ownerResult.items : [];
     if (isAdministrator) {
-      const all: OwnerManagedListing[] = [];
-      for (let page = 1; page <= 30; page += 1) {
-        const response = await fetchAdminListings({ data: { ...ownerIdentity, page, perPage: 100 } }) as { items?: Array<Omit<Partial<OwnerManagedListing>, "title"> & { id: number; title?: string | { rendered?: string } }>; total_pages?: number };
-        all.push(...(response.items ?? []).map((item) => ({
-          ...item,
-          id: Number(item.id),
-          title: typeof item.title === "string" ? item.title : item.title?.rendered ?? `Listing #${item.id}`,
-          status: String(item.status ?? "publish"),
-          owner_email: typeof item.owner_email === "string" ? item.owner_email : typeof item.author_email === "string" ? item.author_email : typeof item.email === "string" ? item.email : typeof item.owner?.email === "string" ? item.owner.email : typeof item.author?.email === "string" ? item.author.email : "",
-        })));
-        if (!response.total_pages || page >= response.total_pages || !(response.items ?? []).length) break;
-      }
-      listingItems = all;
+      const response = await fetchAdminListings({ data: { ...ownerIdentity, page, perPage: listingsPerPage } }) as {
+        items?: Array<Omit<Partial<OwnerManagedListing>, "title"> & { id: number; title?: string | { rendered?: string } }>;
+        total_pages?: number;
+        total?: number;
+      };
+      const listingItems: OwnerManagedListing[] = (response.items ?? []).map((item) => ({
+        ...item,
+        id: Number(item.id),
+        title: typeof item.title === "string" ? item.title : item.title?.rendered ?? `Listing #${item.id}`,
+        status: String(item.status ?? "publish"),
+        owner_email: typeof item.owner_email === "string" ? item.owner_email : typeof item.author_email === "string" ? item.author_email : typeof item.email === "string" ? item.email : typeof item.owner?.email === "string" ? item.owner.email : typeof item.author?.email === "string" ? item.author.email : "",
+      }));
+      return { ...ownerResult, items: listingItems, totalPages: Math.max(1, Number(response.total_pages) || 1) };
     }
-    return { ...ownerResult, items: listingItems };
+    const listingItems = Array.isArray(ownerResult.items) ? ownerResult.items : [];
+    return { ...ownerResult, items: listingItems, totalPages: Math.max(1, Math.ceil(listingItems.length / listingsPerPage)) };
+  }
+
+  async function loadAdminListingPage(page: number) {
+    if (!isAdministrator) { setListingPage(page); return; }
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetchAdminListings({ data: { ...ownerIdentity, page, perPage: listingsPerPage } }) as {
+        items?: Array<Omit<Partial<OwnerManagedListing>, "title"> & { id: number; title?: string | { rendered?: string } }>;
+        total_pages?: number;
+      };
+      const listingItems: OwnerManagedListing[] = (response.items ?? []).map((item) => ({
+        ...item,
+        id: Number(item.id),
+        title: typeof item.title === "string" ? item.title : item.title?.rendered ?? `Listing #${item.id}`,
+        status: String(item.status ?? "publish"),
+        owner_email: typeof item.owner_email === "string" ? item.owner_email : typeof item.author_email === "string" ? item.author_email : typeof item.email === "string" ? item.email : typeof item.owner?.email === "string" ? item.owner.email : typeof item.author?.email === "string" ? item.author.email : "",
+      }));
+      setItems(listingItems);
+      setListingPage(page);
+      setListingPageCount(Math.max(1, Number(response.total_pages) || listingPageCount));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not load this listing page.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function refresh() {
@@ -158,6 +185,7 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
       const result = await loadListingsAndSubmissions();
       setItems(result.items);
       setListingPage(1);
+      setListingPageCount(result.totalPages);
       setSubmissions(Array.isArray(result.submissions) ? result.submissions : []);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not load owner listings.");
@@ -173,6 +201,7 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
         if (cancelled) return;
         setItems(listingsResult.items);
         setListingPage(1);
+        setListingPageCount(listingsResult.totalPages);
         setSubmissions(Array.isArray(listingsResult.submissions) ? listingsResult.submissions : []);
         setSchema(schemaResult as FormSchema);
       })
@@ -298,7 +327,7 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
       <input
         type="search"
         value={listingSearch}
-        onChange={(event) => { setListingSearch(event.target.value); setListingPage(1); }}
+        onChange={(event) => { setListingSearch(event.target.value); if (isAdministrator) void loadAdminListingPage(1); else setListingPage(1); }}
         placeholder="Search your listings by name, ID, or status..."
         aria-label="Search managed directory listings"
         className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
@@ -315,9 +344,9 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-3">
         <p className="text-xs text-muted-foreground">Showing {((listingPage - 1) * listingsPerPage) + 1}–{Math.min(listingPage * listingsPerPage, filteredItems.length)} of {filteredItems.length} listings</p>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" disabled={listingPage <= 1} onClick={() => setListingPage((page) => Math.max(1, page - 1))}><ChevronLeft className="mr-1 size-4"/>Previous</Button>
+          <Button size="sm" variant="outline" disabled={listingPage <= 1} onClick={() => void loadAdminListingPage(Math.max(1, listingPage - 1))}><ChevronLeft className="mr-1 size-4"/>Previous</Button>
           <span className="min-w-16 text-center text-xs tabular-nums text-muted-foreground">Page {listingPage} of {totalListingPages}</span>
-          <Button size="sm" variant="outline" disabled={listingPage >= totalListingPages} onClick={() => setListingPage((page) => Math.min(totalListingPages, page + 1))}>Next<ChevronRight className="ml-1 size-4"/></Button>
+          <Button size="sm" variant="outline" disabled={listingPage >= totalListingPages} onClick={() => void loadAdminListingPage(Math.min(totalListingPages, listingPage + 1))}>Next<ChevronRight className="ml-1 size-4"/></Button>
         </div>
       </div>
     </>}
