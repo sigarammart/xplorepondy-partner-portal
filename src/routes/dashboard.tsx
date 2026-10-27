@@ -1156,7 +1156,7 @@ function ListingOwnerDashboardPage() {
                       <Button size="sm" variant="outline" disabled={adminListingsLoading || adminListingsPage >= adminListingsTotalPages} onClick={() => setAdminListingsPage((page) => Math.min(adminListingsTotalPages, page + 1))}>Next<ChevronRight className="ml-1 size-4"/></Button>
                     </div>
                   </div>
-                  {adminListingsLoading && <div role="status" aria-live="polite" className="mt-3 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm"><span className="inline-block size-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary"/><span>Loading page {Math.min(adminListingsPage + 1, adminListingsTotalPages)} of administrator listings…</span></div>}
+                  {adminListingsLoading && <div role="status" aria-live="polite" className="mt-3 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm"><span className="inline-block size-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary"/><span>Loading page {adminListingsPage} of administrator listings…</span></div>}
                 </>}
               </section>
             )}
