@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, CheckCircle2, ChevronDown, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
