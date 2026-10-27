@@ -506,6 +506,7 @@ function ListingOwnerDashboardPage() {
   const [adminAllListings, setAdminAllListings] = useState<Array<{ id: number; title: string; slug: string; url: string; status: string; owner_email: string; owner_name: string; site_view_count: number; app_view_count: number; claim_status: string; package_status: string; table_reservation_enabled?: boolean; reservation_enabled?: boolean; booking_enabled?: boolean; has_table_reservations?: boolean }>>([]);
   const [adminAllListingsLoaded, setAdminAllListingsLoaded] = useState(false);
   const [adminAllListingsLoading, setAdminAllListingsLoading] = useState(false);
+  const [adminAllListingsError, setAdminAllListingsError] = useState("");
   const [adminListingsPage, setAdminListingsPage] = useState(1);
   const [adminListingsTotalPages, setAdminListingsTotalPages] = useState(1);
   const [adminListingsTotalCount, setAdminListingsTotalCount] = useState(0);
@@ -685,6 +686,7 @@ function ListingOwnerDashboardPage() {
     let cancelled = false;
     setAdminAllListingsLoading(true);
     setAdminAllListingsLoaded(false);
+    setAdminAllListingsError("");
     void (async () => {
       // Statistics and listing filters must use the full directory, not only
       // the 10-row page currently visible in Admin: All Listings.
@@ -705,6 +707,7 @@ function ListingOwnerDashboardPage() {
       if (!cancelled) {
         setAdminAllListings([]);
         setAdminAllListingsLoaded(false);
+        setAdminAllListingsError(reason instanceof Error ? reason.message : "Could not load the full administrator listing directory.");
         console.error("Could not load the full administrator listing directory for statistics.", reason);
       }
     }).finally(() => {
@@ -772,7 +775,7 @@ function ListingOwnerDashboardPage() {
   // Keep statistics in a loading state until either the dedicated owner-list
   // endpoint or the session's listing store has supplied view counters. The
   // owner endpoint can return an empty list before the session store hydrates.
-  const statisticsDataLoading = isAdministrator ? (adminAllListingsLoading || !adminAllListingsLoaded) : (ownerContentLoading || (!ownerContentError && ownerListings.length === 0 && sessionListings.length === 0));
+  const statisticsDataLoading = isAdministrator ? (adminAllListingsLoading || (!adminAllListingsLoaded && !adminAllListingsError)) : (ownerContentLoading || (!ownerContentError && ownerListings.length === 0 && sessionListings.length === 0));
 
   const sessionListingsById = new Map(sessionListings.map((item) => [
     String(item.wpId ?? item.id ?? item.slug),
@@ -1063,7 +1066,7 @@ function ListingOwnerDashboardPage() {
               return <div className="mt-5 space-y-5">
                 <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div><div className="xp-partner-eyebrow">PERFORMANCE OVERVIEW</div><h2 className="mt-1 text-xl font-bold">Content statistics</h2><p className="mt-1 text-sm text-muted-foreground">Cumulative detail-page views across your Xplore Pondy content.</p></div>
+                    <div><div className="xp-partner-eyebrow">PERFORMANCE OVERVIEW</div><h2 className="mt-1 text-xl font-bold">Content statistics</h2><p className="mt-1 text-sm text-muted-foreground">Cumulative detail-page views across your Xplore Pondy content.</p></div>{isAdministrator && adminAllListingsError && <p role="alert" className="mt-2 text-sm text-destructive">Could not load all 932-directory statistics: {adminAllListingsError}. Displayed figures may reflect only the currently loaded admin page.</p>}
                     <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">All-time totals</span>
                   </div>
                   <div className="mt-4 flex flex-wrap items-end gap-4 rounded-xl bg-muted/40 p-3">
