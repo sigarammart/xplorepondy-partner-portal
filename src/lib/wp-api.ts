@@ -107,7 +107,7 @@ export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
         daily_tracking_total: Number(stats.daily_tracking_total ?? 0),
         latest_daily_date: typeof stats.latest_daily_date === "string" ? stats.latest_daily_date : null,
         daily_app_views: Object.fromEntries(Object.entries(stats.daily_app_views ?? {}).flatMap(([day, row]) => {
-          if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day) || !row) return [];
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !row) return [];
           return [[day, {
             app_views: Number(row.app_views ?? 0),
             sidepanel_views: Number(row.sidepanel_views ?? 0),
@@ -941,7 +941,7 @@ export const submitListeoBooking = createServerFn({ method: "POST" })
     const nonce = await loadListeoBookingPlusNonce(data.listingUrl, wpSession.cookie);
 
     const slot = `${data.slotStart} - ${data.slotEnd}`;
-    const hhmmRe = /^\\d{2}:\\d{2}$/;
+    const hhmmRe = /^\d{2}:\d{2}$/;
     const fields = new URLSearchParams();
     const append = (key: string, value: string | number) => {
       fields.set(key, String(value));
