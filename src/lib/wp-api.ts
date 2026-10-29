@@ -92,7 +92,7 @@ export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
     for (let offset = 0; offset < ids.length; offset += batchSize) {
       const batch = ids.slice(offset, offset + batchSize);
       const response = await fetch(
-        `${WP_ORIGIN}/wp-json/xplore/v1/listing-view-stats?ids=${batch.join(",")}`,
+        `${WP_ORIGIN}/wp-json/xplore/v1/listing-view-stats?ids=${batch.join(",")}&_xp_refresh=${Date.now()}`,
         { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) },
       );
       if (!response.ok) throw new Error(`Could not load dated listing analytics (${response.status}).`);
