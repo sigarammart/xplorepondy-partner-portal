@@ -695,18 +695,41 @@ function ListingOwnerDashboardPage() {
     void (async () => {
       // Statistics and listing filters must use the full directory, not only
       // the 10-row page currently visible in Admin: All Listings.
-      const pageSize = 100;
+      const pageSize = 50;
       const first = await fetchAdminListings({
         data: { email, ...(identityToken ? { identityToken } : {}), page: 1, perPage: pageSize },
       }) as { items?: typeof adminAllListings; total_pages?: number; total?: number };
-      const totalPages = Math.max(1, Number(first.total_pages) || Math.ceil((Number(first.total) || (first.items ?? []).length) / pageSize));
-      const remaining = await Promise.all(Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) =>
-        fetchAdminListings({
-          data: { email, ...(identityToken ? { identityToken } : {}), page: index + 2, perPage: pageSize },
-        }) as Promise<{ items?: typeof adminAllListings }>
-      ));
+      const totalCount = Number(first.total) || (first.items ?? []).length;
+      const totalPages = Math.max(1, Number(first.total_pages) || Math.ceil(totalCount / pageSize));
+      const allItems = [...(first.items ?? [])];
+      // Avoid firing nine or more heavyweight admin requests simultaneously.
+      // Each page also resolves canonical view counters and reservation flags,
+      // so unrestricted Promise.all can overload the server and surface "Failed to fetch".
+      const pageConcurrency = 2;
+      for (let pageStart = 2; pageStart <= totalPages; pageStart += pageConcurrency) {
+        const pages = Array.from(
+          { length: Math.min(pageConcurrency, totalPages - pageStart + 1) },
+          (_, index) => pageStart + index,
+        );
+        const responses = await Promise.all(pages.map(async (page) => {
+          let lastError: unknown;
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            try {
+              return await fetchAdminListings({
+                data: { email, ...(identityToken ? { identityToken } : {}), page, perPage: pageSize },
+              }) as { items?: typeof adminAllListings };
+            } catch (error) {
+              lastError = error;
+              if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+            }
+          }
+          throw new Error(`Could not load administrator directory page ${page}/${totalPages}: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+        }));
+        if (cancelled) return;
+        for (const response of responses) allItems.push(...(response.items ?? []));
+      }
       if (cancelled) return;
-      setAdminAllListings([...(first.items ?? []), ...remaining.flatMap((response) => response.items ?? [])]);
+      setAdminAllListings(allItems);
       setAdminAllListingsLoaded(true);
     })().catch((reason) => {
       if (!cancelled) {
