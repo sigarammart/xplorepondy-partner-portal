@@ -1075,6 +1075,11 @@ function ListingOwnerDashboardPage() {
               const selectedListings = statisticsListingFilter === "all"
                 ? sortedOwnerListings
                 : sortedOwnerListings.filter((item) => String(item.wpId ?? item.id ?? item.slug) === statisticsListingFilter);
+              const selectedDailyDiagnostics = selectedListings.map((item) => {
+                const id = Number(item.wpId ?? item.id);
+                const stats = dailyListingStats[id];
+                return `${item.title} (#${id}): ${stats ? `${stats.daily_tracking_total ?? "unknown"} daily views; latest ${stats.latest_daily_date ?? "none"}` : "no record returned by WordPress"}`;
+              }).join("; ");
               const totalSiteViews = selectedListings.reduce((sum, item) => sum + (item.siteViewCount ?? 0), 0);
               const totalAppViews = selectedListings.reduce((sum, item) => sum + (item.appViewCount ?? 0), 0);
               const rangeDays = statisticsTimeRange === "today" ? 1 : statisticsTimeRange === "7" ? 7 : statisticsTimeRange === "30" ? 30 : statisticsTimeRange === "90" ? 90 : statisticsTimeRange === "year" ? 365 : 0;
@@ -1164,7 +1169,7 @@ function ListingOwnerDashboardPage() {
                         </div>
                       </div>}
                     </div>
-                    <span className="max-w-xl text-xs text-muted-foreground">{dailyListingStatsError ? dailyListingStatsError : statisticsTimeRange === "all" ? "Showing lifetime totals for website and app listing views." : selectedListings.some((item) => (item.appViewCount ?? 0) > 0) && selectedListings.every((item) => (dailyListingStats[Number(item.wpId ?? item.id)]?.daily_tracking_total ?? 0) === 0) ? "No daily records were returned for these listings. Check that the latest WordPress tracking plugin is deployed; lifetime counters do not contain historical dates." : "Date range filters app listing views using daily records. Website, event, experience and booking totals remain lifetime/current totals because historical daily records are not available for those metrics."}</span>
+                    <span className="max-w-xl text-xs text-muted-foreground">{dailyListingStatsError ? dailyListingStatsError : statisticsTimeRange === "all" ? "Showing lifetime totals for website and app listing views." : selectedListings.some((item) => (item.appViewCount ?? 0) > 0) && selectedListings.every((item) => (dailyListingStats[Number(item.wpId ?? item.id)]?.daily_tracking_total ?? 0) === 0) ? "No daily records were returned for these listings. Diagnostics: ${selectedDailyDiagnostics || "no listing selected"}. WordPress must return daily records for the selected listing IDs; lifetime counters do not contain historical dates." : "Date range filters app listing views using daily records. Website, event, experience and booking totals remain lifetime/current totals because historical daily records are not available for those metrics."}</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-primary/10 p-2 text-primary"><ChartNoAxesCombined className="size-4"/></span>Total listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{statisticsDataLoading || (statisticsTimeRange !== "all" && dailyListingStatsLoading) ? <span className="xp-skeleton inline-block h-9 w-24 rounded-md align-middle" aria-label="Loading total listing views" /> : totalListingViews.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">{statisticsTimeRange === "all" ? "Website + app · lifetime" : "App views in selected period"}</p></article>
