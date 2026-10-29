@@ -89,15 +89,24 @@ export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
     // Chunk the list so later listings are not silently omitted from the response.
     const items: Record<string, { app_views?: number; daily_app_views?: Record<string, { app_views?: number; sidepanel_views?: number; detail_views?: number }>; daily_tracking_days?: number; daily_tracking_total?: number; latest_daily_date?: string | null }> = {};
     const batchSize = 50;
+    const batches: number[][] = [];
     for (let offset = 0; offset < ids.length; offset += batchSize) {
-      const batch = ids.slice(offset, offset + batchSize);
-      const response = await fetch(
-        `${WP_ORIGIN}/wp-json/xplore/v1/listing-view-stats?ids=${batch.join(",")}&_xp_refresh=${Date.now()}`,
-        { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) },
-      );
-      if (!response.ok) throw new Error(`Could not load dated listing analytics (${response.status}).`);
-      const payload = await response.json() as { items?: typeof items };
-      Object.assign(items, payload.items ?? {});
+      batches.push(ids.slice(offset, offset + batchSize));
+    }
+    // Fetch a few batches concurrently. Admin accounts can have hundreds of
+    // listings; sequential requests can exceed the server-function request timeout.
+    const concurrency = 5;
+    for (let offset = 0; offset < batches.length; offset += concurrency) {
+      const group = batches.slice(offset, offset + concurrency);
+      const results = await Promise.all(group.map(async (batch) => {
+        const response = await fetch(
+          `${WP_ORIGIN}/wp-json/xplore/v1/listing-view-stats?ids=${batch.join(",")}&_xp_refresh=${Date.now()}`,
+          { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) },
+        );
+        if (!response.ok) throw new Error(`Could not load dated listing analytics (${response.status}).`);
+        return await response.json() as { items?: typeof items };
+      }));
+      for (const payload of results) Object.assign(items, payload.items ?? {});
     }
     return Object.fromEntries(Object.entries(items).map(([id, stats]) => [
       Number(id),
