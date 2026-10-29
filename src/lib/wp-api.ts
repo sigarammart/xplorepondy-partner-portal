@@ -26,6 +26,7 @@ export type ListingViewStats = {
   app_sidepanel_views: number;
   app_detail_views: number;
   total_views: number;
+  daily_app_views: Record<string, { app_views: number; sidepanel_views: number; detail_views: number }>;
 };
 
 /** Read view totals only for listing IDs already resolved for the signed-in owner. */
@@ -52,6 +53,17 @@ export const fetchWpListingViewStats = createServerFn({ method: "GET" })
           app_sidepanel_views: Number(stats.app_sidepanel_views ?? 0),
           app_detail_views: Number(stats.app_detail_views ?? 0),
           total_views: Number(stats.total_views ?? 0),
+          daily_app_views: stats.daily_app_views && typeof stats.daily_app_views === "object"
+            ? Object.fromEntries(Object.entries(stats.daily_app_views as Record<string, unknown>).flatMap(([day, raw]) => {
+                if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day) || !raw || typeof raw !== "object") return [];
+                const row = raw as Record<string, unknown>;
+                return [[day, {
+                  app_views: Number(row.app_views ?? 0),
+                  sidepanel_views: Number(row.sidepanel_views ?? 0),
+                  detail_views: Number(row.detail_views ?? 0),
+                }]];
+              }))
+            : {},
         }] as const;
       } catch {
         return [id, null] as const;
