@@ -10,7 +10,7 @@ import { checkInOwnerEventTicket, fetchMyEvents, fetchMyOwnedEventBookings, upda
 import { checkInOwnerExperienceTicket, fetchMyExperiences, type ExperienceAccountItem } from "@/lib/experiences-account-api";
 import { useSession } from "@/store/session";
 import { formatDisplayDate, formatDisplayTime, formatDisplayDateTime } from "@/lib/date-time-format";
-import { fetchTableReservationNotifications, type TableReservationNotification } from "@/lib/wp-api";
+import { fetchTableReservationNotifications, fetchWpDailyListingViewStats, type DailyListingViewStats, type TableReservationNotification } from "@/lib/wp-api";
 import { fetchEventInbox, type EventInboxItem } from "@/lib/events-api";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -494,6 +494,9 @@ function ListingOwnerDashboardPage() {
   const [statisticsListingSearch, setStatisticsListingSearch] = useState("");
   const [statisticsListingDropdownOpen, setStatisticsListingDropdownOpen] = useState(false);
   const [statisticsTimeRange, setStatisticsTimeRange] = useState("all");
+  const [dailyListingStats, setDailyListingStats] = useState<Record<number, DailyListingViewStats>>({});
+  const [dailyListingStatsLoading, setDailyListingStatsLoading] = useState(false);
+  const [dailyListingStatsError, setDailyListingStatsError] = useState("");
   const [cameraRequest, setCameraRequest] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const identityToken = useSession((s) => s.wpIdentityToken);
@@ -806,6 +809,29 @@ function ListingOwnerDashboardPage() {
           id: item.wpId, wpId: item.wpId, slug: item.slug, title: item.name, url: item.siteUrl,
           siteViewCount: item.siteViewCount ?? 0, appViewCount: item.appViewCount ?? 0,
         }));
+  useEffect(() => {
+    if (!loggedIn || view !== "statistics") return;
+    const ids = [...new Set(visibleOwnerListings.map((item) => Number(item.wpId ?? item.id)).filter((id) => Number.isInteger(id) && id > 0))].slice(0, 1000);
+    if (!ids.length) {
+      setDailyListingStats({});
+      setDailyListingStatsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDailyListingStatsLoading(true);
+    setDailyListingStatsError("");
+    void fetchWpDailyListingViewStats({ data: { ids } })
+      .then((stats) => { if (!cancelled) setDailyListingStats(stats); })
+      .catch((reason) => {
+        if (!cancelled) {
+          setDailyListingStats({});
+          setDailyListingStatsError(reason instanceof Error ? reason.message : "Could not load dated listing analytics.");
+        }
+      })
+      .finally(() => { if (!cancelled) setDailyListingStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, [loggedIn, view, visibleOwnerListings, refreshKey]);
+
   const listing = dashboard?.listings.find((item) => item.id === selectedListing) ?? visibleOwnerListings.find((item) => item.id === selectedListing);
 
   const sortedOwnerListings = [...visibleOwnerListings].sort((a, b) => {
@@ -1051,15 +1077,31 @@ function ListingOwnerDashboardPage() {
                 : sortedOwnerListings.filter((item) => String(item.wpId ?? item.id ?? item.slug) === statisticsListingFilter);
               const totalSiteViews = selectedListings.reduce((sum, item) => sum + (item.siteViewCount ?? 0), 0);
               const totalAppViews = selectedListings.reduce((sum, item) => sum + (item.appViewCount ?? 0), 0);
-              const totalListingViews = totalSiteViews + totalAppViews;
+              const rangeDays = statisticsTimeRange === "today" ? 1 : statisticsTimeRange === "7" ? 7 : statisticsTimeRange === "30" ? 30 : statisticsTimeRange === "90" ? 90 : statisticsTimeRange === "year" ? 365 : 0;
+              const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+              const rangeStart = new Date();
+              rangeStart.setHours(0, 0, 0, 0);
+              if (rangeDays > 0) rangeStart.setDate(rangeStart.getDate() - (rangeDays - 1));
+              const rangeStartKey = dateKey(rangeStart);
+              const rangeEndKey = dateKey(new Date());
+              const getListingRangeViews = (item: typeof selectedListings[number]) => {
+                const id = Number(item.wpId ?? item.id);
+                const daily = dailyListingStats[id]?.daily_app_views ?? {};
+                if (statisticsTimeRange === "all") return Number(item.appViewCount ?? dailyListingStats[id]?.app_views ?? 0);
+                return Object.entries(daily).reduce((sum, [day, row]) => day >= rangeStartKey && day <= rangeEndKey ? sum + row.app_views : sum, 0);
+              };
+              const periodAppViews = selectedListings.reduce((sum, item) => sum + getListingRangeViews(item), 0);
+              const totalListingViews = statisticsTimeRange === "all" ? totalSiteViews + totalAppViews : periodAppViews;
               const totalEventSiteViews = events.reduce((sum, item) => sum + (item.site_view_count ?? 0), 0);
               const totalEventAppViews = events.reduce((sum, item) => sum + (item.app_view_count ?? item.view_count ?? 0), 0);
               const totalExperienceSiteViews = experiences.reduce((sum, item) => sum + (item.site_view_count ?? 0), 0);
               const totalExperienceAppViews = experiences.reduce((sum, item) => sum + (item.app_view_count ?? item.view_count ?? 0), 0);
               const topListings = [...selectedListings]
-                .sort((a, b) => ((b.siteViewCount ?? 0) + (b.appViewCount ?? 0)) - ((a.siteViewCount ?? 0) + (a.appViewCount ?? 0)))
+                .sort((a, b) => statisticsTimeRange === "all"
+                  ? ((b.siteViewCount ?? 0) + (b.appViewCount ?? 0)) - ((a.siteViewCount ?? 0) + (a.appViewCount ?? 0))
+                  : getListingRangeViews(b) - getListingRangeViews(a))
                 .slice(0, 10);
-              const maxListingViews = Math.max(1, ...topListings.map((item) => (item.siteViewCount ?? 0) + (item.appViewCount ?? 0)));
+              const maxListingViews = Math.max(1, ...topListings.map((item) => statisticsTimeRange === "all" ? (item.siteViewCount ?? 0) + (item.appViewCount ?? 0) : getListingRangeViews(item)));
               const metricCards = [
                 { label: "Listing views", site: totalSiteViews, app: totalAppViews, icon: Store, color: "cyan" },
                 { label: "Event views", site: totalEventSiteViews, app: totalEventAppViews, icon: CalendarDays, color: "blue" },
@@ -1122,19 +1164,19 @@ function ListingOwnerDashboardPage() {
                         </div>
                       </div>}
                     </div>
-                    <span className="text-xs text-muted-foreground">{statisticsTimeRange === "all" ? "Showing lifetime totals. Date-range reports become available when dated view-event data is recorded." : "The selected range is ready in the interface, but these lifetime counters cannot be filtered by date yet. Dated analytics events are required for accurate period totals."}</span>
+                    <span className="max-w-xl text-xs text-muted-foreground">{dailyListingStatsError ? dailyListingStatsError : statisticsTimeRange === "all" ? "Showing lifetime totals for website and app listing views." : "Date range filters app listing views using daily records. Website, event, experience and booking totals remain lifetime/current totals because historical daily records are not available for those metrics."}</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-primary/10 p-2 text-primary"><ChartNoAxesCombined className="size-4"/></span>Total listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{statisticsDataLoading ? <span className="xp-skeleton inline-block h-9 w-24 rounded-md align-middle" aria-label="Loading total listing views" /> : totalListingViews.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">Website + app</p></article>
-                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-cyan-500/10 p-2 text-cyan-600"><Store className="size-4"/></span>Website listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{statisticsDataLoading ? <span className="xp-skeleton inline-block h-9 w-24 rounded-md align-middle" aria-label="Loading website listing views" /> : totalSiteViews.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">xplorepondy.com</p></article>
-                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-sky-500/10 p-2 text-sky-600"><ExternalLink className="size-4"/></span>App listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{statisticsDataLoading ? <span className="xp-skeleton inline-block h-9 w-24 rounded-md align-middle" aria-label="Loading app listing views" /> : totalAppViews.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">app.xplorepondy.com</p></article>
+                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-primary/10 p-2 text-primary"><ChartNoAxesCombined className="size-4"/></span>Total listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{statisticsDataLoading || (statisticsTimeRange !== "all" && dailyListingStatsLoading) ? <span className="xp-skeleton inline-block h-9 w-24 rounded-md align-middle" aria-label="Loading total listing views" /> : totalListingViews.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">{statisticsTimeRange === "all" ? "Website + app · lifetime" : "App views in selected period"}</p></article>
+                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-cyan-500/10 p-2 text-cyan-600"><Store className="size-4"/></span>Website listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{statisticsDataLoading ? <span className="xp-skeleton inline-block h-9 w-24 rounded-md align-middle" aria-label="Loading website listing views" /> : statisticsTimeRange === "all" ? totalSiteViews.toLocaleString("en-IN") : "—"}</p><p className="mt-1 text-xs text-muted-foreground">{statisticsTimeRange === "all" ? "xplorepondy.com · lifetime" : "Dated website tracking not available"}</p></article>
+                    <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-sky-500/10 p-2 text-sky-600"><ExternalLink className="size-4"/></span>App listing views</div><p className="mt-3 text-3xl font-bold tabular-nums">{statisticsDataLoading || (statisticsTimeRange !== "all" && dailyListingStatsLoading) ? <span className="xp-skeleton inline-block h-9 w-24 rounded-md align-middle" aria-label="Loading app listing views" /> : (statisticsTimeRange === "all" ? totalAppViews : periodAppViews).toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">{statisticsTimeRange === "all" ? "app.xplorepondy.com · lifetime" : "app.xplorepondy.com · selected period"}</p></article>
                     <article className="rounded-xl border border-border/70 bg-background p-4"><div className="flex items-center gap-2 text-sm font-semibold"><span className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600"><CalendarDays className="size-4"/></span>Bookings</div><p className="mt-3 text-3xl font-bold tabular-nums">{totalBookings.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">Current booking records</p></article>
                   </div>
                 </section>
                 <div className="grid gap-5 xl:grid-cols-2">
                   <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
-                    <div className="flex items-center justify-between gap-3"><div><h2 className="font-bold">Top listings by views</h2><p className="mt-1 text-xs text-muted-foreground">Top 10 by combined lifetime views</p></div><ChartNoAxesCombined className="size-5 text-primary"/></div>
-                    {statisticsDataLoading ? <div className="mt-5 space-y-5" role="status" aria-label="Loading top listing statistics">{Array.from({ length: 6 }, (_, index) => <div key={index} className="space-y-2"><div className="flex justify-between gap-3"><span className="xp-skeleton h-4 w-56 max-w-[75%] rounded" /><span className="xp-skeleton h-4 w-12 rounded" /></div><div className="xp-skeleton h-2 w-full rounded-full" /><span className="xp-skeleton block h-3 w-40 rounded" /></div>)}</div> : ownerContentError ? <p role="alert" className="mt-4 text-sm text-destructive">{ownerContentError}</p> : topListings.length === 0 ? <div className="mt-5 space-y-4" aria-label="No listing rows to display">{Array.from({ length: 3 }, (_, index) => <div key={index} className="space-y-2 opacity-60"><div className="flex justify-between gap-3"><span className="h-4 w-48 max-w-[75%] rounded bg-muted/70" /><span className="h-4 w-12 rounded bg-muted/70" /></div><div className="h-2 w-full rounded-full bg-muted/70" /><div className="h-3 w-40 rounded bg-muted/70" /></div>)}</div> : <div className="mt-5 space-y-4">{topListings.map((item, index) => { const site = item.siteViewCount ?? 0; const app = item.appViewCount ?? 0; const total = site + app; return <div key={item.wpId ?? item.id ?? item.slug} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5"><div className="truncate text-sm font-medium" title={item.title}>{index + 1}. {item.title}</div><div className="text-sm font-bold tabular-nums">{total.toLocaleString("en-IN")}</div><div className="col-span-2 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(total ? 1 : 0, total / maxListingViews * 100)}%` }}/></div><p className="col-span-2 text-[11px] text-muted-foreground">Website {site.toLocaleString("en-IN")} · App {app.toLocaleString("en-IN")}</p></div>; })}</div>}
+                    <div className="flex items-center justify-between gap-3"><div><h2 className="font-bold">Top listings by views</h2><p className="mt-1 text-xs text-muted-foreground">{statisticsTimeRange === "all" ? "Top 10 by combined lifetime views" : "Top 10 by app views in selected period"}</p></div><ChartNoAxesCombined className="size-5 text-primary"/></div>
+                    {statisticsDataLoading || (statisticsTimeRange !== "all" && dailyListingStatsLoading) ? <div className="mt-5 space-y-5" role="status" aria-label="Loading top listing statistics">{Array.from({ length: 6 }, (_, index) => <div key={index} className="space-y-2"><div className="flex justify-between gap-3"><span className="xp-skeleton h-4 w-56 max-w-[75%] rounded" /><span className="xp-skeleton h-4 w-12 rounded" /></div><div className="xp-skeleton h-2 w-full rounded-full" /><span className="xp-skeleton block h-3 w-40 rounded" /></div>)}</div> : ownerContentError ? <p role="alert" className="mt-4 text-sm text-destructive">{ownerContentError}</p> : topListings.length === 0 ? <div className="mt-5 space-y-4" aria-label="No listing rows to display">{Array.from({ length: 3 }, (_, index) => <div key={index} className="space-y-2 opacity-60"><div className="flex justify-between gap-3"><span className="h-4 w-48 max-w-[75%] rounded bg-muted/70" /><span className="h-4 w-12 rounded bg-muted/70" /></div><div className="h-2 w-full rounded-full bg-muted/70" /><div className="h-3 w-40 rounded bg-muted/70" /></div>)}</div> : <div className="mt-5 space-y-4">{topListings.map((item, index) => { const site = item.siteViewCount ?? 0; const app = item.appViewCount ?? 0; const total = statisticsTimeRange === "all" ? site + app : getListingRangeViews(item); return <div key={item.wpId ?? item.id ?? item.slug} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1.5"><div className="truncate text-sm font-medium" title={item.title}>{index + 1}. {item.title}</div><div className="text-sm font-bold tabular-nums">{total.toLocaleString("en-IN")}</div><div className="col-span-2 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(total ? 1 : 0, total / maxListingViews * 100)}%` }}/></div><p className="col-span-2 text-[11px] text-muted-foreground">{statisticsTimeRange === "all" ? `Website ${site.toLocaleString("en-IN")} · App ${app.toLocaleString("en-IN")}` : `App views in period: ${total.toLocaleString("en-IN")}`}</p></div>; })}</div>}
                   </section>
                   <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
                     <h2 className="font-bold">Content type breakdown</h2><p className="mt-1 text-xs text-muted-foreground">Lifetime view totals from available counters</p>
