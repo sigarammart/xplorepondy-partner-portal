@@ -55,7 +55,7 @@ export const fetchWpListingViewStats = createServerFn({ method: "GET" })
           total_views: Number(stats.total_views ?? 0),
           daily_app_views: stats.daily_app_views && typeof stats.daily_app_views === "object"
             ? Object.fromEntries(Object.entries(stats.daily_app_views as Record<string, unknown>).flatMap(([day, raw]) => {
-                if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day) || !raw || typeof raw !== "object") return [];
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !raw || typeof raw !== "object") return [];
                 const row = raw as Record<string, unknown>;
                 return [[day, {
                   app_views: Number(row.app_views ?? 0),
