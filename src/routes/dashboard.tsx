@@ -830,7 +830,7 @@ function ListingOwnerDashboardPage() {
       })
       .finally(() => { if (!cancelled) setDailyListingStatsLoading(false); });
     return () => { cancelled = true; };
-  }, [loggedIn, view, visibleOwnerListings, refreshKey]);
+  }, [loggedIn, view, isAdministrator, adminAllListingsLoaded, adminAllListings, adminListings, ownerListings, sessionListings, refreshKey]);
 
   const listing = dashboard?.listings.find((item) => item.id === selectedListing) ?? visibleOwnerListings.find((item) => item.id === selectedListing);
 
