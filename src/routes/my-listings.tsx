@@ -23,6 +23,7 @@ function MyListingsPage() {
   const [error, setError] = useState("");
   const [viewStats, setViewStats] = useState<Record<number, ListingViewStats>>({});
   const [viewStatsLoading, setViewStatsLoading] = useState(false);
+  const [viewRange, setViewRange] = useState<7 | 30 | 90>(7);
   const authorId = sessionUser?.id ?? wpUser?.id;
 
   useEffect(() => {
@@ -163,12 +164,54 @@ function MyListingsPage() {
             const website = visibleStats.reduce((sum, stats) => sum + stats.website_views, 0);
             const app = visibleStats.reduce((sum, stats) => sum + stats.app_views, 0);
             const sidepanel = visibleStats.reduce((sum, stats) => sum + stats.app_sidepanel_views, 0);
-            return <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Total views</p><p className="mt-1 text-2xl font-semibold tabular-nums">{viewStatsLoading ? "…" : total.toLocaleString()}</p></div>
-              <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Website</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : website.toLocaleString()}</p></div>
-              <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">App</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : app.toLocaleString()}</p></div>
-              <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">App sidepanel</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : sidepanel.toLocaleString()}</p></div>
-            </div>;
+            const dailyTotals = new Map<string, { app: number; sidepanel: number; detail: number }>();
+            for (const stats of visibleStats) {
+              for (const [day, row] of Object.entries(stats.daily_app_views ?? {})) {
+                const existing = dailyTotals.get(day) ?? { app: 0, sidepanel: 0, detail: 0 };
+                existing.app += row.app_views;
+                existing.sidepanel += row.sidepanel_views;
+                existing.detail += row.detail_views;
+                dailyTotals.set(day, existing);
+              }
+            }
+            const today = new Date();
+            const days = Array.from({ length: viewRange }, (_, index) => {
+              const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (viewRange - 1 - index));
+              const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+              return { key, label: date.toLocaleDateString(undefined, { month: "short", day: "numeric" }), ...(dailyTotals.get(key) ?? { app: 0, sidepanel: 0, detail: 0 }) };
+            });
+            const rangeApp = days.reduce((sum, day) => sum + day.app, 0);
+            const rangeSidepanel = days.reduce((sum, day) => sum + day.sidepanel, 0);
+            const rangeDetail = days.reduce((sum, day) => sum + day.detail, 0);
+            const maxDaily = Math.max(1, ...days.map((day) => day.app));
+            return <>
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">All-time total</p><p className="mt-1 text-2xl font-semibold tabular-nums">{viewStatsLoading ? "…" : total.toLocaleString()}</p></div>
+                <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Website · all time</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : website.toLocaleString()}</p></div>
+                <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">App · all time</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : app.toLocaleString()}</p></div>
+                <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">App sidepanel · all time</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : sidepanel.toLocaleString()}</p></div>
+              </div>
+              <div className="mt-5 rounded-xl border border-border/70 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div><h3 className="font-semibold">Recent app views</h3><p className="text-xs text-muted-foreground">Daily tracking starts when this update is deployed; older daily history is unavailable.</p></div>
+                  <select aria-label="View date range" value={String(viewRange)} onChange={(event) => setViewRange(Number(event.target.value) as 7 | 30 | 90)} className="h-9 rounded-lg border border-border bg-background px-3 text-sm">
+                    <option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>
+                  </select>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="rounded-lg bg-muted/60 p-3"><p className="text-xs text-muted-foreground">App views</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : rangeApp.toLocaleString()}</p></div>
+                  <div className="rounded-lg bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Sidepanel</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : rangeSidepanel.toLocaleString()}</p></div>
+                  <div className="rounded-lg bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Detail page</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : rangeDetail.toLocaleString()}</p></div>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {days.map((day) => <div key={day.key} className="grid grid-cols-[4.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">{day.label}</span>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${(day.app / maxDaily) * 100}%` }} /></div>
+                    <span className="text-right font-medium tabular-nums">{day.app}</span>
+                  </div>)}
+                </div>
+              </div>
+            </>;
           })()}
         </section>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
