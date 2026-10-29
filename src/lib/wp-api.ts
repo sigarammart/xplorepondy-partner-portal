@@ -71,6 +71,39 @@ export const fetchWpListingViewStats = createServerFn({ method: "GET" })
     }));
     return Object.fromEntries(rows.filter((row) => row[1] !== null)) as Record<number, ListingViewStats>;
   });
+export type DailyListingViewStats = {
+  app_views: number;
+  daily_app_views: Record<string, { app_views: number; sidepanel_views: number; detail_views: number }>;
+};
+
+/** Batch-load dated listing view history for the partner statistics screen. */
+export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
+  .validator(z.object({ ids: z.array(z.number().int().positive()).max(1000) }))
+  .handler(async ({ data }): Promise<Record<number, DailyListingViewStats>> => {
+    const ids = [...new Set(data.ids)];
+    if (!ids.length) return {};
+    const response = await fetch(
+      `${WP_ORIGIN}/wp-json/xplore/v1/listing-view-stats?ids=${ids.join(",")}`,
+      { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) },
+    );
+    if (!response.ok) throw new Error(`Could not load dated listing analytics (${response.status}).`);
+    const payload = await response.json() as { items?: Record<string, { app_views?: number; daily_app_views?: Record<string, { app_views?: number; sidepanel_views?: number; detail_views?: number }> }> };
+    return Object.fromEntries(Object.entries(payload.items ?? {}).map(([id, stats]) => [
+      Number(id),
+      {
+        app_views: Number(stats.app_views ?? 0),
+        daily_app_views: Object.fromEntries(Object.entries(stats.daily_app_views ?? {}).flatMap(([day, row]) => {
+          if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day) || !row) return [];
+          return [[day, {
+            app_views: Number(row.app_views ?? 0),
+            sidepanel_views: Number(row.sidepanel_views ?? 0),
+            detail_views: Number(row.detail_views ?? 0),
+          }]];
+        })),
+      },
+    ]));
+  });
+
 export const WP_APP_PASSWORD_URL = `${WP_ORIGIN}/wp-admin/authorize-application.php?app_name=Xplore%20Pondy%20App`;
 
 export type WpListingFacetOption = { value: string; slug: string; count: number; listingIds: number[] };
