@@ -27,6 +27,9 @@ export type ListingViewStats = {
   app_detail_views: number;
   total_views: number;
   daily_app_views: Record<string, { app_views: number; sidepanel_views: number; detail_views: number }>;
+  daily_tracking_days: number;
+  daily_tracking_total: number;
+  latest_daily_date: string | null;
 };
 
 /** Read view totals only for listing IDs already resolved for the signed-in owner. */
@@ -87,11 +90,14 @@ export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
       { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) },
     );
     if (!response.ok) throw new Error(`Could not load dated listing analytics (${response.status}).`);
-    const payload = await response.json() as { items?: Record<string, { app_views?: number; daily_app_views?: Record<string, { app_views?: number; sidepanel_views?: number; detail_views?: number }> }> };
+    const payload = await response.json() as { items?: Record<string, { app_views?: number; daily_app_views?: Record<string, { app_views?: number; sidepanel_views?: number; detail_views?: number }>; daily_tracking_days?: number; daily_tracking_total?: number; latest_daily_date?: string | null }> };
     return Object.fromEntries(Object.entries(payload.items ?? {}).map(([id, stats]) => [
       Number(id),
       {
         app_views: Number(stats.app_views ?? 0),
+        daily_tracking_days: Number(stats.daily_tracking_days ?? 0),
+        daily_tracking_total: Number(stats.daily_tracking_total ?? 0),
+        latest_daily_date: typeof stats.latest_daily_date === "string" ? stats.latest_daily_date : null,
         daily_app_views: Object.fromEntries(Object.entries(stats.daily_app_views ?? {}).flatMap(([day, row]) => {
           if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !row) return [];
           return [[day, {
