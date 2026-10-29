@@ -85,13 +85,21 @@ export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<Record<number, DailyListingViewStats>> => {
     const ids = [...new Set(data.ids)];
     if (!ids.length) return {};
-    const response = await fetch(
-      `${WP_ORIGIN}/wp-json/xplore/v1/listing-view-stats?ids=${ids.join(",")}`,
-      { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) },
-    );
-    if (!response.ok) throw new Error(`Could not load dated listing analytics (${response.status}).`);
-    const payload = await response.json() as { items?: Record<string, { app_views?: number; daily_app_views?: Record<string, { app_views?: number; sidepanel_views?: number; detail_views?: number }>; daily_tracking_days?: number; daily_tracking_total?: number; latest_daily_date?: string | null }> };
-    return Object.fromEntries(Object.entries(payload.items ?? {}).map(([id, stats]) => [
+    // The WordPress endpoint may cap the number of IDs it processes per request.
+    // Chunk the list so later listings are not silently omitted from the response.
+    const items: Record<string, { app_views?: number; daily_app_views?: Record<string, { app_views?: number; sidepanel_views?: number; detail_views?: number }>; daily_tracking_days?: number; daily_tracking_total?: number; latest_daily_date?: string | null }> = {};
+    const batchSize = 50;
+    for (let offset = 0; offset < ids.length; offset += batchSize) {
+      const batch = ids.slice(offset, offset + batchSize);
+      const response = await fetch(
+        `${WP_ORIGIN}/wp-json/xplore/v1/listing-view-stats?ids=${batch.join(",")}`,
+        { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(15000) },
+      );
+      if (!response.ok) throw new Error(`Could not load dated listing analytics (${response.status}).`);
+      const payload = await response.json() as { items?: typeof items };
+      Object.assign(items, payload.items ?? {});
+    }
+    return Object.fromEntries(Object.entries(items).map(([id, stats]) => [
       Number(id),
       {
         app_views: Number(stats.app_views ?? 0),
@@ -99,7 +107,7 @@ export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
         daily_tracking_total: Number(stats.daily_tracking_total ?? 0),
         latest_daily_date: typeof stats.latest_daily_date === "string" ? stats.latest_daily_date : null,
         daily_app_views: Object.fromEntries(Object.entries(stats.daily_app_views ?? {}).flatMap(([day, row]) => {
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !row) return [];
+          if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day) || !row) return [];
           return [[day, {
             app_views: Number(row.app_views ?? 0),
             sidepanel_views: Number(row.sidepanel_views ?? 0),
