@@ -93,7 +93,7 @@ export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
       {
         app_views: Number(stats.app_views ?? 0),
         daily_app_views: Object.fromEntries(Object.entries(stats.daily_app_views ?? {}).flatMap(([day, row]) => {
-          if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(day) || !row) return [];
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !row) return [];
           return [[day, {
             app_views: Number(row.app_views ?? 0),
             sidepanel_views: Number(row.sidepanel_views ?? 0),
