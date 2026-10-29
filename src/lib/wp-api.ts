@@ -19,6 +19,46 @@ import { extractOgImage, pickListingImage, uncropImage, uniqueImages } from "@/l
 import { signWpIdentityToken, verifyWpIdentityToken } from "@/lib/wp-identity-token.server";
 
 export const WP_ORIGIN = "https://xplorepondy.com";
+
+export type ListingViewStats = {
+  website_views: number;
+  app_views: number;
+  app_sidepanel_views: number;
+  app_detail_views: number;
+  total_views: number;
+};
+
+/** Read view totals only for listing IDs already resolved for the signed-in owner. */
+export const fetchWpListingViewStats = createServerFn({ method: "GET" })
+  .validator(z.object({ ids: z.array(z.number().int().positive()).max(100) }))
+  .handler(async ({ data }) => {
+    const uniqueIds = [...new Set(data.ids)];
+    const rows = await Promise.all(uniqueIds.map(async (id) => {
+      try {
+        const response = await fetch(
+          `${WP_ORIGIN}/wp-json/wp/v2/listing/${id}?_fields=id,xplore_view_stats`,
+          { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(5000) },
+        );
+        if (!response.ok) return [id, null] as const;
+        const payload = await response.json() as {
+          id?: number;
+          xplore_view_stats?: Partial<ListingViewStats>;
+        };
+        const stats = payload.xplore_view_stats;
+        if (!stats) return [id, null] as const;
+        return [id, {
+          website_views: Number(stats.website_views ?? 0),
+          app_views: Number(stats.app_views ?? 0),
+          app_sidepanel_views: Number(stats.app_sidepanel_views ?? 0),
+          app_detail_views: Number(stats.app_detail_views ?? 0),
+          total_views: Number(stats.total_views ?? 0),
+        }] as const;
+      } catch {
+        return [id, null] as const;
+      }
+    }));
+    return Object.fromEntries(rows.filter((row) => row[1] !== null)) as Record<number, ListingViewStats>;
+  });
 export const WP_APP_PASSWORD_URL = `${WP_ORIGIN}/wp-admin/authorize-application.php?app_name=Xplore%20Pondy%20App`;
 
 export type WpListingFacetOption = { value: string; slug: string; count: number; listingIds: number[] };
