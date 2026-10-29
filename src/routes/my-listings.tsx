@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, CalendarDays, LoaderCircle, Settings2, Store } from "lucide-react";
+import { ArrowLeft, CalendarDays, Eye, LoaderCircle, Settings2, Store } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAppLoggedIn } from "@/lib/app-session";
-import { fetchTableReservationOwnerDashboard, fetchWpAuthorContent } from "@/lib/wp-api";
+import { fetchTableReservationOwnerDashboard, fetchWpAuthorContent, fetchWpListingViewStats, type ListingViewStats } from "@/lib/wp-api";
 import { useSession } from "@/store/session";
 import { OwnerListingsManager } from "@/components/owner-listings-manager";
 
@@ -21,6 +21,8 @@ function MyListingsPage() {
   const [selectedId, setSelectedId] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [viewStats, setViewStats] = useState<Record<number, ListingViewStats>>({});
+  const [viewStatsLoading, setViewStatsLoading] = useState(false);
   const authorId = sessionUser?.id ?? wpUser?.id;
 
   useEffect(() => {
@@ -100,6 +102,20 @@ function MyListingsPage() {
     }
   }, [items, selectedId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (loading || items.length === 0) {
+      setViewStats({});
+      return () => { cancelled = true; };
+    }
+    setViewStatsLoading(true);
+    void fetchWpListingViewStats({ data: { ids: items.map((item) => item.id) } })
+      .then((stats) => { if (!cancelled) setViewStats(stats); })
+      .catch(() => { if (!cancelled) setViewStats({}); })
+      .finally(() => { if (!cancelled) setViewStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, [items, loading]);
+
   const selected = useMemo(
     () => selectedId === "all" ? undefined : items.find((item) => String(item.id) === selectedId),
     [items, selectedId],
@@ -130,6 +146,31 @@ function MyListingsPage() {
           <option value="all">All listings</option>
           {items.map((item) => <option key={item.id} value={String(item.id)}>{item.title}</option>)}
         </select>
+
+        <section aria-label="Listing views" className="mt-5 rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
+          <div className="flex items-center gap-2">
+            <Eye className="size-5 text-primary" />
+            <h2 className="font-display text-lg font-semibold">Listing views</h2>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {allListingsSelected ? "Combined views across your listings." : `Views for ${selected!.title}.`}
+          </p>
+          {(() => {
+            const visibleStats = (allListingsSelected ? items : selected ? [selected] : [])
+              .map((item) => viewStats[item.id])
+              .filter((stats): stats is ListingViewStats => Boolean(stats));
+            const total = visibleStats.reduce((sum, stats) => sum + stats.total_views, 0);
+            const website = visibleStats.reduce((sum, stats) => sum + stats.website_views, 0);
+            const app = visibleStats.reduce((sum, stats) => sum + stats.app_views, 0);
+            const sidepanel = visibleStats.reduce((sum, stats) => sum + stats.app_sidepanel_views, 0);
+            return <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Total views</p><p className="mt-1 text-2xl font-semibold tabular-nums">{viewStatsLoading ? "…" : total.toLocaleString()}</p></div>
+              <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">Website</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : website.toLocaleString()}</p></div>
+              <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">App</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : app.toLocaleString()}</p></div>
+              <div className="rounded-xl bg-muted/60 p-3"><p className="text-xs text-muted-foreground">App sidepanel</p><p className="mt-1 text-xl font-semibold tabular-nums">{viewStatsLoading ? "…" : sidepanel.toLocaleString()}</p></div>
+            </div>;
+          })()}
+        </section>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <Link to="/dashboard" search={allListingsSelected ? { view: "bookings" } : { view: "bookings", listingId: selected!.id }} className="group rounded-2xl border border-border/70 bg-background p-5 transition hover:border-primary/50 hover:bg-muted">
             <CalendarDays className="size-6 text-primary" />
