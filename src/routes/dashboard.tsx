@@ -487,6 +487,8 @@ function ListingOwnerDashboardPage() {
   const [listingManagementDropdownOpen, setListingManagementDropdownOpen] = useState(false);
   const [listingManagementSearch, setListingManagementSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics">(searchView ?? "menu");
   const [statisticsListingFilter, setStatisticsListingFilter] = useState("all");
   const [statisticsListingSearch, setStatisticsListingSearch] = useState("");
@@ -598,7 +600,7 @@ function ListingOwnerDashboardPage() {
       .catch((reason) => { if (!cancelled) { setExperienceBookings([]); setExperienceBookingError(reason instanceof Error ? reason.message : "Could not load experience bookings."); } })
       .finally(() => { if (!cancelled) setExperienceBookingsLoading(false); });
     return () => { cancelled = true; };
-  }, [loggedIn, email, identityToken]);
+  }, [loggedIn, email, identityToken, refreshKey]);
 
   useEffect(() => {
     if (!loggedIn || !email) {
@@ -648,7 +650,7 @@ function ListingOwnerDashboardPage() {
       if (!cancelled) setOwnerNotificationsError(reason instanceof Error ? reason.message : "Could not load owner notifications.");
     }).finally(() => { if (!cancelled) setOwnerNotificationsLoading(false); });
     return () => { cancelled = true; };
-  }, [loggedIn, email, identityToken, dashboard, ownerListings, sessionListings, experiences, events]);
+  }, [loggedIn, email, identityToken, dashboard, ownerListings, sessionListings, experiences, events, refreshKey]);
 
   useEffect(() => {
     if (!loggedIn || !isAdministrator || !email) {
@@ -674,7 +676,7 @@ function ListingOwnerDashboardPage() {
       if (!cancelled) setAdminListingsError(reason instanceof Error ? reason.message : "Could not load administrator listings.");
     }).finally(() => { if (!cancelled) setAdminListingsLoading(false); });
     return () => { cancelled = true; };
-  }, [loggedIn, isAdministrator, email, identityToken, adminListingsPage]);
+  }, [loggedIn, isAdministrator, email, identityToken, adminListingsPage, refreshKey]);
 
   useEffect(() => {
     if (!loggedIn || !isAdministrator || !email) {
@@ -714,7 +716,7 @@ function ListingOwnerDashboardPage() {
       if (!cancelled) setAdminAllListingsLoading(false);
     });
     return () => { cancelled = true; };
-  }, [loggedIn, isAdministrator, email, identityToken]);
+  }, [loggedIn, isAdministrator, email, identityToken, refreshKey]);
 
   useEffect(() => {
     if (!email) {
@@ -757,7 +759,7 @@ function ListingOwnerDashboardPage() {
       .catch((reason) => { if (!cancelled) setOwnerContentError(reason instanceof Error ? reason.message : "Could not load owner listings."); })
       .finally(() => { if (!cancelled) { setOwnerContentLoading(false); setStatisticsReady(true); } });
     return () => { cancelled = true; };
-  }, [email, identityToken]);
+  }, [email, identityToken, refreshKey]);
 
   useEffect(() => {
     if (!email) { setLoading(false); return; }
@@ -770,7 +772,7 @@ function ListingOwnerDashboardPage() {
       .catch(() => { if (!cancelled) setDashboard({ listings: [], reservations: [] }); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [email, userId]);
+  }, [email, userId, refreshKey]);
 
   // Keep statistics in a loading state until either the dedicated owner-list
   // endpoint or the session's listing store has supplied view counters. The
@@ -924,7 +926,7 @@ function ListingOwnerDashboardPage() {
           <main className="xp-partner-main">
             <div className="xp-partner-page-heading">
               <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "statistics" ? "Statistics" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
-              <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" onClick={() => window.location.reload()}><LoaderCircle className="mr-2 size-4" />Refresh data</Button></div>
+              <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" disabled={refreshing} onClick={() => { setRefreshing(true); setRefreshKey((key) => key + 1); toast.success("Refreshing dashboard data…"); window.setTimeout(() => setRefreshing(false), 900); }}><LoaderCircle className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />{refreshing ? "Refreshing…" : "Refresh data"}</Button></div>
             </div>
 
             {activeView === "overview" && (
@@ -1341,7 +1343,7 @@ function ListingOwnerDashboardPage() {
             )}
 
             {view === "notifications" && (
-              <section className="mt-5"><div className="xp-partner-panel-header"><div><h2>Notifications inbox</h2><p>Updates related to your events, experiences and table reservations.</p></div><Button variant="outline" size="sm" onClick={() => window.location.reload()}>Refresh inbox</Button></div>{ownerNotificationsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading notifications…</p> : ownerNotificationsError ? <p role="alert" className="mt-4 text-sm text-destructive">{ownerNotificationsError}</p> : totalNotifications === 0 ? <div className="xp-partner-empty mt-4"><Bell className="size-6" /><span>No notifications yet. New booking and reservation updates will appear here.</span></div> : <div className="xp-partner-notice-list mt-3">{[...ownerEventNotifications.map((item) => ({ key: `event-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "bookings" as const, bookingType: "events" as const } })), ...ownerNotifications.map((item) => ({ key: `notice-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "bookings" as const, bookingType: "table" as const } }))].map((item) => <Link key={item.key} to="/dashboard" search={item.target} className="xp-partner-notice"><span className={`xp-partner-notice-icon ${item.unread ? "unread" : ""}`}><Bell className="size-4" /></span><span className="min-w-0 flex-1"><strong>{item.title}</strong><span>{item.body}</span><small>{formatDisplayDateTime(item.date)}</small></span>{item.unread && <i aria-label="Unread" />}</Link>)}</div>}</section>
+              <section className="mt-5"><div className="xp-partner-panel-header"><div><h2>Notifications inbox</h2><p>Updates related to your events, experiences and table reservations.</p></div><Button variant="outline" size="sm" disabled={refreshing} onClick={() => { setRefreshing(true); setRefreshKey((key) => key + 1); toast.success("Refreshing notifications…"); window.setTimeout(() => setRefreshing(false), 900); }}>Refresh inbox</Button></div>{ownerNotificationsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading notifications…</p> : ownerNotificationsError ? <p role="alert" className="mt-4 text-sm text-destructive">{ownerNotificationsError}</p> : totalNotifications === 0 ? <div className="xp-partner-empty mt-4"><Bell className="size-6" /><span>No notifications yet. New booking and reservation updates will appear here.</span></div> : <div className="xp-partner-notice-list mt-3">{[...ownerEventNotifications.map((item) => ({ key: `event-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "bookings" as const, bookingType: "events" as const } })), ...ownerNotifications.map((item) => ({ key: `notice-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "bookings" as const, bookingType: "table" as const } }))].map((item) => <Link key={item.key} to="/dashboard" search={item.target} className="xp-partner-notice"><span className={`xp-partner-notice-icon ${item.unread ? "unread" : ""}`}><Bell className="size-4" /></span><span className="min-w-0 flex-1"><strong>{item.title}</strong><span>{item.body}</span><small>{formatDisplayDateTime(item.date)}</small></span>{item.unread && <i aria-label="Unread" />}</Link>)}</div>}</section>
             )}
           </main>
         </div>
