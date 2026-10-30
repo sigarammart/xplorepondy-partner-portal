@@ -80,7 +80,7 @@ export type DailyListingViewStats = {
 };
 
 /** Batch-load dated listing view history for the partner statistics screen. */
-export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
+export const fetchWpDailyListingViewStats = createServerFn({ method: "POST" })
   .validator(z.object({ ids: z.array(z.number().int().positive()).max(1000) }))
   .handler(async ({ data }): Promise<Record<number, DailyListingViewStats>> => {
     const ids = [...new Set(data.ids)];
