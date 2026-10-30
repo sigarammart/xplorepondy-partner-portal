@@ -80,7 +80,10 @@ export type DailyListingViewStats = {
 };
 
 /** Batch-load dated listing view history for the partner statistics screen. */
-export const fetchWpDailyListingViewStats = createServerFn({ method: "GET" })
+// Administrator dashboards can include every published listing. Keep that ID
+// list in the request body: TanStack serializes GET server-function data into
+// the URL, which exceeds common proxy request-target limits for this site.
+export const fetchWpDailyListingViewStats = createServerFn({ method: "POST" })
   .validator(z.object({ ids: z.array(z.number().int().positive()).max(1000) }))
   .handler(async ({ data }): Promise<Record<number, DailyListingViewStats>> => {
     const ids = [...new Set(data.ids)];
