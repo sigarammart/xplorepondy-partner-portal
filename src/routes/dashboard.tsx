@@ -16,12 +16,13 @@ import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { HeaderAuth } from "@/components/header-auth";
 import { OwnerListingsManager } from "@/components/owner-listings-manager";
+import { OwnerStatusManager } from "@/components/owner-status-manager";
 import { authEnabled, signOut } from "@/lib/auth/client";
 
 export const Route = createFileRoute("/dashboard")({
-  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
-    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics"].includes(String(search.view))
-      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics"
+  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
+    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics", "status"].includes(String(search.view))
+      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status"
       : undefined,
     bookingType: ["table", "events", "experiences"].includes(String(search.bookingType))
       ? search.bookingType as "table" | "events" | "experiences"
@@ -885,6 +886,7 @@ function ListingOwnerDashboardPage() {
     ...(isAdministrator ? [{ key: "admin-listings", label: "Admin: All Listings", icon: Settings2, count: adminListingsTotalCount || adminListings.length || undefined, view: "admin-listings" as const, bookingType: undefined, child: false }] : []),
     { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const, bookingType: undefined, child: false },
     { key: "statistics", label: "Statistics", icon: ChartNoAxesCombined, count: undefined, view: "statistics" as const, bookingType: undefined, child: false },
+    { key: "status", label: "My Status", icon: Camera, count: undefined, view: "status" as const, bookingType: undefined, child: false },
     { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const, bookingType: undefined, child: false },
     { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const, bookingType: undefined, child: false },
     { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings, view: "bookings" as const, bookingType: undefined, child: false },
@@ -974,7 +976,7 @@ function ListingOwnerDashboardPage() {
 
           <main className="xp-partner-main">
             <div className="xp-partner-page-heading">
-              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "statistics" ? "Statistics" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
+              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "statistics" ? "Statistics" : activeView === "status" ? "My Status" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
               <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" disabled={refreshing} onClick={() => { setRefreshing(true); setRefreshKey((key) => key + 1); toast.success("Refreshing dashboard data…"); window.setTimeout(() => setRefreshing(false), 900); }}><LoaderCircle className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />{refreshing ? "Refreshing…" : "Refresh data"}</Button></div>
             </div>
 
@@ -1092,6 +1094,19 @@ function ListingOwnerDashboardPage() {
                   </article>
                 </section>
               </>
+            )}
+
+            {view === "status" && (
+              <OwnerStatusManager
+                email={email}
+                identityToken={identityToken ?? undefined}
+                listings={visibleOwnerListings.map((item) => ({
+                  id: Number(item.id ?? item.wpId),
+                  wpId: Number(item.wpId ?? item.id),
+                  title: item.title,
+                  slug: item.slug,
+                }))}
+              />
             )}
 
             {view === "statistics" && (() => {
