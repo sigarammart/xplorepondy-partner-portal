@@ -216,6 +216,19 @@ export const createPartnerAd = createServerFn({ method: "POST" })
     return ownerRequest("/wp-json/xplore/v1/partner/ads", "POST", ad, { email, identityToken });
   });
 
+const partnerAdImageUploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(180),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  base64: z.string().min(1).max(12_000_000),
+}).extend(ownerIdentitySchema.shape);
+
+export const uploadPartnerAdImage = createServerFn({ method: "POST" })
+  .inputValidator((input: z.infer<typeof partnerAdImageUploadSchema>) => partnerAdImageUploadSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { email, identityToken, ...upload } = data;
+    return ownerRequest("/wp-json/xplore/v1/partner/ads/media", "POST", upload, { email, identityToken });
+  });
+
 export const updatePartnerAd = createServerFn({ method: "POST" })
   .inputValidator((input: z.infer<typeof partnerAdSchema> & { id: number }) => partnerAdSchema.extend({ id: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => {
