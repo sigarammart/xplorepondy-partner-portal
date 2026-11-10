@@ -487,6 +487,8 @@ function xp_ads_rest_payload($post_id) {
     $image = xp_ads_media_url(xp_ads_meta_first($post_id, ['ad_image', 'ad_image_url', 'ad_creative', 'ad_banner', 'ad_media', 'image', 'image_url']));
     if (!$image && has_post_thumbnail($post_id)) $image = get_the_post_thumbnail_url($post_id, 'full') ?: '';
     $listing_id = (int) xp_ads_meta_first($post_id, ['ad_target_listing', 'listing_id', 'target_listing']);
+    $assigned_user = $assigned_user_id ? get_userdata($assigned_user_id) : false;
+    $assigned_user_email = $assigned_user ? (string) $assigned_user->user_email : '';
     $views = (int) get_post_meta($post_id, '_ad_views', true);
     $clicks = (int) get_post_meta($post_id, '_ad_clicks', true);
     $raw_positions = get_post_meta($post_id, 'ad_positions', true);
@@ -512,6 +514,7 @@ function xp_ads_rest_payload($post_id) {
         'position' => $primary_position,
         'positions' => $positions,
         'user_id' => $assigned_user_id,
+        'user_email' => $assigned_user_email,
         'listing_id' => $listing_id,
         'listing_ids' => $listing_ids,
         'start_date' => (string) xp_ads_meta_first($post_id, ['ad_start_date', 'xp_ad_start_date', 'start_date']),
