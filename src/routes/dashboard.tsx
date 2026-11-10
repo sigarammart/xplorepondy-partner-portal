@@ -1449,8 +1449,18 @@ function ListingOwnerDashboardPage() {
         <ul className="grid grid-cols-6">
           {[
             { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0 },
-            { key: "statistics", label: "Stats", icon: ChartNoAxesCombined, count: undefined },
-            { key: "ads", label: "XP Ads", icon: Megaphone, count: undefined },
+            {
+              key: "statistics",
+              label: "Stats",
+              icon: ChartNoAxesCombined,
+              count: undefined,
+            },
+            {
+              key: "ads",
+              label: "XP Ads",
+              icon: Megaphone,
+              count: undefined,
+            },
             { key: "events", label: "Events", icon: CalendarDays, count: events.length },
             { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length },
             { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings },
