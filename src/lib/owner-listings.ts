@@ -223,7 +223,7 @@ const partnerAdImageUploadSchema = z.object({
 }).extend(ownerIdentitySchema.shape);
 
 export const uploadPartnerAdImage = createServerFn({ method: "POST" })
-  .inputValidator((input: z.infer<typeof partnerAdImageUploadSchema>) => partnerAdImageUploadSchema.parse(input))
+  .inputValidator(partnerAdImageUploadSchema)
   .handler(async ({ data }) => {
     const { email, identityToken, ...upload } = data;
     return ownerRequest("/wp-json/xplore/v1/partner/ads/media", "POST", upload, { email, identityToken });
