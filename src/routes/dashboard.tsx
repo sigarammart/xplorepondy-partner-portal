@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, Megaphone, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,14 @@ import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { HeaderAuth } from "@/components/header-auth";
 import { OwnerListingsManager } from "@/components/owner-listings-manager";
+import { PartnerAdsManager } from "@/components/partner-ads-manager";
 import { OwnerStatusManager } from "@/components/owner-status-manager";
 import { authEnabled, signOut } from "@/lib/auth/client";
 
 export const Route = createFileRoute("/dashboard")({
   validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
-    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics", "status"].includes(String(search.view))
-      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status"
+    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics", "status", "ads"].includes(String(search.view))
+      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "ads"
       : undefined,
     bookingType: ["table", "events", "experiences"].includes(String(search.bookingType))
       ? search.bookingType as "table" | "events" | "experiences"
@@ -887,6 +888,7 @@ function ListingOwnerDashboardPage() {
     { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const, bookingType: undefined, child: false },
     { key: "statistics", label: "Statistics", icon: ChartNoAxesCombined, count: undefined, view: "statistics" as const, bookingType: undefined, child: false },
     { key: "status", label: "My Status", icon: Camera, count: undefined, view: "status" as const, bookingType: undefined, child: false },
+    { key: "ads", label: "XP Ads", icon: Megaphone, count: undefined, view: "ads" as const, bookingType: undefined, child: false },
     { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const, bookingType: undefined, child: false },
     { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const, bookingType: undefined, child: false },
     { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings, view: "bookings" as const, bookingType: undefined, child: false },
@@ -976,7 +978,7 @@ function ListingOwnerDashboardPage() {
 
           <main className="xp-partner-main">
             <div className="xp-partner-page-heading">
-              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "statistics" ? "Statistics" : activeView === "status" ? "My Status" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
+              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "statistics" ? "Statistics" : activeView === "status" ? "My Status" : activeView === "ads" ? "XP Ads" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
               <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" disabled={refreshing} onClick={() => { setRefreshing(true); setRefreshKey((key) => key + 1); toast.success("Refreshing dashboard data…"); window.setTimeout(() => setRefreshing(false), 900); }}><LoaderCircle className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />{refreshing ? "Refreshing…" : "Refresh data"}</Button></div>
             </div>
 
@@ -1368,6 +1370,15 @@ function ListingOwnerDashboardPage() {
               </section>
             )}
 
+            {view === "ads" && (
+              <PartnerAdsManager
+                email={email}
+                identityToken={identityToken ?? undefined}
+                listings={visibleOwnerListings}
+                isAdministrator={isAdministrator}
+              />
+            )}
+
             {view === "events" && (
               <section className="mt-5"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-xl font-semibold">My events</h2><p className="text-sm text-muted-foreground">Publish and update events, then manage registrations.</p></div><Button asChild size="sm"><Link to="/submit-event"><FilePlus2 className="mr-2 size-4" />Create event</Link></Button></div>{eventsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading events…</p> : events.length === 0 ? <div className="xp-partner-empty mt-4"><CalendarDays className="size-6" /><span>No events found yet. Create your first event to start promoting it.</span></div> : <div className="mt-3 space-y-2">{events.map((event) => <div key={event.id} className="flex flex-col gap-3 rounded-xl border border-border/70 bg-background p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0 flex-1"><p className="truncate font-medium">{event.title}</p><p className="mt-1 text-xs text-muted-foreground">{event.start_datetime || "Date to be announced"} · {event.booking_count ?? 0} registrations</p></div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-muted px-2 py-1 text-xs">{event.status || "Unknown"}</span><Button asChild size="sm" variant="outline"><Link to="/my-events/$eventId/edit" params={{ eventId: String(event.id) }}>Edit event</Link></Button>{event.url && event.status === "publish" && <Button asChild size="sm" variant="ghost"><a href={event.url} target="_blank" rel="noreferrer">View event <ExternalLink className="ml-1 size-3.5" /></a></Button>}</div></div>)}</div>}</section>
             )}
@@ -1438,7 +1449,7 @@ function ListingOwnerDashboardPage() {
         <ul className="grid grid-cols-6">
           {[
             { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0 },
-            { key: "statistics", label: "Stats", icon: ChartNoAxesCombined, count: undefined },
+            { key: "statistics", label: "Stats", icon: ChartNoAxesCombined, count: undefined },\n            { key: "ads", label: "XP Ads", icon: Megaphone, count: undefined },
             { key: "events", label: "Events", icon: CalendarDays, count: events.length },
             { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length },
             { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings },
