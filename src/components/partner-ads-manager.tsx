@@ -94,7 +94,7 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
   ), [availableListings]);
 
   const positionInventory = useMemo(() => POSITIONS.map(([value, label, dimensions, slotDescription]) => {
-    const total = Number(slotDescription.match(/^(\\d+)/)?.[1] ?? 1);
+    const total = Number(slotDescription.match(/^(\d+)/)?.[1] ?? 1);
     const used = ads.filter((ad) => {
       const positions = ad.positions?.length ? ad.positions : [ad.position];
       return positions.includes(value);
