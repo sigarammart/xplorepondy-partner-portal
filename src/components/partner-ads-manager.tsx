@@ -68,6 +68,7 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
   const [listingSearch, setListingSearch] = useState("");
   const [adminListingOptions, setAdminListingOptions] = useState<ListingOption[]>([]);
   const [listingSearchLoading, setListingSearchLoading] = useState(false);
+  const [positionFilter, setPositionFilter] = useState<string>("all");
 
   const availableListings = useMemo(() => {
     const merged = new Map<string, ListingOption>();
@@ -89,8 +90,25 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
   }, [availableListings, listingSearch]);
 
   const listingMap = useMemo(() => new Map(
-    listings.map((item) => [Number(item.id ?? item.wpId), item.title]),
-  ), [listings]);
+    availableListings.map((item) => [Number(item.id ?? item.wpId), item.title]),
+  ), [availableListings]);
+
+  const positionInventory = useMemo(() => POSITIONS.map(([value, label, dimensions, slotDescription]) => {
+    const total = Number(slotDescription.match(/^(\\d+)/)?.[1] ?? 1);
+    const used = ads.filter((ad) => {
+      const positions = ad.positions?.length ? ad.positions : [ad.position];
+      return positions.includes(value);
+    }).length;
+    return { value, label, dimensions, total, used, available: Math.max(0, total - used) };
+  }), [ads]);
+
+  const filteredAds = useMemo(() => {
+    if (positionFilter === "all") return ads;
+    return ads.filter((ad) => {
+      const positions = ad.positions?.length ? ad.positions : [ad.position];
+      return positions.includes(positionFilter);
+    });
+  }, [ads, positionFilter]);
 
   async function loadAds() {
     setLoading(true);
@@ -412,7 +430,28 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
 
       <div className="rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:p-6">
         <div className="flex items-center justify-between gap-3"><div><h3 className="font-display text-xl font-semibold">Your campaigns</h3><p className="mt-1 text-sm text-muted-foreground">Views, clicks and CTR are read from the WordPress XP Ads tracker.</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{ads.length} campaign{ads.length === 1 ? "" : "s"}</span></div>
-        {loading ? <p className="mt-5 text-sm text-muted-foreground">Loading XP Ads…</p> : ads.length === 0 ? <div className="mt-5 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No campaigns yet. Create your first advertisement above.</div> : <div className="mt-4 space-y-3">{ads.map((ad) => <article key={ad.id} className="rounded-2xl border border-border/70 bg-background p-4"><div className="flex flex-col gap-4 lg:flex-row lg:items-center"><img src={ad.image_url} alt="" className="h-20 w-36 shrink-0 rounded-lg border border-border object-cover bg-muted" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h4 className="font-semibold">{ad.title}</h4><span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold uppercase">{ad.post_status || ad.status || "unknown"}</span></div><p className="mt-1 text-xs text-muted-foreground">{POSITIONS.find(([value]) => value === ad.position)?.[1] ?? ad.position}{ad.listing_id ? ` · ${listingMap.get(ad.listing_id) ?? `Listing #${ad.listing_id}`}` : ""}</p><div className="mt-3 grid grid-cols-3 gap-3 sm:max-w-md"><div><p className="text-[11px] text-muted-foreground">Impressions</p><p className="font-bold tabular-nums">{ad.views.toLocaleString("en-IN")}</p></div><div><p className="text-[11px] text-muted-foreground">Clicks</p><p className="font-bold tabular-nums">{ad.clicks.toLocaleString("en-IN")}</p></div><div><p className="text-[11px] text-muted-foreground">CTR</p><p className="font-bold tabular-nums">{Number(ad.ctr ?? 0).toFixed(2)}%</p></div></div></div><Button type="button" variant="outline" size="sm" onClick={() => editAd(ad)} disabled={ad.post_status === "publish" && !isAdministrator}><Pencil className="mr-2 size-4" />Edit</Button></div></article>)}</div>}
+        <div className="mt-5 rounded-2xl border border-border/70 bg-background p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">Ad position filter</p>
+              <p className="mt-1 text-xs text-muted-foreground">Filter campaigns by placement and see the remaining inventory.</p>
+            </div>
+            <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} className="h-10 min-w-64 rounded-lg border border-border bg-background px-3 text-sm">
+              <option value="all">All positions · {ads.length} campaigns</option>
+              {positionInventory.map((item) => <option key={item.value} value={item.value}>{item.label} · {item.used}/{item.total} used · {item.available} available</option>)}
+            </select>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            {positionInventory.map((item) => (
+              <button key={item.value} type="button" onClick={() => setPositionFilter(item.value)} className={`rounded-xl border p-3 text-left transition ${positionFilter === item.value ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>
+                <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{item.label}</span><span className="text-[10px] text-muted-foreground">{item.dimensions}</span></div>
+                <div className="mt-2 flex items-end justify-between"><span className="text-lg font-bold tabular-nums">{item.available}</span><span className="text-[10px] text-muted-foreground">available / {item.total}</span></div>
+                <div className="mt-1 text-[10px] text-muted-foreground">{item.used} campaign{item.used === 1 ? "" : "s"} assigned</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        {loading ? <p className="mt-5 text-sm text-muted-foreground">Loading XP Ads…</p> : ads.length === 0 ? <div className="mt-5 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No campaigns yet. Create your first advertisement above.</div> : filteredAds.length === 0 ? <div className="mt-5 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">No campaigns are assigned to this ad position.</div> : <div className="mt-4 space-y-3"><div className="text-xs text-muted-foreground">Showing {filteredAds.length} of {ads.length} campaigns</div>{filteredAds.map((ad) => <article key={ad.id} className="rounded-2xl border border-border/70 bg-background p-4"><div className="flex flex-col gap-4 lg:flex-row lg:items-center"><img src={ad.image_url} alt="" className="h-20 w-36 shrink-0 rounded-lg border border-border object-cover bg-muted" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h4 className="font-semibold">{ad.title}</h4><span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold uppercase">{ad.post_status || ad.status || "unknown"}</span></div><p className="mt-1 text-xs text-muted-foreground">{POSITIONS.find(([value]) => value === ad.position)?.[1] ?? ad.position}{ad.listing_id ? ` · ${listingMap.get(ad.listing_id) ?? `Listing #${ad.listing_id}`}` : ""}</p><div className="mt-3 grid grid-cols-3 gap-3 sm:max-w-md"><div><p className="text-[11px] text-muted-foreground">Impressions</p><p className="font-bold tabular-nums">{ad.views.toLocaleString("en-IN")}</p></div><div><p className="text-[11px] text-muted-foreground">Clicks</p><p className="font-bold tabular-nums">{ad.clicks.toLocaleString("en-IN")}</p></div><div><p className="text-[11px] text-muted-foreground">CTR</p><p className="font-bold tabular-nums">{Number(ad.ctr ?? 0).toFixed(2)}%</p></div></div></div><Button type="button" variant="outline" size="sm" onClick={() => editAd(ad)} disabled={ad.post_status === "publish" && !isAdministrator}><Pencil className="mr-2 size-4" />Edit</Button></div></article>)}</div>}
       </div>
     </section>
   );
