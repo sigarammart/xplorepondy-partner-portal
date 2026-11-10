@@ -197,6 +197,7 @@ export type PartnerAd = {
   user_id: number;
   listing_id: number;
   listing_ids: number[];
+  listing_titles?: Array<{ id: number; title: string }>;
   start_date: string;
   end_date: string;
   sponsored_ad: boolean;
@@ -208,6 +209,27 @@ export type PartnerAd = {
   ctr: number;
   created_at: string;
 };
+
+export const fetchPartnerAdListings = createServerFn({ method: "GET" })
+  .validator(ownerIdentitySchema.extend({
+    search: z.string().trim().max(120).optional().default(""),
+    page: z.number().int().positive().optional().default(1),
+    perPage: z.number().int().positive().max(100).optional().default(30),
+  }))
+  .handler(async ({ data }) => {
+    const { email, identityToken, search, page, perPage } = data;
+    const params = new URLSearchParams({
+      search,
+      page: String(page),
+      per_page: String(perPage),
+    });
+    return ownerRequest(
+      `/wp-json/xplore/v1/partner/ad-listings?${params.toString()}`,
+      "GET",
+      undefined,
+      { email, identityToken },
+    );
+  });
 
 export const fetchPartnerAds = createServerFn({ method: "GET" })
   .validator(ownerIdentitySchema.extend({
