@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, Megaphone, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { checkInOwnerTableReservationTicket, fetchTableReservationOwnerDashboard, fetchWpOwnerExperienceBookingRequests, updateWpOwnerExperienceBookingRequestStatus, updateTableReservationOwnerStatus, type ExperienceBookingRequest, type TableReservationOwnerDashboard } from "@/lib/wp-api";
@@ -66,7 +66,7 @@ function PartnerAdsManager({ email, identityToken, listings }: {
     } finally { setLoading(false); }
   }
   useEffect(() => { if (email) void refresh(); else { setLoading(false); setError("Sign in to manage advertisements."); } }, [email, identityToken]);
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError("");
     try {
       await createPartnerAd({ data: {
