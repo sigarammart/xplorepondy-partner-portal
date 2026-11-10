@@ -14,11 +14,11 @@ type Props = {
 };
 
 const POSITIONS = [
-  ["homepage_top", "Homepage Top", "1200 × 240 px", "1 slot"],
+  ["homepage_top", "Homepage Top", "1200 × 240 px", "3 slots · 1 displayed at a time · rotation"],
   ["listing_loop_between", "Between Listings", "1000 × 250 px", "1 slot per archive page"],
-  ["sidebar_top", "Sidebar Top", "300 × 250 px", "1 slot"],
+  ["sidebar_top", "Sidebar Top", "300 × 250 px", "6 slots · 2 displayed at a time · 4 in rotation"],
   ["sidebar_bottom", "Sidebar Bottom", "300 × 250 px", "1 slot"],
-  ["sidebar_map_top", "Sidebar Map Top", "300 × 180 px", "1 slot"],
+  ["sidebar_map_top", "Sidebar Map Top", "300 × 180 px", "5 slots · 1 displayed at a time · rotation"],
 ] as const;
 
 const AD_TYPES = [
