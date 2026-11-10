@@ -106,7 +106,7 @@ const configuredBaseURL = env("BETTER_AUTH_URL");
  * production value to the Partner Portal origin.
  */
 const explicitBaseURL =
-  configuredBaseURL?.replace(/\\/+$/, "") === "https://pwa.xplorepondy.com"
+  configuredBaseURL?.replace(/\/+$/, "") === "https://pwa.xplorepondy.com"
     ? "https://partner.xplorepondy.com"
     : configuredBaseURL;
 // Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
