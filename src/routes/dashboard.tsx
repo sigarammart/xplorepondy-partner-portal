@@ -1449,13 +1449,14 @@ function ListingOwnerDashboardPage() {
         <ul className="grid grid-cols-6">
           {[
             { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0 },
-            { key: "statistics", label: "Stats", icon: ChartNoAxesCombined, count: undefined },\n            { key: "ads", label: "XP Ads", icon: Megaphone, count: undefined },
+            { key: "statistics", label: "Stats", icon: ChartNoAxesCombined, count: undefined },
+            { key: "ads", label: "XP Ads", icon: Megaphone, count: undefined },
             { key: "events", label: "Events", icon: CalendarDays, count: events.length },
             { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length },
             { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings },
           ].map((item) => (
             <li key={item.key}>
-              <Link to="/dashboard" search={{ view: item.key as "listings" | "events" | "experiences" | "bookings" | "statistics" }} aria-current={view === item.key ? "page" : undefined} className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-1 text-center text-[10px] font-medium transition-colors ${view === item.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+              <Link to="/dashboard" search={{ view: item.key as "listings" | "events" | "experiences" | "bookings" | "statistics" | "ads" }} aria-current={view === item.key ? "page" : undefined} className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-1 text-center text-[10px] font-medium transition-colors ${view === item.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                 <item.icon className="size-5" /><span>{item.label}</span>
               </Link>
             </li>
