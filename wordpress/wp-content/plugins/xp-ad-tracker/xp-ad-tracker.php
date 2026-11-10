@@ -468,6 +468,16 @@ function xp_ads_rest_payload($post_id) {
     $listing_id = (int) xp_ads_meta_first($post_id, ['ad_target_listing', 'listing_id', 'target_listing']);
     $views = (int) get_post_meta($post_id, '_ad_views', true);
     $clicks = (int) get_post_meta($post_id, '_ad_clicks', true);
+    $raw_positions = get_post_meta($post_id, 'ad_positions', true);
+    $positions = is_array($raw_positions) ? array_values(array_filter(array_map('sanitize_key', $raw_positions))) : [];
+    $primary_position = (string) get_post_meta($post_id, 'ad_position', true);
+    if ($primary_position && !in_array($primary_position, $positions, true)) array_unshift($positions, $primary_position);
+
+    $raw_listing_ids = get_post_meta($post_id, 'ad_target_listings', true);
+    $listing_ids = is_array($raw_listing_ids)
+        ? array_values(array_filter(array_map('absint', $raw_listing_ids)))
+        : ($listing_id ? [$listing_id] : []);
+
     return [
         'id' => (int) $post_id,
         'title' => get_the_title($post_id),
@@ -475,10 +485,17 @@ function xp_ads_rest_payload($post_id) {
         'post_status' => get_post_status($post_id),
         'image_url' => $image,
         'target_url' => (string) xp_ads_meta_first($post_id, ['ad_url', 'ad_link', 'ad_target_url', 'target_url', 'link_url']),
-        'position' => (string) get_post_meta($post_id, 'ad_position', true),
+        'ad_type' => (string) get_post_meta($post_id, 'ad_type', true),
+        'link_type' => (string) get_post_meta($post_id, 'ad_link_type', true),
+        'custom_url' => (string) get_post_meta($post_id, 'ad_custom_url', true),
+        'position' => $primary_position,
+        'positions' => $positions,
         'listing_id' => $listing_id,
+        'listing_ids' => $listing_ids,
         'start_date' => (string) xp_ads_meta_first($post_id, ['ad_start_date', 'xp_ad_start_date', 'start_date']),
         'end_date' => (string) xp_ads_meta_first($post_id, ['ad_end_date', 'xp_ad_end_date', 'end_date']),
+        'sponsored_ad' => (bool) get_post_meta($post_id, 'ad_sponsored_ad', true),
+        'sponsored_ad_expiry' => (string) get_post_meta($post_id, 'ad_sponsored_ad_expiry', true),
         'max_views' => (int) get_post_meta($post_id, 'xp_ad_max_views', true),
         'max_clicks' => (int) get_post_meta($post_id, 'xp_ad_max_clicks', true),
         'views' => $views,
@@ -626,21 +643,43 @@ function xp_ads_partner_create(WP_REST_Request $request) {
     $post_id = wp_insert_post(['post_type' => 'xp-ads', 'post_title' => $title, 'post_status' => 'pending', 'post_author' => (int) $user->ID], true);
     if (is_wp_error($post_id)) return $post_id;
     update_post_meta($post_id, 'ad_image_url', $image_url);
-    update_post_meta($post_id, 'ad_position', $position);
+    $positions = array_values(array_filter(array_map('sanitize_key', (array) ($data['positions'] ?? [$position]))));
+    $positions = array_values(array_intersect($positions, ['homepage_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top']));
+    if (!$positions) $positions = [$position];
+    update_post_meta($post_id, 'ad_position', $positions[0]);
+    update_post_meta($post_id, 'ad_positions', $positions);
     update_post_meta($post_id, 'ad_status', 'pending');
     update_post_meta($post_id, 'xp_ad_user_id', [['user_id' => (int) $user->ID]]);
+
+    $ad_type = sanitize_key($data['ad_type'] ?? '');
+    if ($ad_type !== '') update_post_meta($post_id, 'ad_type', $ad_type);
+    $link_type = sanitize_key($data['link_type'] ?? '');
+    if ($link_type !== '') update_post_meta($post_id, 'ad_link_type', $link_type);
+
     $target_url = esc_url_raw($data['target_url'] ?? '');
+    $custom_url = esc_url_raw($data['custom_url'] ?? '');
+    if ($custom_url) update_post_meta($post_id, 'ad_custom_url', $custom_url);
     if ($target_url) update_post_meta($post_id, 'ad_url', $target_url);
-    $listing_id = absint($data['listing_id'] ?? 0);
+
+    $listing_ids = array_values(array_filter(array_map('absint', (array) ($data['listing_ids'] ?? []))));
+    $listing_id = absint($data['listing_id'] ?? ($listing_ids[0] ?? 0));
+    if ($listing_id && !in_array($listing_id, $listing_ids, true)) array_unshift($listing_ids, $listing_id);
     if ($listing_id) update_post_meta($post_id, 'ad_target_listing', $listing_id);
+    if ($listing_ids) update_post_meta($post_id, 'ad_target_listings', $listing_ids);
+
     $start = sanitize_text_field($data['start_date'] ?? '');
     $end = sanitize_text_field($data['end_date'] ?? '');
     if ($start) update_post_meta($post_id, 'ad_start_date', $start);
     if ($end) update_post_meta($post_id, 'ad_end_date', $end);
+
+    update_post_meta($post_id, 'ad_sponsored_ad', !empty($data['sponsored_ad']) ? 1 : 0);
+    $sponsored_expiry = sanitize_text_field($data['sponsored_ad_expiry'] ?? '');
+    if ($sponsored_expiry) update_post_meta($post_id, 'ad_sponsored_ad_expiry', $sponsored_expiry);
+
     $max_views = absint($data['max_views'] ?? 0);
     $max_clicks = absint($data['max_clicks'] ?? 0);
-    if ($max_views) update_post_meta($post_id, 'xp_ad_max_views', $max_views);
-    if ($max_clicks) update_post_meta($post_id, 'xp_ad_max_clicks', $max_clicks);
+    update_post_meta($post_id, 'xp_ad_max_views', $max_views);
+    update_post_meta($post_id, 'xp_ad_max_clicks', $max_clicks);
 
     return new WP_REST_Response(xp_ads_rest_payload($post_id), 201);
 }
@@ -657,10 +696,14 @@ function xp_ads_partner_update(WP_REST_Request $request) {
     $map = [
         'image_url' => ['ad_image_url', 'url'],
         'target_url' => ['ad_url', 'url'],
+        'ad_type' => ['ad_type', 'key'],
+        'link_type' => ['ad_link_type', 'key'],
+        'custom_url' => ['ad_custom_url', 'url'],
         'position' => ['ad_position', 'key'],
         'listing_id' => ['ad_target_listing', 'id'],
         'start_date' => ['ad_start_date', 'text'],
         'end_date' => ['ad_end_date', 'text'],
+        'sponsored_ad_expiry' => ['ad_sponsored_ad_expiry', 'text'],
         'max_views' => ['xp_ad_max_views', 'int'],
         'max_clicks' => ['xp_ad_max_clicks', 'int'],
     ];
@@ -669,10 +712,28 @@ function xp_ads_partner_update(WP_REST_Request $request) {
         if (!array_key_exists($field, $data)) continue;
         $value = $data[$field];
         if ($type === 'url') $value = esc_url_raw($value);
-        elseif ($type === 'key') { $value = sanitize_key($value); if (!in_array($value, $allowed_positions, true)) continue; }
-        elseif ($type === 'id' || $type === 'int') $value = absint($value);
+        elseif ($type === 'key') {
+            $value = sanitize_key($value);
+            if ($field === 'position' && !in_array($value, $allowed_positions, true)) continue;
+        } elseif ($type === 'id' || $type === 'int') $value = absint($value);
         else $value = sanitize_text_field($value);
         update_post_meta($id, $meta_key, $value);
+    }
+    if (array_key_exists('positions', $data)) {
+        $positions = array_values(array_filter(array_map('sanitize_key', (array) $data['positions'])));
+        $positions = array_values(array_intersect($positions, $allowed_positions));
+        if ($positions) {
+            update_post_meta($id, 'ad_positions', $positions);
+            update_post_meta($id, 'ad_position', $positions[0]);
+        }
+    }
+    if (array_key_exists('listing_ids', $data)) {
+        $listing_ids = array_values(array_filter(array_map('absint', (array) $data['listing_ids'])));
+        update_post_meta($id, 'ad_target_listings', $listing_ids);
+        if ($listing_ids) update_post_meta($id, 'ad_target_listing', $listing_ids[0]);
+    }
+    if (array_key_exists('sponsored_ad', $data)) {
+        update_post_meta($id, 'ad_sponsored_ad', !empty($data['sponsored_ad']) ? 1 : 0);
     }
     if (isset($data['status']) && user_can($user, 'manage_options') && in_array($data['status'], ['publish', 'draft', 'pending'], true)) {
         wp_update_post(['ID' => $id, 'post_status' => $data['status']]);
