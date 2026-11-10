@@ -157,6 +157,69 @@ async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_co
   }
 }
 
+const partnerAdSchema = z.object({
+  id: z.number().int().positive().optional(),
+  title: z.string().trim().min(1).max(180),
+  image_url: z.string().trim().url().max(2000),
+  target_url: z.string().trim().url().max(2000).optional().or(z.literal("")),
+  position: z.enum(["homepage_top", "listing_loop_between", "sidebar_top", "sidebar_bottom", "sidebar_map_top"]),
+  listing_id: z.number().int().positive().optional(),
+  start_date: z.string().trim().max(80).optional().or(z.literal("")),
+  end_date: z.string().trim().max(80).optional().or(z.literal("")),
+  max_views: z.number().int().min(0).optional().default(0),
+  max_clicks: z.number().int().min(0).optional().default(0),
+  status: z.enum(["publish", "draft", "pending"]).optional(),
+}).extend(ownerIdentitySchema.shape);
+
+export type PartnerAd = {
+  id: number;
+  title: string;
+  status: string;
+  post_status: string;
+  image_url: string;
+  target_url: string;
+  position: string;
+  listing_id: number;
+  start_date: string;
+  end_date: string;
+  max_views: number;
+  max_clicks: number;
+  views: number;
+  clicks: number;
+  ctr: number;
+  created_at: string;
+};
+
+export const fetchPartnerAds = createServerFn({ method: "GET" })
+  .validator(ownerIdentitySchema.extend({
+    page: z.number().int().positive().optional().default(1),
+    perPage: z.number().int().positive().max(100).optional().default(20),
+  }))
+  .handler(async ({ data }) => {
+    const { email, identityToken, page, perPage } = data;
+    return ownerRequest(
+      `/wp-json/xplore/v1/partner/ads?page=${page}&per_page=${perPage}`,
+      "GET",
+      undefined,
+      { email, identityToken },
+    );
+  });
+
+export const createPartnerAd = createServerFn({ method: "POST" })
+  .inputValidator((input: z.infer<typeof partnerAdSchema>) => partnerAdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { email, identityToken, ...ad } = data;
+    return ownerRequest("/wp-json/xplore/v1/partner/ads", "POST", ad, { email, identityToken });
+  });
+
+export const updatePartnerAd = createServerFn({ method: "POST" })
+  .inputValidator((input: z.infer<typeof partnerAdSchema> & { id: number }) => partnerAdSchema.extend({ id: z.number().int().positive() }).parse(input))
+  .handler(async ({ data }) => {
+    const { email, identityToken, id, ...ad } = data;
+    return ownerRequest(`/wp-json/xplore/v1/partner/ads/${id}`, "POST", ad, { email, identityToken });
+  });
+
+
 export const fetchAdminListingDetail = createServerFn({ method: "GET" })
   .validator(ownerIdentitySchema.extend({ listingId: z.number().int().positive() }))
   .handler(async ({ data }) => {
