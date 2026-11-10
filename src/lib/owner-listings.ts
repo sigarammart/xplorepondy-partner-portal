@@ -194,6 +194,7 @@ export type PartnerAd = {
   custom_url: string;
   position: string;
   positions: string[];
+  user_id: number;
   listing_id: number;
   listing_ids: number[];
   start_date: string;
