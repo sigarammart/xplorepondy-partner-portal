@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ImagePlus, Megaphone, Pencil, Plus, RefreshCw, Save, Upload } from "lucide-react";
+import { ImagePlus, Megaphone, Pencil, Plus, RefreshCw, Save, Search, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createPartnerAd, fetchPartnerAds, updatePartnerAd, uploadPartnerAdImage, type PartnerAd } from "@/lib/owner-listings";
+import { createPartnerAd, fetchPartnerAdListings, fetchPartnerAds, updatePartnerAd, uploadPartnerAdImage, type PartnerAd } from "@/lib/owner-listings";
 
 type ListingOption = { id?: number; wpId?: number; title: string; slug?: string };
 
@@ -65,6 +65,28 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
   const [form, setForm] = useState(emptyForm);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageSource, setImageSource] = useState<"url" | "upload">("url");
+  const [listingSearch, setListingSearch] = useState("");
+  const [adminListingOptions, setAdminListingOptions] = useState<ListingOption[]>([]);
+  const [listingSearchLoading, setListingSearchLoading] = useState(false);
+
+  const availableListings = useMemo(() => {
+    const merged = new Map<string, ListingOption>();
+    listings.forEach((item) => {
+      const id = Number(item.id ?? item.wpId);
+      if (id > 0) merged.set(String(id), item);
+    });
+    adminListingOptions.forEach((item) => {
+      const id = Number(item.id ?? item.wpId);
+      if (id > 0) merged.set(String(id), item);
+    });
+    return Array.from(merged.values());
+  }, [listings, adminListingOptions]);
+
+  const filteredListings = useMemo(() => {
+    const term = listingSearch.trim().toLowerCase();
+    if (!term) return availableListings;
+    return availableListings.filter((item) => item.title.toLowerCase().includes(term));
+  }, [availableListings, listingSearch]);
 
   const listingMap = useMemo(() => new Map(
     listings.map((item) => [Number(item.id ?? item.wpId), item.title]),
@@ -82,12 +104,44 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
     }
   }
 
-  useEffect(() => { void loadAds(); }, [email, identityToken]);
+  useEffect(() => {
+    void loadAds();
+  }, [email, identityToken]);
+
+  useEffect(() => {
+    if (!isAdministrator) return;
+    const timer = window.setTimeout(async () => {
+      setListingSearchLoading(true);
+      try {
+        const result = await fetchPartnerAdListings({
+          data: {
+            email,
+            ...(identityToken ? { identityToken } : {}),
+            search: listingSearch.trim(),
+            page: 1,
+            perPage: 30,
+          },
+        }) as { items?: ListingOption[] };
+        setAdminListingOptions((result.items ?? []).map((item) => ({
+          id: Number(item.id ?? item.wpId),
+          title: item.title,
+          slug: item.slug,
+        })));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not search listings.");
+      } finally {
+        setListingSearchLoading(false);
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [email, identityToken, isAdministrator, listingSearch]);
+
 
   function resetForm() {
     setEditingId(null);
     setForm(emptyForm);
     setImageSource("url");
+    setListingSearch("");
   }
 
   async function uploadCreative(file: File) {
@@ -140,6 +194,13 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
     }
     setEditingId(ad.id);
     setImageSource("url");
+    if (ad.listing_titles?.length) {
+      setAdminListingOptions((current) => {
+        const merged = new Map(current.map((item) => [String(Number(item.id ?? item.wpId)), item]));
+        ad.listing_titles!.forEach((item) => merged.set(String(item.id), { id: item.id, title: item.title }));
+        return Array.from(merged.values());
+      });
+    }
     setForm({
       title: ad.title,
       image_url: ad.image_url,
@@ -262,10 +323,55 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
             <label className="text-sm font-medium">Destination URL<input type="url" value={form.target_url} onChange={(e) => setForm((f) => ({ ...f, target_url: e.target.value }))} placeholder="https://…" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
             <label className="text-sm font-medium">Placement<select value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">{POSITIONS.map(([value, label, dimensions]) => <option key={value} value={value}>{label} — {dimensions}</option>)}</select></label>
             <div className="text-sm font-medium">
-              <span>XP Ad Target Listings</span>
-              <div className="mt-1.5 max-h-44 overflow-auto rounded-lg border border-border bg-background p-2">
-                {listings.length ? listings.map((item) => { const id = String(Number(item.id ?? item.wpId)); return <label key={id} className="flex items-center gap-2 px-2 py-1.5 text-xs font-normal"><input type="checkbox" checked={form.listing_ids.includes(id)} onChange={(e) => setForm((f) => ({ ...f, listing_ids: e.target.checked ? [...f.listing_ids, id] : f.listing_ids.filter((value) => value !== id) }))} /><span className="truncate">{item.title}</span></label>; }) : <p className="px-2 py-2 text-xs text-muted-foreground">No listings available.</p>}
+              <div className="flex items-center justify-between gap-2">
+                <span>XP Ad Target Listings</span>
+                {isAdministrator && <span className="text-[11px] font-normal text-muted-foreground">Admin: search all listings</span>}
               </div>
+              {isAdministrator && (
+                <div className="relative mt-1.5">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="search"
+                    value={listingSearch}
+                    onChange={(e) => setListingSearch(e.target.value)}
+                    placeholder="Search all listings…"
+                    className="h-10 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm font-normal"
+                  />
+                </div>
+              )}
+              <div className="mt-1.5 max-h-48 overflow-auto rounded-lg border border-border bg-background p-2">
+                {listingSearchLoading ? (
+                  <p className="px-2 py-3 text-xs text-muted-foreground">Searching listings…</p>
+                ) : filteredListings.length ? (
+                  filteredListings.map((item) => {
+                    const id = String(Number(item.id ?? item.wpId));
+                    return (
+                      <label key={id} className="flex items-center gap-2 px-2 py-1.5 text-xs font-normal">
+                        <input
+                          type="checkbox"
+                          checked={form.listing_ids.includes(id)}
+                          onChange={(e) => setForm((f) => ({
+                            ...f,
+                            listing_ids: e.target.checked
+                              ? Array.from(new Set([...f.listing_ids, id]))
+                              : f.listing_ids.filter((value) => value !== id),
+                          }))}
+                        />
+                        <span className="truncate">{item.title}</span>
+                      </label>
+                    );
+                  })
+                ) : (
+                  <p className="px-2 py-3 text-xs text-muted-foreground">
+                    {isAdministrator ? "No listings match your search." : "No listings available."}
+                  </p>
+                )}
+              </div>
+              {form.listing_ids.length > 0 && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {form.listing_ids.length} listing{form.listing_ids.length === 1 ? "" : "s"} selected
+                </p>
+              )}
             </div>
             <label className="text-sm font-medium">Start date<input type="datetime-local" value={form.start_date} onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
             <label className="text-sm font-medium">End date<input type="datetime-local" value={form.end_date} onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
