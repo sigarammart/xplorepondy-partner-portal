@@ -282,7 +282,7 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
             <label className="text-sm font-medium">Custom URL<input type="url" value={form.custom_url} disabled={form.link_type !== "custom_url"} onChange={(e) => setForm((f) => ({ ...f, custom_url: e.target.value }))} placeholder="https://…" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal disabled:opacity-50" /></label>
             <div className="text-sm font-medium">
               <span>Assigned user</span>
-              <div className="mt-1.5 flex h-10 items-center rounded-lg border border-border bg-muted/40 px-3 text-sm font-normal text-muted-foreground">{email}</div>
+              <div className="mt-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-normal text-muted-foreground">WordPress user #{editingId ? (ads.find((item) => item.id === editingId)?.user_id || "—") : "assigned on submit"} · {email}</div>
             </div>
             <div className="text-sm font-medium md:col-span-2">
               <span>XP Ad Positions</span>
