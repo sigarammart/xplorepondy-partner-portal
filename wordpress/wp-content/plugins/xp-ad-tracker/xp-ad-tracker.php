@@ -502,6 +502,13 @@ add_action('rest_api_init', function () {
             'callback' => 'xp_ads_partner_create',
         ],
     ]);
+    register_rest_route('xplore/v1', '/partner/ads/media', [
+        [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => function ($request) { return xp_ads_partner_request_identity($request); },
+            'callback' => 'xp_ads_partner_upload_media',
+        ],
+    ]);
     register_rest_route('xplore/v1', '/partner/ads/(?P<id>\\d+)', [
         [
             'methods' => WP_REST_Server::READABLE,
@@ -515,6 +522,74 @@ add_action('rest_api_init', function () {
         ],
     ]);
 });
+
+function xp_ads_partner_upload_media(WP_REST_Request $request) {
+    $user = xp_ads_partner_request_identity($request);
+    if (is_wp_error($user)) return $user;
+
+    $data = $request->get_json_params();
+    $file_name = sanitize_file_name($data['fileName'] ?? '');
+    $mime_type = sanitize_text_field($data['mimeType'] ?? '');
+    $base64 = (string) ($data['base64'] ?? '');
+
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!$file_name || !isset($allowed[$mime_type]) || !$base64) {
+        return new WP_Error('xp_ads_invalid_media', 'A JPG, PNG or WebP image is required.', ['status' => 400]);
+    }
+
+    $binary = base64_decode($base64, true);
+    if ($binary === false || strlen($binary) > 8 * 1024 * 1024) {
+        return new WP_Error('xp_ads_media_too_large', 'Ad creatives must be 8 MB or smaller.', ['status' => 400]);
+    }
+
+    $extension = $allowed[$mime_type];
+    $safe_name = pathinfo($file_name, PATHINFO_FILENAME);
+    $safe_name = sanitize_title($safe_name) ?: 'xp-ad-creative';
+    $safe_name .= '.' . $extension;
+
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+
+    $upload = wp_upload_bits($safe_name, null, $binary);
+    if (!empty($upload['error'])) {
+        return new WP_Error('xp_ads_upload_failed', $upload['error'], ['status' => 500]);
+    }
+
+    $filetype = wp_check_filetype($upload['file'], null);
+    if (($filetype['type'] ?? '') !== $mime_type) {
+        @unlink($upload['file']);
+        return new WP_Error('xp_ads_invalid_media_type', 'The uploaded file type could not be verified.', ['status' => 400]);
+    }
+
+    $attachment_id = wp_insert_attachment([
+        'post_mime_type' => $mime_type,
+        'post_title' => sanitize_text_field($safe_name),
+        'post_content' => '',
+        'post_status' => 'inherit',
+        'post_author' => (int) $user->ID,
+    ], $upload['file']);
+
+    if (is_wp_error($attachment_id)) {
+        @unlink($upload['file']);
+        return $attachment_id;
+    }
+
+    $metadata = wp_generate_attachment_metadata($attachment_id, $upload['file']);
+    if (!empty($metadata)) {
+        wp_update_attachment_metadata($attachment_id, $metadata);
+    }
+
+    return new WP_REST_Response([
+        'id' => (int) $attachment_id,
+        'url' => esc_url_raw($upload['url']),
+        'mime_type' => $mime_type,
+    ], 201);
+}
 
 function xp_ads_partner_list(WP_REST_Request $request) {
     $user = xp_ads_partner_request_identity($request);
