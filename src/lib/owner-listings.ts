@@ -199,7 +199,6 @@ export type PartnerAd = {
   listing_ids: number[];
   start_date: string;
   end_date: string;
-  status: string;
   sponsored_ad: boolean;
   sponsored_ad_expiry: string;
   max_views: number;
