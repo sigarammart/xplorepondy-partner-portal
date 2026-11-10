@@ -95,11 +95,23 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
 
   const positionInventory = useMemo(() => POSITIONS.map(([value, label, dimensions, slotDescription]) => {
     const total = Number(slotDescription.match(/^(\d+)/)?.[1] ?? 1);
-    const used = ads.filter((ad) => {
+    const assignedAds = ads.filter((ad) => {
       const positions = ad.positions?.length ? ad.positions : [ad.position];
       return positions.includes(value);
-    }).length;
-    return { value, label, dimensions, total, used, available: Math.max(0, total - used) };
+    });
+    const active = assignedAds.filter((ad) => ad.post_status === "publish" || ad.status === "active").length;
+    const pending = assignedAds.filter((ad) => ad.post_status === "pending" || ad.status === "pending").length;
+    const occupied = active + pending;
+    return {
+      value,
+      label,
+      dimensions,
+      total,
+      active,
+      pending,
+      occupied,
+      available: Math.max(0, total - occupied),
+    };
   }), [ads]);
 
   const filteredAds = useMemo(() => {
@@ -438,7 +450,7 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
             </div>
             <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} className="h-10 min-w-64 rounded-lg border border-border bg-background px-3 text-sm">
               <option value="all">All positions · {ads.length} campaigns</option>
-              {positionInventory.map((item) => <option key={item.value} value={item.value}>{item.label} · {item.used}/{item.total} used · {item.available} available</option>)}
+              {positionInventory.map((item) => <option key={item.value} value={item.value}>{item.label} · {item.active}/{item.total} active · {item.pending} pending · {item.available} available</option>)}
             </select>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
@@ -446,7 +458,11 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
               <button key={item.value} type="button" onClick={() => setPositionFilter(item.value)} className={`rounded-xl border p-3 text-left transition ${positionFilter === item.value ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>
                 <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{item.label}</span><span className="text-[10px] text-muted-foreground">{item.dimensions}</span></div>
                 <div className="mt-2 flex items-end justify-between"><span className="text-lg font-bold tabular-nums">{item.available}</span><span className="text-[10px] text-muted-foreground">available / {item.total}</span></div>
-                <div className="mt-1 text-[10px] text-muted-foreground">{item.used} campaign{item.used === 1 ? "" : "s"} assigned</div>
+                <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-muted-foreground">
+                  <span>{item.active} active</span>
+                  {item.pending > 0 && <span>{item.pending} pending</span>}
+                  <span>{item.occupied}/{item.total} occupied</span>
+                </div>
               </button>
             ))}
           </div>
