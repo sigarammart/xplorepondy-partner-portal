@@ -498,6 +498,7 @@ function xp_ads_rest_payload($post_id) {
         'custom_url' => (string) get_post_meta($post_id, 'ad_custom_url', true),
         'position' => $primary_position,
         'positions' => $positions,
+        'user_id' => (int) get_post_meta($post_id, 'xp_ad_user_id', true),
         'listing_id' => $listing_id,
         'listing_ids' => $listing_ids,
         'start_date' => (string) xp_ads_meta_first($post_id, ['ad_start_date', 'xp_ad_start_date', 'start_date']),
