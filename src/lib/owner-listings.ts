@@ -60,6 +60,10 @@ async function ownerRequest(path: string, method: "GET" | "POST", body?: unknown
     method,
     headers: {
       Accept: "application/json",
+      // Use the same server-to-server credential format as the existing
+      // WordPress booking/session bridge. Keep the legacy X-* headers too for
+      // compatibility with existing Xplore Pondy REST endpoints.
+      Authorization: `Bearer ${secret}`,
       "X-Xplore-PWA-Secret": secret,
       "X-Xplore-PWA-User-Email": callerEmail,
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
