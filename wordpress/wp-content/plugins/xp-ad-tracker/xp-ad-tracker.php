@@ -274,10 +274,18 @@ function xp_ads_public_feed(WP_REST_Request $request) {
 
     $meta_query = [];
     if ($position !== '') {
-        $meta_query[] = [
-            'key'     => 'ad_position',
-            'value'   => $position,
-            'compare' => '=',
+        $meta_query = [
+            'relation' => 'OR',
+            [
+                'key'     => 'ad_position',
+                'value'   => $position,
+                'compare' => '=',
+            ],
+            [
+                'key'     => 'ad_positions',
+                'value'   => '"' . $position . '"',
+                'compare' => 'LIKE',
+            ],
         ];
     }
 
