@@ -404,10 +404,22 @@ add_action('wp_ajax_get_dashboard_notices', function () {
 function xp_ads_partner_request_identity(WP_REST_Request $request) {
     $secret = defined('WP_SOCIAL_SESSION_BRIDGE_SECRET') ? WP_SOCIAL_SESSION_BRIDGE_SECRET : '';
     $provided = (string) $request->get_header('x-xplore-pwa-secret');
+    $authorization = (string) $request->get_header('authorization');
+    $bearer = '';
+    if (preg_match('/^Bearer\\s+(.+)$/i', $authorization, $matches)) {
+        $bearer = trim((string) $matches[1]);
+    }
+    $providedSecret = $provided !== '' ? $provided : $bearer;
     $email = sanitize_email((string) $request->get_header('x-xplore-pwa-user-email'));
 
-    if (!$secret || !$provided || !hash_equals((string) $secret, $provided) || !$email) {
-        return new WP_Error('xp_ads_unauthorized', 'Authentication required.', ['status' => 401]);
+    if (!$secret || !$providedSecret || !hash_equals((string) $secret, $providedSecret) || !$email) {
+        return new WP_Error(
+            'xp_ads_unauthorized',
+            $secret
+                ? 'XP Ads authentication failed. The Partner Portal WordPress bridge credential or identity headers were rejected.'
+                : 'XP Ads authentication is not configured on WordPress.',
+            ['status' => 401]
+        );
     }
 
     $user = get_user_by('email', $email);
