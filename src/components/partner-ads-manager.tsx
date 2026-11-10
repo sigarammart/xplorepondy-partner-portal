@@ -14,21 +14,45 @@ type Props = {
 };
 
 const POSITIONS = [
-  ["homepage_top", "Homepage top", "1200 × 240 px", "1 slot"],
-  ["listing_loop_between", "Explore — after listings", "1000 × 250 px", "1 slot per archive page"],
-  ["sidebar_top", "Listing sidebar — top", "300 × 250 px", "1 slot"],
-  ["sidebar_bottom", "Listing sidebar — bottom", "300 × 250 px", "1 slot"],
-  ["sidebar_map_top", "Explore map sidebar — top", "300 × 180 px", "1 slot"],
+  ["homepage_top", "Homepage Top", "1200 × 240 px", "1 slot"],
+  ["listing_loop_between", "Between Listings", "1000 × 250 px", "1 slot per archive page"],
+  ["sidebar_top", "Sidebar Top", "300 × 250 px", "1 slot"],
+  ["sidebar_bottom", "Sidebar Bottom", "300 × 250 px", "1 slot"],
+  ["sidebar_map_top", "Sidebar Map Top", "300 × 180 px", "1 slot"],
+] as const;
+
+const AD_TYPES = [
+  ["", "Choose"],
+  ["banner", "Banner"],
+  ["image", "Image"],
+] as const;
+
+const LINK_TYPES = [
+  ["", "Choose"],
+  ["listing", "Listing"],
+  ["custom_url", "Custom URL"],
+] as const;
+
+const STATUS_OPTIONS = [
+  ["pending", "Pending"],
+  ["publish", "Active"],
+  ["draft", "Draft"],
 ] as const;
 
 const emptyForm = {
   title: "",
   image_url: "",
   target_url: "",
-  position: "homepage_top" as string,
-  listing_id: "",
+  ad_type: "",
+  link_type: "",
+  custom_url: "",
+  positions: ["homepage_top"] as string[],
+  listing_ids: [] as string[],
   start_date: "",
   end_date: "",
+  status: "pending",
+  sponsored_ad: false,
+  sponsored_ad_expiry: "",
   max_views: "",
   max_clicks: "",
 };
@@ -120,10 +144,16 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
       title: ad.title,
       image_url: ad.image_url,
       target_url: ad.target_url,
-      position: ad.position,
-      listing_id: ad.listing_id ? String(ad.listing_id) : "",
+      ad_type: ad.ad_type ?? "",
+      link_type: ad.link_type ?? "",
+      custom_url: ad.custom_url ?? "",
+      positions: ad.positions?.length ? ad.positions : [ad.position],
+      listing_ids: ad.listing_ids?.length ? ad.listing_ids.map(String) : (ad.listing_id ? [String(ad.listing_id)] : []),
       start_date: ad.start_date,
       end_date: ad.end_date,
+      status: ad.post_status === "publish" ? "publish" : (ad.status || "pending"),
+      sponsored_ad: Boolean(ad.sponsored_ad),
+      sponsored_ad_expiry: ad.sponsored_ad_expiry ?? "",
       max_views: ad.max_views ? String(ad.max_views) : "",
       max_clicks: ad.max_clicks ? String(ad.max_clicks) : "",
     });
@@ -136,6 +166,14 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
       toast.error("Campaign title and creative image URL are required.");
       return;
     }
+    if (!form.positions.length) {
+      toast.error("Select at least one ad position.");
+      return;
+    }
+    if (form.link_type === "custom_url" && !form.custom_url.trim()) {
+      toast.error("Enter a custom URL for this link type.");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
@@ -143,11 +181,19 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
         ...(identityToken ? { identityToken } : {}),
         title: form.title.trim(),
         image_url: form.image_url.trim(),
-        target_url: form.target_url.trim() || undefined,
-        position: form.position as "homepage_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top",
-        listing_id: form.listing_id ? Number(form.listing_id) : undefined,
+        target_url: (form.link_type === "custom_url" ? form.custom_url : form.target_url).trim() || undefined,
+        ad_type: form.ad_type || undefined,
+        link_type: form.link_type || undefined,
+        custom_url: form.custom_url.trim() || undefined,
+        position: form.positions[0] as "homepage_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top",
+        positions: form.positions as Array<"homepage_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top">,
+        listing_id: form.listing_ids[0] ? Number(form.listing_ids[0]) : undefined,
+        listing_ids: form.listing_ids.map(Number),
         start_date: form.start_date || undefined,
         end_date: form.end_date || undefined,
+        status: isAdministrator ? (form.status as "publish" | "draft" | "pending") : "pending",
+        sponsored_ad: form.sponsored_ad,
+        sponsored_ad_expiry: form.sponsored_ad_expiry || undefined,
         max_views: form.max_views ? Number(form.max_views) : 0,
         max_clicks: form.max_clicks ? Number(form.max_clicks) : 0,
       };
@@ -219,11 +265,37 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
             </div>
             <label className="text-sm font-medium">Destination URL<input type="url" value={form.target_url} onChange={(e) => setForm((f) => ({ ...f, target_url: e.target.value }))} placeholder="https://…" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
             <label className="text-sm font-medium">Placement<select value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">{POSITIONS.map(([value, label]) => <option key={value} value={value}>{label} — {label === "Homepage top" ? "1200 × 240 px" : label.includes("Explore —") ? "1000 × 250 px" : label.includes("Map sidebar") ? "300 × 180 px" : "300 × 250 px"}</option>)}</select></label>
-            <label className="text-sm font-medium">Linked listing<select value={form.listing_id} onChange={(e) => setForm((f) => ({ ...f, listing_id: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal"><option value="">No linked listing</option>{listings.map((item) => { const id = Number(item.id ?? item.wpId); return <option key={id} value={id}>{item.title}</option>; })}</select></label>
+            <div className="text-sm font-medium">
+              <span>XP Ad Target Listings</span>
+              <div className="mt-1.5 max-h-44 overflow-auto rounded-lg border border-border bg-background p-2">
+                {listings.length ? listings.map((item) => { const id = String(Number(item.id ?? item.wpId)); return <label key={id} className="flex items-center gap-2 px-2 py-1.5 text-xs font-normal"><input type="checkbox" checked={form.listing_ids.includes(id)} onChange={(e) => setForm((f) => ({ ...f, listing_ids: e.target.checked ? [...f.listing_ids, id] : f.listing_ids.filter((value) => value !== id) }))} /><span className="truncate">{item.title}</span></label>; }) : <p className="px-2 py-2 text-xs text-muted-foreground">No listings available.</p>}
+              </div>
+            </div>
             <label className="text-sm font-medium">Start date<input type="datetime-local" value={form.start_date} onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
             <label className="text-sm font-medium">End date<input type="datetime-local" value={form.end_date} onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
             <label className="text-sm font-medium">Maximum impressions<input type="number" min="0" value={form.max_views} onChange={(e) => setForm((f) => ({ ...f, max_views: e.target.value }))} placeholder="0 = unlimited" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
             <label className="text-sm font-medium">Maximum clicks<input type="number" min="0" value={form.max_clicks} onChange={(e) => setForm((f) => ({ ...f, max_clicks: e.target.value }))} placeholder="0 = unlimited" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="text-sm font-medium">Ad type<select value={form.ad_type} onChange={(e) => setForm((f) => ({ ...f, ad_type: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">{AD_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="text-sm font-medium">Link type<select value={form.link_type} onChange={(e) => setForm((f) => ({ ...f, link_type: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">{LINK_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="text-sm font-medium">Custom URL<input type="url" value={form.custom_url} disabled={form.link_type !== "custom_url"} onChange={(e) => setForm((f) => ({ ...f, custom_url: e.target.value }))} placeholder="https://…" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal disabled:opacity-50" /></label>
+            <div className="text-sm font-medium">
+              <span>Assigned user</span>
+              <div className="mt-1.5 flex h-10 items-center rounded-lg border border-border bg-muted/40 px-3 text-sm font-normal text-muted-foreground">{email}</div>
+            </div>
+            <div className="text-sm font-medium md:col-span-2">
+              <span>XP Ad Positions</span>
+              <div className="mt-1.5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {POSITIONS.map(([value, label]) => <label key={value} className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-normal">
+                  <input type="checkbox" checked={form.positions.includes(value)} onChange={(e) => setForm((f) => ({ ...f, positions: e.target.checked ? [...f.positions, value] : f.positions.filter((item) => item !== value) }))} />
+                  <span>{label}</span>
+                </label>)}
+              </div>
+            </div>
+            <label className="text-sm font-medium">Ad status<select value={form.status} disabled={!isAdministrator} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal disabled:opacity-50">{STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="flex items-center gap-2 self-end pb-2 text-sm font-medium"><input type="checkbox" checked={form.sponsored_ad} onChange={(e) => setForm((f) => ({ ...f, sponsored_ad: e.target.checked }))} /> Sponsored Ad</label>
+            <label className="text-sm font-medium">Sponsored Ad expiry<input type="datetime-local" value={form.sponsored_ad_expiry} onChange={(e) => setForm((f) => ({ ...f, sponsored_ad_expiry: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
           </div>
           <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
             <div className="flex items-start gap-2">
