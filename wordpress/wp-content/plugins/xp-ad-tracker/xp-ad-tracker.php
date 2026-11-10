@@ -517,6 +517,13 @@ function xp_ads_rest_payload($post_id) {
         'user_email' => $assigned_user_email,
         'listing_id' => $listing_id,
         'listing_ids' => $listing_ids,
+        'listing_titles' => array_values(array_filter(array_map(function ($id) {
+            $title = get_the_title((int) $id);
+            return $title !== '' ? [
+                'id' => (int) $id,
+                'title' => $title,
+            ] : null;
+        }, $listing_ids))),
         'start_date' => (string) xp_ads_meta_first($post_id, ['ad_start_date', 'xp_ad_start_date', 'start_date']),
         'end_date' => (string) xp_ads_meta_first($post_id, ['ad_end_date', 'xp_ad_end_date', 'end_date']),
         'sponsored_ad' => (bool) get_post_meta($post_id, 'ad_sponsored_ad', true),
@@ -544,6 +551,18 @@ add_action('rest_api_init', function () {
             'callback' => 'xp_ads_partner_create',
         ],
     ]);
+    register_rest_route('xplore/v1', '/partner/ad-listings', [
+        [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => function ($request) { return xp_ads_partner_request_identity($request); },
+            'callback' => 'xp_ads_partner_listing_search',
+            'args' => [
+                'search' => ['default' => '', 'sanitize_callback' => 'sanitize_text_field'],
+                'page' => ['default' => 1, 'sanitize_callback' => 'absint'],
+                'per_page' => ['default' => 30, 'sanitize_callback' => function ($value) { return min(100, max(1, absint($value))); }],
+            ],
+        ],
+    ]);
     register_rest_route('xplore/v1', '/partner/ads/media', [
         [
             'methods' => WP_REST_Server::CREATABLE,
@@ -564,6 +583,49 @@ add_action('rest_api_init', function () {
         ],
     ]);
 });
+
+function xp_ads_partner_listing_search(WP_REST_Request $request) {
+    $user = xp_ads_partner_request_identity($request);
+    if (is_wp_error($user)) return $user;
+
+    $search = sanitize_text_field((string) $request->get_param('search'));
+    $page = max(1, absint($request->get_param('page')));
+    $per_page = min(100, max(1, absint($request->get_param('per_page'))));
+
+    $args = [
+        'post_type' => 'listing',
+        'post_status' => ['publish'],
+        'posts_per_page' => $per_page,
+        'paged' => $page,
+        'orderby' => 'title',
+        'order' => 'ASC',
+        's' => $search,
+    ];
+
+    // Administrators can search the complete published listing catalog.
+    // Owners/vendors are restricted to listings they own.
+    if (!user_can($user, 'manage_options')) {
+        $args['author'] = (int) $user->ID;
+    }
+
+    $query = new WP_Query($args);
+    $items = array_map(function ($post) {
+        return [
+            'id' => (int) $post->ID,
+            'title' => get_the_title($post->ID),
+            'slug' => (string) $post->post_name,
+        ];
+    }, $query->posts);
+
+    return [
+        'items' => $items,
+        'page' => $page,
+        'per_page' => $per_page,
+        'total' => (int) $query->found_posts,
+        'total_pages' => (int) $query->max_num_pages,
+        'is_administrator' => user_can($user, 'manage_options'),
+    ];
+}
 
 function xp_ads_partner_upload_media(WP_REST_Request $request) {
     $user = xp_ads_partner_request_identity($request);
