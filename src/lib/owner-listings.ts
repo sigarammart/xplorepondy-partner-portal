@@ -165,14 +165,21 @@ const partnerAdSchema = z.object({
   id: z.number().int().positive().optional(),
   title: z.string().trim().min(1).max(180),
   image_url: z.string().trim().url().max(2000),
+  ad_type: z.string().trim().max(80).optional().or(z.literal("")),
   target_url: z.string().trim().url().max(2000).optional().or(z.literal("")),
+  link_type: z.string().trim().max(80).optional().or(z.literal("")),
+  custom_url: z.string().trim().url().max(2000).optional().or(z.literal("")),
   position: z.enum(["homepage_top", "listing_loop_between", "sidebar_top", "sidebar_bottom", "sidebar_map_top"]),
+  positions: z.array(z.enum(["homepage_top", "listing_loop_between", "sidebar_top", "sidebar_bottom", "sidebar_map_top"])).min(1).optional(),
   listing_id: z.number().int().positive().optional(),
+  listing_ids: z.array(z.number().int().positive()).optional(),
   start_date: z.string().trim().max(80).optional().or(z.literal("")),
   end_date: z.string().trim().max(80).optional().or(z.literal("")),
+  status: z.enum(["publish", "draft", "pending"]).optional(),
+  sponsored_ad: z.boolean().optional().default(false),
+  sponsored_ad_expiry: z.string().trim().max(80).optional().or(z.literal("")),
   max_views: z.number().int().min(0).optional().default(0),
   max_clicks: z.number().int().min(0).optional().default(0),
-  status: z.enum(["publish", "draft", "pending"]).optional(),
 }).extend(ownerIdentitySchema.shape);
 
 export type PartnerAd = {
@@ -182,10 +189,18 @@ export type PartnerAd = {
   post_status: string;
   image_url: string;
   target_url: string;
+  ad_type: string;
+  link_type: string;
+  custom_url: string;
   position: string;
+  positions: string[];
   listing_id: number;
+  listing_ids: number[];
   start_date: string;
   end_date: string;
+  status: string;
+  sponsored_ad: boolean;
+  sponsored_ad_expiry: string;
   max_views: number;
   max_clicks: number;
   views: number;
