@@ -471,6 +471,19 @@ function xp_ads_user_can_manage_ad($user, $ad_id) {
 }
 
 function xp_ads_rest_payload($post_id) {
+    $assigned_user_id = 0;
+    $assigned_users = get_post_meta($post_id, 'xp_ad_user_id', true);
+    if (is_array($assigned_users)) {
+        foreach ($assigned_users as $row) {
+            if (is_array($row) && !empty($row['user_id'])) {
+                $assigned_user_id = absint($row['user_id']);
+                break;
+            }
+        }
+    } elseif (is_numeric($assigned_users)) {
+        $assigned_user_id = absint($assigned_users);
+    }
+
     $image = xp_ads_media_url(xp_ads_meta_first($post_id, ['ad_image', 'ad_image_url', 'ad_creative', 'ad_banner', 'ad_media', 'image', 'image_url']));
     if (!$image && has_post_thumbnail($post_id)) $image = get_the_post_thumbnail_url($post_id, 'full') ?: '';
     $listing_id = (int) xp_ads_meta_first($post_id, ['ad_target_listing', 'listing_id', 'target_listing']);
@@ -498,7 +511,7 @@ function xp_ads_rest_payload($post_id) {
         'custom_url' => (string) get_post_meta($post_id, 'ad_custom_url', true),
         'position' => $primary_position,
         'positions' => $positions,
-        'user_id' => (int) get_post_meta($post_id, 'xp_ad_user_id', true),
+        'user_id' => $assigned_user_id,
         'listing_id' => $listing_id,
         'listing_ids' => $listing_ids,
         'start_date' => (string) xp_ads_meta_first($post_id, ['ad_start_date', 'xp_ad_start_date', 'start_date']),
