@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, Megaphone, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { checkInOwnerTableReservationTicket, fetchTableReservationOwnerDashboard, fetchWpOwnerExperienceBookingRequests, updateWpOwnerExperienceBookingRequestStatus, updateTableReservationOwnerStatus, type ExperienceBookingRequest, type TableReservationOwnerDashboard } from "@/lib/wp-api";
-import { assignAdminListing, fetchAdminListings, fetchOwnerListings } from "@/lib/owner-listings";
+import { assignAdminListing, fetchAdminListings, fetchOwnerListings, createPartnerAd, fetchPartnerAds } from "@/lib/owner-listings";
 import { useAppLoggedIn } from "@/lib/app-session";
 import { checkInOwnerEventTicket, fetchMyEvents, fetchMyOwnedEventBookings, updateMyOwnedEventBookingStatus, type EventAccountItem, type EventOwnerBookingItem } from "@/lib/events-api";
 import { checkInOwnerExperienceTicket, fetchMyExperiences, type ExperienceAccountItem } from "@/lib/experiences-account-api";
@@ -20,9 +20,9 @@ import { OwnerStatusManager } from "@/components/owner-status-manager";
 import { authEnabled, signOut } from "@/lib/auth/client";
 
 export const Route = createFileRoute("/dashboard")({
-  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
-    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics", "status"].includes(String(search.view))
-      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status"
+  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "ads"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
+    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics", "status", "ads"].includes(String(search.view))
+      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "ads"
       : undefined,
     bookingType: ["table", "events", "experiences"].includes(String(search.bookingType))
       ? search.bookingType as "table" | "events" | "experiences"
@@ -32,6 +32,100 @@ export const Route = createFileRoute("/dashboard")({
   }),
   component: ListingOwnerDashboardPage,
 });
+
+
+type PartnerAdRecord = {
+  id: number; title: string; status: string; post_status: string; image_url: string;
+  target_url: string; position: string; listing_id: number; start_date: string;
+  end_date: string; max_views: number; max_clicks: number; views: number; clicks: number; ctr: number;
+};
+function PartnerAdsManager({ email, identityToken, listings }: {
+  email: string; identityToken?: string; listings: Array<{ id: number; title: string }>;
+}) {
+  const [ads, setAds] = useState<PartnerAdRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [title, setTitle] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [targetUrl, setTargetUrl] = useState("");
+  const [position, setPosition] = useState("homepage_top");
+  const [listingId, setListingId] = useState("0");
+  const [maxViews, setMaxViews] = useState("0");
+  const [maxClicks, setMaxClicks] = useState("0");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const identity = { email, ...(identityToken ? { identityToken } : {}) };
+  async function refresh() {
+    setLoading(true); setError("");
+    try {
+      const response = await fetchPartnerAds({ data: { ...identity, page: 1, perPage: 100 } }) as { items?: PartnerAdRecord[] };
+      setAds(response.items ?? []);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not load your advertisements.");
+    } finally { setLoading(false); }
+  }
+  useEffect(() => { if (email) void refresh(); else { setLoading(false); setError("Sign in to manage advertisements."); } }, [email, identityToken]);
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setSaving(true); setError("");
+    try {
+      await createPartnerAd({ data: {
+        ...identity, title: title.trim(), image_url: imageUrl.trim(),
+        target_url: targetUrl.trim(), position, listing_id: Number(listingId),
+        max_views: Number(maxViews), max_clicks: Number(maxClicks),
+        start_date: startDate, end_date: endDate,
+      } });
+      toast.success("Advertisement submitted for review.");
+      setTitle(""); setImageUrl(""); setTargetUrl(""); setPosition("homepage_top");
+      setListingId("0"); setMaxViews("0"); setMaxClicks("0"); setStartDate(""); setEndDate("");
+      await refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not submit this advertisement.");
+    } finally { setSaving(false); }
+  }
+  const totals = ads.reduce((sum, ad) => ({ views: sum.views + ad.views, clicks: sum.clicks + ad.clicks }), { views: 0, clicks: 0 });
+  return <div className="mt-5 space-y-5">
+    <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div><div className="xp-partner-eyebrow">ADVERTISING</div><h2 className="mt-1 text-xl font-bold">XP Ads</h2><p className="mt-1 text-sm text-muted-foreground">Promote your business across Xplore Pondy. New advertisements are reviewed before they go live.</p></div>
+        <Button type="button" variant="outline" onClick={() => void refresh()} disabled={loading}><LoaderCircle className={loading ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />Refresh</Button>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl bg-muted/50 p-3"><div className="text-xs text-muted-foreground">Campaigns</div><div className="mt-1 text-2xl font-bold tabular-nums">{ads.length}</div></div>
+        <div className="rounded-xl bg-muted/50 p-3"><div className="text-xs text-muted-foreground">Impressions</div><div className="mt-1 text-2xl font-bold tabular-nums">{totals.views.toLocaleString()}</div></div>
+        <div className="col-span-2 rounded-xl bg-muted/50 p-3 sm:col-span-1"><div className="text-xs text-muted-foreground">Clicks</div><div className="mt-1 text-2xl font-bold tabular-nums">{totals.clicks.toLocaleString()}</div></div>
+      </div>
+    </section>
+    <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+      <h3 className="text-lg font-bold">Create an advertisement</h3>
+      <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={submit}>
+        <label className="grid gap-1.5 text-sm sm:col-span-2">Campaign title<input required maxLength={180} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Weekend offer at your cafe" className="h-11 rounded-xl border border-input bg-background px-3" /></label>
+        <label className="grid gap-1.5 text-sm sm:col-span-2">Creative image URL<input required type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." className="h-11 rounded-xl border border-input bg-background px-3" /></label>
+        <label className="grid gap-1.5 text-sm sm:col-span-2">Destination URL (optional)<input type="url" value={targetUrl} onChange={e => setTargetUrl(e.target.value)} placeholder="https://..." className="h-11 rounded-xl border border-input bg-background px-3" /></label>
+        <label className="grid gap-1.5 text-sm">Placement<select value={position} onChange={e => setPosition(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3"><option value="homepage_top">Homepage banner</option><option value="listing_loop_between">Explore listings</option><option value="sidebar_top">Sidebar top</option><option value="sidebar_bottom">Sidebar bottom</option><option value="sidebar_map_top">Map sidebar</option></select></label>
+        <label className="grid gap-1.5 text-sm">Promote a listing<select value={listingId} onChange={e => setListingId(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3"><option value="0">No linked listing</option>{listings.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
+        <label className="grid gap-1.5 text-sm">Start date<input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3" /></label>
+        <label className="grid gap-1.5 text-sm">End date<input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3" /></label>
+        <label className="grid gap-1.5 text-sm">Maximum impressions (0 = unlimited)<input type="number" min="0" value={maxViews} onChange={e => setMaxViews(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3" /></label>
+        <label className="grid gap-1.5 text-sm">Maximum clicks (0 = unlimited)<input type="number" min="0" value={maxClicks} onChange={e => setMaxClicks(e.target.value)} className="h-11 rounded-xl border border-input bg-background px-3" /></label>
+        {error && <p role="alert" className="text-sm text-destructive sm:col-span-2">{error}</p>}
+        <div className="sm:col-span-2"><Button type="submit" disabled={saving || !title.trim() || !imageUrl.trim()}><FilePlus2 className="mr-2 size-4" />{saving ? "Submitting…" : "Submit for review"}</Button></div>
+      </form>
+    </section>
+    <section className="rounded-2xl border border-border/70 bg-card p-4 sm:p-5">
+      <h3 className="text-lg font-bold">Your campaigns</h3>
+      {loading ? <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" />Loading campaigns…</div>
+      : ads.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">No XP Ads campaigns found for this account.</p>
+      : <div className="mt-4 space-y-3">{ads.map(ad => <article key={ad.id} className="flex flex-col gap-3 rounded-xl border border-border/70 p-3 sm:flex-row">
+          {ad.image_url && <img src={ad.image_url} alt="" className="h-24 w-full rounded-lg bg-muted object-contain sm:w-36" />}
+          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong>{ad.title}</strong><span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize">{ad.status || ad.post_status}</span></div>
+            <p className="mt-1 text-xs text-muted-foreground">{ad.position.replaceAll("_", " ")} · {ad.views.toLocaleString()} views · {ad.clicks.toLocaleString()} clicks · {ad.ctr}% CTR</p>
+            <p className="mt-1 text-xs text-muted-foreground">Ends: {ad.end_date || "No end date"} · Limits: {ad.max_views || "Unlimited"} views / {ad.max_clicks || "Unlimited"} clicks</p>
+          </div></article>)}</div>}
+    </section>
+    <p className="text-xs text-muted-foreground">Creative uploads, campaign editing, paid billing and invoices can be added after the site’s current ad field schema and billing workflow are confirmed. Published campaigns are managed by the Xplore Pondy team.</p>
+  </div>;
+}
 
 function StatisticsSkeleton() {
   return (
@@ -490,7 +584,7 @@ function ListingOwnerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status">(searchView ?? "menu");
+  const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "ads">(searchView ?? "menu");
   const [statisticsListingFilter, setStatisticsListingFilter] = useState("all");
   const [statisticsListingSearch, setStatisticsListingSearch] = useState("");
   const [statisticsListingDropdownOpen, setStatisticsListingDropdownOpen] = useState(false);
@@ -886,6 +980,7 @@ function ListingOwnerDashboardPage() {
     ...(isAdministrator ? [{ key: "admin-listings", label: "Admin: All Listings", icon: Settings2, count: adminListingsTotalCount || adminListings.length || undefined, view: "admin-listings" as const, bookingType: undefined, child: false }] : []),
     { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const, bookingType: undefined, child: false },
     { key: "statistics", label: "Statistics", icon: ChartNoAxesCombined, count: undefined, view: "statistics" as const, bookingType: undefined, child: false },
+    { key: "ads", label: "XP Ads", icon: Megaphone, count: undefined, view: "ads" as const, bookingType: undefined, child: false },
     { key: "status", label: "My Status", icon: Camera, count: undefined, view: "status" as const, bookingType: undefined, child: false },
     { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const, bookingType: undefined, child: false },
     { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const, bookingType: undefined, child: false },
@@ -1096,7 +1191,16 @@ function ListingOwnerDashboardPage() {
               </>
             )}
 
-            {view === "status" && (
+            
+            {view === "ads" && (
+              <PartnerAdsManager
+                email={email}
+                identityToken={identityToken ?? undefined}
+                listings={visibleOwnerListings.map((item) => ({ id: Number(item.id ?? item.wpId), title: item.title }))}
+              />
+            )}
+
+{view === "status" && (
               <OwnerStatusManager
                 email={email}
                 identityToken={identityToken ?? undefined}
