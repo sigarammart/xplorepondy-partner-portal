@@ -255,3 +255,42 @@ export const approveAdminListingClaim = createServerFn({ method: "POST" })
     const { email, identityToken, listingId, userEmail } = data;
     return ownerRequest("/wp-json/xplore/v1/admin/claims/approve", "POST", { listing_id: listingId, user_email: userEmail }, { email, identityToken });
   });
+
+/* XP Ads — all calls stay server-side and reuse the verified WordPress partner bridge. */
+const partnerAdsSchema = ownerIdentitySchema.extend({
+  page: z.number().int().positive().optional().default(1),
+  perPage: z.number().int().positive().max(100).optional().default(20),
+});
+const partnerAdSchema = z.object({
+  title: z.string().trim().min(1).max(180),
+  image_url: z.string().url().max(2000),
+  target_url: z.string().url().max(2000).optional().or(z.literal("")),
+  position: z.enum(["homepage_top", "listing_loop_between", "sidebar_top", "sidebar_bottom", "sidebar_map_top"]),
+  listing_id: z.number().int().nonnegative().optional().default(0),
+  start_date: z.string().max(40).optional().or(z.literal("")),
+  end_date: z.string().max(40).optional().or(z.literal("")),
+  max_views: z.number().int().nonnegative().optional().default(0),
+  max_clicks: z.number().int().nonnegative().optional().default(0),
+});
+type PartnerAdInput = z.infer<typeof partnerAdSchema>;
+
+export const fetchPartnerAds = createServerFn({ method: "GET" })
+  .validator(partnerAdsSchema)
+  .handler(async ({ data }) => ownerRequest(
+    `/wp-json/xplore/v1/partner/ads?page=${data.page}&per_page=${data.perPage}`,
+    "GET", undefined, data,
+  ));
+
+export const createPartnerAd = createServerFn({ method: "POST" })
+  .inputValidator((input: PartnerAdInput & OwnerIdentity) => partnerAdSchema.extend(ownerIdentitySchema.shape).parse(input))
+  .handler(async ({ data }) => {
+    const { email, identityToken, ...ad } = data;
+    return ownerRequest("/wp-json/xplore/v1/partner/ads", "POST", ad, { email, identityToken });
+  });
+
+export const updatePartnerAd = createServerFn({ method: "POST" })
+  .inputValidator((input: PartnerAdInput & { id: number } & OwnerIdentity) => partnerAdSchema.partial().extend({ id: z.number().int().positive() }).extend(ownerIdentitySchema.shape).parse(input))
+  .handler(async ({ data }) => {
+    const { id, email, identityToken, ...ad } = data;
+    return ownerRequest(`/wp-json/xplore/v1/partner/ads/${id}`, "POST", ad, { email, identityToken });
+  });
