@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Megaphone, Pencil, Plus, RefreshCw, Save } from "lucide-react";
+import { ImagePlus, Megaphone, Pencil, Plus, RefreshCw, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createPartnerAd, fetchPartnerAds, updatePartnerAd, type PartnerAd } from "@/lib/owner-listings";
+import { createPartnerAd, fetchPartnerAds, updatePartnerAd, uploadPartnerAdImage, type PartnerAd } from "@/lib/owner-listings";
 
 type ListingOption = { id?: number; wpId?: number; title: string; slug?: string };
 
@@ -14,11 +14,11 @@ type Props = {
 };
 
 const POSITIONS = [
-  ["homepage_top", "Homepage top"],
-  ["listing_loop_between", "Explore — after listings"],
-  ["sidebar_top", "Sidebar top"],
-  ["sidebar_bottom", "Sidebar bottom"],
-  ["sidebar_map_top", "Map sidebar top"],
+  ["homepage_top", "Homepage top", "1200 × 240 px", "1 slot"],
+  ["listing_loop_between", "Explore — after listings", "1000 × 250 px", "1 slot per archive page"],
+  ["sidebar_top", "Listing sidebar — top", "300 × 250 px", "1 slot"],
+  ["sidebar_bottom", "Listing sidebar — bottom", "300 × 250 px", "1 slot"],
+  ["sidebar_map_top", "Explore map sidebar — top", "300 × 180 px", "1 slot"],
 ] as const;
 
 const emptyForm = {
@@ -39,6 +39,8 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageSource, setImageSource] = useState<"url" | "upload">("url");
 
   const listingMap = useMemo(() => new Map(
     listings.map((item) => [Number(item.id ?? item.wpId), item.title]),
@@ -61,6 +63,50 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
   function resetForm() {
     setEditingId(null);
     setForm(emptyForm);
+    setImageSource("url");
+  }
+
+  async function uploadCreative(file: File) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Use JPG, PNG or WebP for ad creatives.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Ad creatives must be 8 MB or smaller.");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const value = String(reader.result ?? "");
+          const comma = value.indexOf(",");
+          resolve(comma >= 0 ? value.slice(comma + 1) : value);
+        };
+        reader.onerror = () => reject(new Error("Could not read the image file."));
+        reader.readAsDataURL(file);
+      });
+
+      const result = await uploadPartnerAdImage({
+        data: {
+          email,
+          ...(identityToken ? { identityToken } : {}),
+          fileName: file.name,
+          mimeType: file.type as "image/jpeg" | "image/png" | "image/webp",
+          base64,
+        },
+      }) as { url?: string };
+
+      if (!result.url) throw new Error("WordPress did not return an uploaded image URL.");
+      setForm((current) => ({ ...current, image_url: result.url! }));
+      toast.success("Creative uploaded.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not upload creative.");
+    } finally {
+      setUploadingImage(false);
+    }
   }
 
   function editAd(ad: PartnerAd) {
@@ -69,6 +115,7 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
       return;
     }
     setEditingId(ad.id);
+    setImageSource("url");
     setForm({
       title: ad.title,
       image_url: ad.image_url,
@@ -142,14 +189,57 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <label className="text-sm font-medium">Campaign title<input required value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Weekend brunch promotion" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
-            <label className="text-sm font-medium">Creative image URL<input required type="url" value={form.image_url} onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))} placeholder="https://…" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
+            <div className="text-sm font-medium">
+              <div className="flex items-center justify-between gap-3">
+                <span>Creative image</span>
+                <div className="flex rounded-lg border border-border p-0.5 text-xs font-normal">
+                  <button type="button" onClick={() => setImageSource("url")} className={`rounded-md px-2.5 py-1.5 ${imageSource === "url" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Image URL</button>
+                  <button type="button" onClick={() => setImageSource("upload")} className={`rounded-md px-2.5 py-1.5 ${imageSource === "upload" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>Upload</button>
+                </div>
+              </div>
+              {imageSource === "url" ? (
+                <input required type="url" value={form.image_url} onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))} placeholder="https://…" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" />
+              ) : (
+                <label className="mt-1.5 flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-background px-3 text-sm font-normal hover:bg-muted/50">
+                  <Upload className="size-4" />
+                  {uploadingImage ? "Uploading…" : "Choose JPG, PNG or WebP"}
+                  <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploadingImage} onChange={(e) => { const file = e.target.files?.[0]; if (file) void uploadCreative(file); e.currentTarget.value = ""; }} />
+                </label>
+              )}
+              {form.image_url ? (
+                <div className="mt-2 flex items-center gap-3 rounded-lg border border-border bg-background p-2">
+                  <img src={form.image_url} alt="" className="h-14 w-24 rounded object-cover bg-muted" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">Creative ready</p>
+                    <p className="truncate text-[11px] text-muted-foreground">{form.image_url}</p>
+                  </div>
+                  <ImagePlus className="size-4 text-primary" />
+                </div>
+              ) : null}
+            </div>
             <label className="text-sm font-medium">Destination URL<input type="url" value={form.target_url} onChange={(e) => setForm((f) => ({ ...f, target_url: e.target.value }))} placeholder="https://…" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
-            <label className="text-sm font-medium">Placement<select value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">{POSITIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            <label className="text-sm font-medium">Placement<select value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal">{POSITIONS.map(([value, label]) => <option key={value} value={value}>{label} — {label === "Homepage top" ? "1200 × 240 px" : label.includes("Explore —") ? "1000 × 250 px" : label.includes("Map sidebar") ? "300 × 180 px" : "300 × 250 px"}</option>)}</select></label>
             <label className="text-sm font-medium">Linked listing<select value={form.listing_id} onChange={(e) => setForm((f) => ({ ...f, listing_id: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal"><option value="">No linked listing</option>{listings.map((item) => { const id = Number(item.id ?? item.wpId); return <option key={id} value={id}>{item.title}</option>; })}</select></label>
             <label className="text-sm font-medium">Start date<input type="datetime-local" value={form.start_date} onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
             <label className="text-sm font-medium">End date<input type="datetime-local" value={form.end_date} onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
             <label className="text-sm font-medium">Maximum impressions<input type="number" min="0" value={form.max_views} onChange={(e) => setForm((f) => ({ ...f, max_views: e.target.value }))} placeholder="0 = unlimited" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
             <label className="text-sm font-medium">Maximum clicks<input type="number" min="0" value={form.max_clicks} onChange={(e) => setForm((f) => ({ ...f, max_clicks: e.target.value }))} placeholder="0 = unlimited" className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
+          </div>
+          <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
+            <div className="flex items-start gap-2">
+              <ImagePlus className="mt-0.5 size-4 shrink-0 text-primary" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold">Ad inventory & creative sizes</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {POSITIONS.map(([value, label, dimensions, slots]) => (
+                    <div key={value} className="rounded-lg border border-border/70 bg-background/60 px-3 py-2">
+                      <p className="text-[11px] font-semibold">{label}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">{slots} · {dimensions}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2"><Button type="submit" disabled={saving}>{saving ? "Saving…" : editingId ? <><Save className="mr-2 size-4" />Save changes</> : <><Plus className="mr-2 size-4" />Submit for review</>}</Button></div>
         </form>
