@@ -11,6 +11,8 @@ if (!defined('ABSPATH')) exit;
 // 1) Register AJAX: Track Views & Clicks
 add_action('wp_ajax_xp_track_ad_view', 'xp_track_ad_view_callback');
 add_action('wp_ajax_nopriv_xp_track_ad_view', 'xp_track_ad_view_callback');
+add_action('wp_ajax_xp_track_ad_views', 'xp_track_ad_views_callback');
+add_action('wp_ajax_nopriv_xp_track_ad_views', 'xp_track_ad_views_callback');
 add_action('wp_ajax_xp_track_ad_click', 'xp_track_ad_click_callback');
 add_action('wp_ajax_nopriv_xp_track_ad_click', 'xp_track_ad_click_callback');
 
@@ -27,6 +29,37 @@ function xp_track_ad_view_callback() {
         'views' => $views,
     ]);
 }
+
+function xp_track_ad_views_callback() {
+    $raw_ids = $_REQUEST['ad_ids'] ?? [];
+    if (!is_array($raw_ids)) {
+        $raw_ids = [$raw_ids];
+    }
+
+    $ad_ids = array_values(array_unique(array_filter(array_map('absint', $raw_ids))));
+    $ad_ids = array_slice($ad_ids, 0, 20);
+
+    if (!$ad_ids) {
+        wp_send_json_error('No ad IDs supplied', 400);
+    }
+
+    $updated = [];
+    foreach ($ad_ids as $ad_id) {
+        if (get_post_type($ad_id) !== 'xp-ads') {
+            continue;
+        }
+
+        $updated[] = [
+            'ad_id' => $ad_id,
+            'views' => xp_ads_increment_counter($ad_id, '_ad_views'),
+        ];
+    }
+
+    wp_send_json_success([
+        'ads' => $updated,
+    ]);
+}
+
 
 function xp_track_ad_click_callback() {
     $ad_id = absint($_REQUEST['ad_id'] ?? 0);
