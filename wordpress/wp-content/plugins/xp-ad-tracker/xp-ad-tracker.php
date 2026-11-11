@@ -85,9 +85,31 @@ function xp_ads_increment_counter($post_id, $meta_key) {
 
     $updated = $wpdb->query($wpdb->prepare(
         "UPDATE {$wpdb->postmeta}
-         SET meta_value = CAST(CASE
-             WHEN meta_value REGEXP '^[0-9]+
+         SET meta_value = CAST(
+             CASE
+                 WHEN meta_value REGEXP '^[0-9]+$' THEN meta_value
+                 ELSE '0'
+             END AS UNSIGNED
+         ) + 1
+         WHERE post_id = %d AND meta_key = %s",
+        $post_id,
+        $meta_key
+    ));
 
+    if ($updated === 0) {
+        add_post_meta($post_id, $meta_key, 1, true);
+        return 1;
+    }
+
+    return (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT meta_value
+         FROM {$wpdb->postmeta}
+         WHERE post_id = %d AND meta_key = %s
+         ORDER BY meta_id DESC
+         LIMIT 1",
+        $post_id,
+        $meta_key
+    ));
 // 2) Enqueue Tracker JS (Skip in Editor)
 add_action('wp_enqueue_scripts', function() {
     if (isset($_GET['action']) && $_GET['action'] === 'elementor') {
