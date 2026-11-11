@@ -1279,3 +1279,11 @@ html.dark .xp-home-page .text-primary,
 @media (prefers-reduced-motion: reduce) {
   .xp-partner-launch-splash { animation: none; }
 }
+
+
+/* XP Ads creatives are intentionally square-cornered across the partner portal. */
+.xp-ad-slot img,
+.xp-ad-preview img,
+.partner-ads-manager img {
+  border-radius: 0 !important;
+}
