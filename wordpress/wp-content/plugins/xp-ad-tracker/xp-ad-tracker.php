@@ -275,6 +275,19 @@ function xp_ads_public_feed(WP_REST_Request $request) {
     $position = sanitize_key((string) $request->get_param('position'));
     $per_page = min(100, max(1, absint($request->get_param('per_page') ?: 20)));
 
+    // Public ad inventory is identical for all visitors. Cache the rendered
+    // feed briefly so normal page traffic does not repeatedly execute the
+    // XP Ads WP_Query + per-ad meta checks. Impression/click tracking remains
+    // uncached and continues through admin-ajax.php.
+    $cache_key = 'xp_ads_public_' . md5($position . '|' . $per_page);
+    $cached = get_transient($cache_key);
+    if ($cached !== false && is_array($cached)) {
+        $response = new WP_REST_Response($cached);
+        $response->header('Cache-Control', 'public, max-age=10, s-maxage=10, stale-while-revalidate=30');
+        $response->header('Vary', 'Accept-Encoding');
+        return $response;
+    }
+
     $meta_query = [];
     if ($position !== '') {
         $meta_query = [
@@ -352,13 +365,16 @@ function xp_ads_public_feed(WP_REST_Request $request) {
         ];
     }
 
-    $response = new WP_REST_Response([
+    $payload = [
         'ads'          => $ads,
         'generated_at' => gmdate('c'),
-    ]);
+    ];
 
-    $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    $response->header('Pragma', 'no-cache');
+    set_transient($cache_key, $payload, 10);
+
+    $response = new WP_REST_Response($payload);
+    $response->header('Cache-Control', 'public, max-age=10, s-maxage=10, stale-while-revalidate=30');
+    $response->header('Vary', 'Accept-Encoding');
 
     return $response;
 }
