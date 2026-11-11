@@ -110,6 +110,8 @@ function xp_ads_increment_counter($post_id, $meta_key) {
         $post_id,
         $meta_key
     ));
+}
+
 // 2) Enqueue Tracker JS (Skip in Editor)
 add_action('wp_enqueue_scripts', function() {
     if (isset($_GET['action']) && $_GET['action'] === 'elementor') {
