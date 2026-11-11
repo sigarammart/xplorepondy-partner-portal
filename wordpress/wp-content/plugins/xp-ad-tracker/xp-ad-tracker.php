@@ -155,8 +155,9 @@ function xp_listing_ad_stats($atts) {
 
     if ($output === false) {
         $ads = get_posts([
-            'post_type'  => 'xp-ads',
-            'numberposts' => -1,
+            'post_type'      => 'xp-ads',
+            'posts_per_page' => 50,
+            'no_found_rows'  => true,
             'meta_query' => [
                 [
                     'key'   => 'ad_target_listing',
@@ -190,9 +191,22 @@ function xp_listing_ad_stats($atts) {
 add_shortcode('xp_listing_ad_stats', 'xp_listing_ad_stats');
 
 // 5) Auto-disable expired ads (WP Cron)
-add_action('wp', function() {
+function xp_ads_schedule_expiry_check() {
     if (!wp_next_scheduled('xp_check_expired_ads')) {
-        wp_schedule_event(time(), 'hourly', 'xp_check_expired_ads');
+        wp_schedule_event(time() + MINUTE_IN_SECONDS, 'hourly', 'xp_check_expired_ads');
+    }
+}
+
+register_activation_hook(__FILE__, 'xp_ads_schedule_expiry_check');
+register_deactivation_hook(__FILE__, function () {
+    wp_clear_scheduled_hook('xp_check_expired_ads');
+});
+
+// Recover the schedule if it was removed without requiring another plugin
+// activation. This check runs only for administrators in wp-admin.
+add_action('admin_init', function () {
+    if (current_user_can('manage_options') && !wp_next_scheduled('xp_check_expired_ads')) {
+        xp_ads_schedule_expiry_check();
     }
 });
 
@@ -452,7 +466,8 @@ add_action('wp_ajax_get_dashboard_notices', function () {
     $notices = [];
     $ads_query = new WP_Query([
         'post_type'      => 'xp-ads',
-        'posts_per_page' => -1,
+        'posts_per_page' => 20,
+        'no_found_rows'  => true,
         'post_status'    => ['publish'],
         'meta_query'     => [[
             'key'     => 'xp_ad_user_id',
