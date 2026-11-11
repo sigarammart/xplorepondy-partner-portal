@@ -829,7 +829,7 @@ function xp_ads_partner_create(WP_REST_Request $request) {
     if (is_wp_error($post_id)) return $post_id;
     update_post_meta($post_id, 'ad_image_url', $image_url);
     $positions = array_values(array_filter(array_map('sanitize_key', (array) ($data['positions'] ?? [$position]))));
-    $positions = array_values(array_intersect($positions, ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top']));
+    $positions = array_values(array_intersect($positions, ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'homepage_sub']));
     if (!$positions) $positions = [$position];
     update_post_meta($post_id, 'ad_position', $positions[0]);
     update_post_meta($post_id, 'ad_positions', $positions);
