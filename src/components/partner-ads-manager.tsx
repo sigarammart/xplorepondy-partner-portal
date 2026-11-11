@@ -15,6 +15,7 @@ type Props = {
 
 const POSITIONS = [
   ["homepage_top", "Homepage Top", "1200 × 240 px", "3 slots · 1 displayed at a time · rotation"],
+  ["explore_top", "Explore Top", "800 × 200 px", "3 slots · 1 displayed at a time · rotation"],
   ["listing_loop_between", "Between Listings", "1000 × 250 px", "1 slot per archive page"],
   ["sidebar_top", "Sidebar Top", "300 × 250 px", "6 slots · 2 displayed at a time · 4 in rotation"],
   ["sidebar_bottom", "Sidebar Bottom", "300 × 250 px", "1 slot"],
@@ -272,8 +273,8 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
         ad_type: form.ad_type || undefined,
         link_type: form.link_type || undefined,
         custom_url: form.custom_url.trim() || undefined,
-        position: form.position as "homepage_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top",
-        positions: [form.position] as Array<"homepage_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top">,
+        position: form.position as "homepage_top" | "explore_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top",
+        positions: [form.position] as Array<"homepage_top" | "explore_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top">,
         listing_id: form.listing_ids[0] ? Number(form.listing_ids[0]) : undefined,
         listing_ids: form.listing_ids.map(Number),
         start_date: form.start_date || undefined,
