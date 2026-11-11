@@ -311,7 +311,7 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Megaphone className="size-6" /></div>
             <div>
               <h2 className="font-display text-2xl font-semibold">XP Ads</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Create sponsored campaigns and track how they perform across Xplore Pondy.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Create ad campaigns and track how they perform across Xplore Pondy.</p>
             </div>
           </div>
           <Button type="button" variant="outline" size="sm" onClick={() => void loadAds()} disabled={loading}><RefreshCw className={`mr-2 size-4 ${loading ? "animate-spin" : ""}`} />Refresh</Button>
@@ -419,8 +419,8 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
               <div className="mt-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs font-normal text-muted-foreground">WordPress user #{editingId ? (ads.find((item) => item.id === editingId)?.user_id || "—") : "assigned on submit"} · {editingId ? (ads.find((item) => item.id === editingId)?.user_email || "Email unavailable") : email}</div>
             </div>
             <label className="text-sm font-medium">Ad status<select value={form.status} disabled={!isAdministrator} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal disabled:opacity-50">{STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-            <label className="flex items-center gap-2 self-end pb-2 text-sm font-medium"><input type="checkbox" checked={form.sponsored_ad} onChange={(e) => setForm((f) => ({ ...f, sponsored_ad: e.target.checked }))} /> Sponsored Ad</label>
-            <label className="text-sm font-medium">Sponsored Ad expiry<input type="datetime-local" value={form.sponsored_ad_expiry} onChange={(e) => setForm((f) => ({ ...f, sponsored_ad_expiry: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
+            <label className="flex items-center gap-2 self-end pb-2 text-sm font-medium"><input type="checkbox" checked={form.sponsored_ad} onChange={(e) => setForm((f) => ({ ...f, sponsored_ad: e.target.checked }))} /> Promoted Ad</label>
+            <label className="text-sm font-medium">Promotion expiry<input type="datetime-local" value={form.sponsored_ad_expiry} onChange={(e) => setForm((f) => ({ ...f, sponsored_ad_expiry: e.target.value }))} className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal" /></label>
           </div>
           <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3">
             <div className="flex items-start gap-2">
