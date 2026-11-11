@@ -1285,5 +1285,15 @@ html.dark .xp-home-page .text-primary,
 .xp-ad-slot img,
 .xp-ad-preview img,
 .partner-ads-manager img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   border-radius: 0 !important;
 }
+
+.xp-ad-slot,
+.xp-ad-preview {
+  min-width: 0;
+}
+
