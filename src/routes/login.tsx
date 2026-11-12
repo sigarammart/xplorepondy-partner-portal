@@ -21,10 +21,10 @@ function GoogleMark() {
   return (
     <div className="xp-partner-public-page min-h-dvh">
       <header className="xp-partner-public-header">
-        <Link to="/" className="xp-partner-public-brand" aria-label="Xplore Pondy Partner Portal">
+        <a href="https://xplorepondy.com" className="xp-partner-public-brand" aria-label="Xplore Pondy Partner Portal">
           <Logo />
           <span>Partner Portal</span>
-        </Link>
+        </a>
         <nav className="xp-partner-public-nav" aria-label="Partner information">
           <a href="#benefits">Partner Benefits</a>
           <a href="#features">Features</a>
