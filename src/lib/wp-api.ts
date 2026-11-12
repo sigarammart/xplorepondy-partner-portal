@@ -18,6 +18,7 @@ import { loadListeoGeo, type ListeoGeo } from "@/lib/listeo-geo";
 import { filterListingGroups, headingMatchesProfile, profileFromSlugs, profileKeys, type ListingFieldProfile } from "@/lib/listing-layouts";
 import { extractOgImage, pickListingImage, uncropImage, uniqueImages } from "@/lib/media";
 import { signWpIdentityToken, verifyWpIdentityToken } from "@/lib/wp-identity-token.server";
+import { wpFetch } from "@/lib/wp-http.server";
 
 export const WP_ORIGIN = "https://xplorepondy.com";
 
@@ -6652,7 +6653,7 @@ export const fetchWpOwnerExperienceBookingRequests = createServerFn({ method: "G
     await assertNotificationCallerEmail(email, data.identityToken);
     const secret = process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim();
     if (!secret) throw new Error("The PWA WordPress bridge is not configured.");
-    const response = await fetch(
+    const response = await wpFetch(
       `${WP_ORIGIN}/wp-json/xpe/v1/booking-requests/owner?email=${encodeURIComponent(email)}`,
       { headers: { Accept: "application/json", "X-Xplore-PWA-Secret": secret, Authorization: "Bearer " + secret }, cache: "no-store", signal: AbortSignal.timeout(15000) },
     );
@@ -6690,7 +6691,7 @@ export const updateWpOwnerExperienceBookingRequestStatus = createServerFn({ meth
     await assertNotificationCallerEmail(email, data.identityToken);
     const secret = process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim();
     if (!secret) throw new Error("The PWA WordPress bridge is not configured.");
-    const response = await fetch(`${WP_ORIGIN}/wp-json/xpe/v1/booking-requests/owner-status`, {
+    const response = await wpFetch(`${WP_ORIGIN}/wp-json/xpe/v1/booking-requests/owner-status`, {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -6719,7 +6720,7 @@ export const fetchWpExperienceBookingRequests = createServerFn({ method: "GET" }
     await assertNotificationCallerEmail(email, data.identityToken);
     const secret = process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim();
     if (!secret) throw new Error("The PWA WordPress bridge is not configured.");
-    const response = await fetch(
+    const response = await wpFetch(
       `${WP_ORIGIN}/wp-json/xpe/v1/booking-requests/mine?email=${encodeURIComponent(email)}`,
       {
         headers: { Accept: "application/json", "X-Xplore-PWA-Secret": secret, Authorization: "Bearer " + secret },
