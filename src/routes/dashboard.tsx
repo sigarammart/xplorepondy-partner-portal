@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, Megaphone, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, Megaphone, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, LogOut, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -973,7 +973,28 @@ function ListingOwnerDashboardPage() {
               <Link to="/qr-scan" className="xp-partner-nav-link"><QrCode className="size-4" /><span>Scan QR tickets</span></Link>
               <Link to="/reservation-setup" search={{}} className="xp-partner-nav-link"><Settings2 className="size-4" /><span>Reservation setup</span></Link>
             </nav>
-            <div className="xp-partner-sidebar-footer"><div className="xp-partner-online-dot" /> Connected to Xplore Pondy</div>
+            <div className="xp-partner-sidebar-footer">
+              <div className="xp-partner-online-dot" /> Connected to Xplore Pondy
+              {loggedIn && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    useSession.getState().clearSession();
+                    if (authEnabled) {
+                      void signOut().catch(() => {
+                        window.location.href = "/login";
+                      });
+                    } else {
+                      window.location.href = "/login";
+                    }
+                  }}
+                  className="mt-3 flex w-full items-center gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <LogOut className="size-4 shrink-0" />
+                  <span>Sign out</span>
+                </button>
+              )}
+            </div>
           </aside>
 
           <main className="xp-partner-main">
