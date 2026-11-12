@@ -1297,3 +1297,93 @@ html.dark .xp-home-page .text-primary,
   min-width: 0;
 }
 
+
+
+/* Public partner acquisition page — inspired by the structure of Tripadvisor Business,
+   while using Xplore Pondy's own visual language and existing authentication flow. */
+.xp-partner-public-page { background: #000f1c; color: #f1f7f8; }
+.xp-partner-public-header {
+  position: relative; z-index: 10; display: flex; align-items: center; justify-content: space-between;
+  width: min(100% - 2rem, 76rem); margin: 0 auto; padding: 1.2rem 0;
+}
+.xp-partner-public-header img { outline: 0; }
+.xp-partner-public-hero {
+  position: relative; overflow: hidden; border-top: 1px solid rgb(43 82 98 / 42%);
+  background:
+    radial-gradient(circle at 72% 35%, rgb(5 185 235 / 18%), transparent 28rem),
+    radial-gradient(circle at 18% 65%, rgb(255 240 0 / 8%), transparent 24rem),
+    linear-gradient(135deg, #031824 0%, #062f43 52%, #031723 100%);
+}
+.xp-partner-public-hero-glow {
+  position: absolute; width: 34rem; height: 34rem; right: -12rem; top: -13rem;
+  border: 1px solid rgb(5 185 235 / 22%); border-radius: 50%;
+  box-shadow: 0 0 0 5rem rgb(5 185 235 / 3%), 0 0 0 10rem rgb(5 185 235 / 2%);
+}
+.xp-partner-public-hero-inner {
+  position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(22rem, .7fr);
+  gap: clamp(2rem, 6vw, 6rem); width: min(100% - 2rem, 76rem); margin: 0 auto;
+  padding: clamp(3.5rem, 8vw, 7rem) 0;
+}
+.xp-partner-public-copy { align-self: center; max-width: 45rem; }
+.xp-partner-public-eyebrow {
+  display: inline-flex; align-items: center; border: 1px solid rgb(5 185 235 / 30%); border-radius: 999px;
+  padding: .35rem .7rem; color: #7be5fa; background: rgb(5 185 235 / 8%);
+  font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+}
+.xp-partner-public-copy h1 {
+  max-width: 44rem; margin-top: 1rem; font-family: var(--font-display); font-size: clamp(2.8rem, 6vw, 5.1rem);
+  line-height: .98; letter-spacing: -.055em; color: #fff;
+}
+.xp-partner-public-copy > p {
+  max-width: 40rem; margin-top: 1.25rem; color: #c4dbe3; font-size: clamp(.95rem, 1.5vw, 1.08rem); line-height: 1.75;
+}
+.xp-partner-public-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1.8rem; }
+.xp-partner-public-proof {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 39rem; margin-top: 3rem;
+  border-top: 1px solid rgb(184 203 212 / 20%); padding-top: 1.1rem; gap: 1rem;
+}
+.xp-partner-public-proof span { display: grid; gap: .15rem; }
+.xp-partner-public-proof strong { color: #fff; font-size: .85rem; }
+.xp-partner-public-proof small { color: #91b1bd; font-size: .7rem; }
+.xp-partner-login-card {
+  align-self: center; border: 1px solid rgb(184 233 245 / 25%); border-radius: 1.4rem; padding: clamp(1.25rem, 3vw, 2rem);
+  background: rgb(0 15 28 / 88%); box-shadow: 0 24px 70px rgb(0 0 0 / 30%); backdrop-filter: blur(18px);
+}
+.xp-partner-login-card .mt-6 { margin-top: 0; }
+.xp-partner-login-card .mt-4 { margin-top: 1rem; }
+.xp-partner-login-card .mt-8 { margin-top: 1.5rem; }
+.xp-partner-login-card .my-8 { margin-top: 1.4rem; margin-bottom: 1.4rem; }
+.xp-partner-login-card > .text-xs { display: none; }
+.xp-partner-public-tools { padding: clamp(4rem, 8vw, 7rem) 1rem; background: #f1f7f8; color: #000f1c; }
+.xp-partner-public-tools .text-muted-foreground { color: #526a78; }
+.xp-partner-feature-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem;
+}
+.xp-partner-feature-grid article {
+  min-height: 13rem; border: 1px solid #d7e4e9; border-radius: 1.15rem; padding: 1.35rem;
+  background: #fff; box-shadow: 0 8px 28px rgb(0 15 28 / 6%); transition: transform .18s, border-color .18s, box-shadow .18s;
+}
+.xp-partner-feature-grid article:hover { transform: translateY(-3px); border-color: #8adff2; box-shadow: 0 14px 34px rgb(0 15 28 / 10%); }
+.xp-partner-feature-grid article > span { color: #05a7d5; font-size: .68rem; font-weight: 800; letter-spacing: .12em; }
+.xp-partner-feature-grid h3 { margin-top: 1.6rem; font-size: 1.15rem; font-weight: 700; }
+.xp-partner-feature-grid p { margin-top: .45rem; color: #526a78; font-size: .82rem; line-height: 1.65; }
+.xp-partner-public-cta {
+  display: flex; align-items: center; justify-content: space-between; gap: 2rem; width: min(100% - 2rem, 76rem);
+  margin: 0 auto; padding: 5rem 0; color: #fff;
+}
+.xp-partner-public-cta h2 { max-width: 42rem; }
+@media (max-width: 900px) {
+  .xp-partner-public-hero-inner { grid-template-columns: 1fr; padding-top: 3.5rem; }
+  .xp-partner-login-card { max-width: 38rem; width: 100%; }
+  .xp-partner-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .xp-partner-public-header { width: min(100% - 1.25rem, 76rem); padding: .8rem 0; }
+  .xp-partner-public-header img { max-width: 10rem; }
+  .xp-partner-public-hero-inner { width: min(100% - 1.25rem, 76rem); padding: 2.7rem 0 3.5rem; }
+  .xp-partner-public-copy h1 { font-size: 2.65rem; }
+  .xp-partner-public-proof { gap: .6rem; }
+  .xp-partner-public-proof small { font-size: .62rem; }
+  .xp-partner-feature-grid { grid-template-columns: 1fr; }
+  .xp-partner-public-cta { width: min(100% - 1.25rem, 76rem); flex-direction: column; align-items: flex-start; padding: 3.5rem 0; }
+}
