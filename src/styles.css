@@ -1407,13 +1407,21 @@ html.dark .xp-home-page .text-primary,
   min-height: 64px;
   margin: 0 auto;
   padding: .55rem 0;
-  background: #fff;
+  background: #061827;
+  border-bottom: 1px solid rgb(255 255 255 / 10%);
+}
+.xp-partner-public-page .xp-partner-public-header::before {
+  content: "";
+  position: absolute;
+  inset: 0 -50vw;
+  z-index: -1;
+  background: #061827;
 }
 .xp-partner-public-page .xp-partner-public-brand {
   display: inline-flex;
   align-items: center;
   gap: .55rem;
-  color: #0b1838;
+  color: #fff;
   text-decoration: none;
 }
 .xp-partner-public-page .xp-partner-public-brand > span {
@@ -1421,7 +1429,7 @@ html.dark .xp-home-page .text-primary,
   padding-left: .7rem;
   font-size: .78rem;
   font-weight: 700;
-  color: #52617d;
+  color: #b9c8d6;
 }
 .xp-partner-public-page .xp-partner-public-brand img {
   max-width: 13.5rem;
@@ -1435,7 +1443,7 @@ html.dark .xp-home-page .text-primary,
   gap: clamp(1.4rem, 3vw, 3.25rem);
 }
 .xp-partner-public-page .xp-partner-public-nav a {
-  color: #162343;
+  color: #f3f7fb;
   font-size: .79rem;
   font-weight: 700;
   text-decoration: none;
@@ -1462,8 +1470,9 @@ html.dark .xp-home-page .text-primary,
 }
 .xp-partner-public-page .xp-partner-visit-link {
   border: 1px solid #9ba8c0;
-  color: #111e3d;
-  background: #fff;
+  color: #fff;
+  background: #10244d;
+  border-color: #6e8098;
 }
 .xp-partner-public-page .xp-partner-login-link {
   min-width: 7rem;
@@ -1615,11 +1624,23 @@ html.dark .xp-home-page .text-primary,
   height: 2.65rem;
   border-color: #b9c4d8;
   background: #fff;
-  color: #111d3d;
+  color: #111d3d !important;
   font-weight: 750;
   box-shadow: none;
 }
-.xp-partner-public-page .xp-partner-google-button:hover { background: #f7f9fd; }
+.xp-partner-public-page .xp-partner-google-button:hover { background: #f7f9fd; color: #111d3d !important; }
+.xp-partner-public-page .xp-partner-google-button:disabled,
+.xp-partner-public-page .xp-partner-google-button[disabled] {
+  color: #111d3d !important;
+  opacity: 1;
+}
+.xp-partner-public-page .xp-partner-login-card input,
+.xp-partner-public-page .xp-partner-login-card input::placeholder,
+.xp-partner-public-page .xp-partner-login-card label,
+.xp-partner-public-page .xp-partner-login-card button {
+  color: #111d3d;
+}
+.xp-partner-public-page .xp-partner-login-card input::placeholder { color: #718099; opacity: 1; }
 .xp-partner-public-page .xp-partner-google-button svg { width: 1.1rem; height: 1.1rem; }
 .xp-partner-public-page .xp-partner-login-divider {
   display: flex;
