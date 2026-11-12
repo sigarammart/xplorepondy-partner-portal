@@ -51,7 +51,12 @@ async function ownerRequest(path: string, method: "GET" | "POST", body?: unknown
   }
 
   // This credential is server-only. Never move this request into browser code.
-  const secret = process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim();
+  // The partner portal may use the dedicated app bridge secret. Prefer the
+  // shared WP social-session bridge secret when present, with the dedicated
+  // partner/app bridge secret as a backwards-compatible fallback.
+  const secret =
+    process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim() ||
+    process.env.XPGP_APP_BRIDGE_SECRET?.trim();
   if (!secret) {
     throw new Error("Owner listing integration is not configured on the server.");
   }
