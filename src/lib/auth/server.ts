@@ -95,7 +95,20 @@ export const authConfigured = googleConfigured || grokConfigured;
 // it derives the origin per-request from the (proxied) host, validated against the
 // preview allowlist, which makes the OAuth `redirect_uri` the concrete preview URL
 // the broker's preview client accepts.
-const explicitBaseURL = env("BETTER_AUTH_URL");
+const configuredBaseURL = env("BETTER_AUTH_URL");
+/**
+ * The Partner Portal must never generate OAuth callbacks against the retired
+ * PWA origin. A stale deployment variable can otherwise make Google redirect
+ * to pwa.xplorepondy.com even though this app is running on
+ * partner.xplorepondy.com.
+ *
+ * Keep other environments configurable, but normalize the known legacy
+ * production value to the Partner Portal origin.
+ */
+const explicitBaseURL =
+  configuredBaseURL?.replace(/\/+$/, "") === "https://pwa.xplorepondy.com"
+    ? "https://partner.xplorepondy.com"
+    : configuredBaseURL;
 // Explicit `string[]` (not a readonly tuple) — Better Auth's DynamicBaseURLConfig
 // requires a mutable `allowedHosts: string[]`.
 const previewAllowedHosts: string[] = [...PREVIEW_ALLOWED_HOSTS];

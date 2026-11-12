@@ -1,10 +1,60 @@
 import { createServerFn } from "@tanstack/react-start";
+import { request as httpsRequest } from "node:https";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { verifyWpIdentityToken } from "@/lib/wp-identity-token.server";
 
+
 const WP_ORIGIN = (process.env.XPLORE_WORDPRESS_URL || "https://xplorepondy.com").replace(/\/$/, "");
 const OWNER_LISTINGS_BASE = "/wp-json/xplore/v1/owner";
+
+/**
+ * WordPress currently has a reachable IPv4 address but its IPv6 endpoint resets
+ * connections from the partner runtime. Use Node HTTPS with an explicit IPv4
+ * family for server-to-server WordPress calls. This avoids changing global DNS
+ * behavior and preserves the WordPress hostname for TLS/SNI.
+ */
+async function wordpressRequest(
+  path: string,
+  method: "GET" | "POST",
+  headers: Record<string, string>,
+  body?: string,
+): Promise<{ ok: boolean; status: number; text: () => Promise<string>; json: () => Promise<unknown> }> {
+  const url = new URL(`${WP_ORIGIN}${path}`);
+
+  const response = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+    const request = httpsRequest(
+      url,
+      {
+        method,
+        family: 4,
+        servername: url.hostname,
+        headers,
+        timeout: 30_000,
+      },
+      (incoming) => {
+        const chunks: Buffer[] = [];
+        incoming.on("data", (chunk: Buffer | string) => chunks.push(Buffer.from(chunk)));
+        incoming.on("end", () => {
+          resolve({ status: incoming.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") });
+        });
+        incoming.on("error", reject);
+      },
+    );
+
+    request.on("timeout", () => request.destroy(new Error("WordPress request timed out.")));
+    request.on("error", reject);
+    if (body !== undefined) request.write(body);
+    request.end();
+  });
+
+  return {
+    ok: response.status >= 200 && response.status < 300,
+    status: response.status,
+    text: async () => response.body,
+    json: async () => JSON.parse(response.body),
+  };
+}
 const ownerIdentitySchema = z.object({
   email: z.string().trim().email().optional(),
   identityToken: z.string().max(4096).optional(),
@@ -51,23 +101,38 @@ async function ownerRequest(path: string, method: "GET" | "POST", body?: unknown
   }
 
   // This credential is server-only. Never move this request into browser code.
-  const secret = process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim();
+  // The partner portal may use the dedicated app bridge secret. Prefer the
+  // shared WP social-session bridge secret when present, with the dedicated
+  // partner/app bridge secret as a backwards-compatible fallback.
+  // Keep the owner-listings bridge aligned with the WordPress plugin's
+  // accepted secret names. WP_SOCIAL_SESSION_BRIDGE_SECRET is preferred,
+  // while XPLORE_PWA_SESSION_SECRET and the legacy XPGP_APP_BRIDGE_SECRET
+  // remain valid fallbacks during the migration.
+  const secret =
+    process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim() ||
+    process.env.XPLORE_PWA_SESSION_SECRET?.trim() ||
+    process.env.XPGP_APP_BRIDGE_SECRET?.trim();
   if (!secret) {
-    throw new Error("Owner listing integration is not configured on the server.");
+    throw new Error(
+      "Owner listing integration is not configured on the server. Set WP_SOCIAL_SESSION_BRIDGE_SECRET (or XPLORE_PWA_SESSION_SECRET) in the Partner Portal environment.",
+    );
   }
 
-  const response = await fetch(`${WP_ORIGIN}${path}`, {
+  const response = await wordpressRequest(
+    path,
     method,
-    headers: {
+    {
       Accept: "application/json",
+      // Use the same server-to-server credential format as the existing
+      // WordPress booking/session bridge. Keep the legacy X-* headers too for
+      // compatibility with existing Xplore Pondy REST endpoints.
+      Authorization: `Bearer ${secret}`,
       "X-Xplore-PWA-Secret": secret,
       "X-Xplore-PWA-User-Email": callerEmail,
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
     },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    cache: "no-store",
-    redirect: "error",
-  });
+    body === undefined ? undefined : JSON.stringify(body),
+  );
 
   const text = await response.text();
   let result: unknown;
@@ -137,9 +202,10 @@ async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_co
     // post meta used by the app tracking endpoint. The admin listing endpoint
     // can return an older/inconsistent app_view_count value, so use this source
     // to keep admin and owner dashboards in sync.
-    const response = await fetch(
-      `${WP_ORIGIN}/wp-json/wp/v2/listing?include=${ids.join(",")}&per_page=${Math.min(ids.length, 100)}&_fields=id,xplore_view_count`,
-      { headers: { Accept: "application/json" }, cache: "no-store" },
+    const response = await wordpressRequest(
+      `/wp-json/wp/v2/listing?include=${ids.join(",")}&per_page=${Math.min(ids.length, 100)}&_fields=id,xplore_view_count`,
+      "GET",
+      { Accept: "application/json" },
     );
     if (!response.ok) return payload;
     const rows = await response.json() as Array<{ id: number; xplore_view_count?: number }>;
@@ -156,6 +222,119 @@ async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_co
     return payload;
   }
 }
+
+const partnerAdSchema = z.object({
+  id: z.number().int().positive().optional(),
+  title: z.string().trim().min(1).max(180),
+  image_url: z.string().trim().url().max(2000),
+  ad_type: z.string().trim().max(80).optional().or(z.literal("")),
+  target_url: z.string().trim().url().max(2000).optional().or(z.literal("")),
+  link_type: z.string().trim().max(80).optional().or(z.literal("")),
+  custom_url: z.string().trim().url().max(2000).optional().or(z.literal("")),
+  position: z.enum(["homepage_top", "explore_top", "listing_loop_between", "sidebar_top", "sidebar_bottom", "sidebar_map_top", "homepage_sub"]),
+  positions: z.array(z.enum(["homepage_top", "explore_top", "listing_loop_between", "sidebar_top", "sidebar_bottom", "sidebar_map_top", "homepage_sub"])).min(1).optional(),
+  listing_id: z.number().int().positive().optional(),
+  listing_ids: z.array(z.number().int().positive()).optional(),
+  start_date: z.string().trim().max(80).optional().or(z.literal("")),
+  end_date: z.string().trim().max(80).optional().or(z.literal("")),
+  status: z.enum(["publish", "draft", "pending"]).optional(),
+  sponsored_ad: z.boolean().optional().default(false),
+  sponsored_ad_expiry: z.string().trim().max(80).optional().or(z.literal("")),
+  max_views: z.number().int().min(0).optional().default(0),
+  max_clicks: z.number().int().min(0).optional().default(0),
+}).extend(ownerIdentitySchema.shape);
+
+export type PartnerAd = {
+  id: number;
+  title: string;
+  status: string;
+  post_status: string;
+  image_url: string;
+  target_url: string;
+  ad_type: string;
+  link_type: string;
+  custom_url: string;
+  position: string;
+  positions: string[];
+  user_id: number;
+  listing_id: number;
+  listing_ids: number[];
+  listing_titles?: Array<{ id: number; title: string }>;
+  start_date: string;
+  end_date: string;
+  sponsored_ad: boolean;
+  sponsored_ad_expiry: string;
+  max_views: number;
+  max_clicks: number;
+  views: number;
+  clicks: number;
+  ctr: number;
+  created_at: string;
+};
+
+export const fetchPartnerAdListings = createServerFn({ method: "GET" })
+  .validator(ownerIdentitySchema.extend({
+    search: z.string().trim().max(120).optional().default(""),
+    page: z.number().int().positive().optional().default(1),
+    perPage: z.number().int().positive().max(100).optional().default(30),
+  }))
+  .handler(async ({ data }) => {
+    const { email, identityToken, search, page, perPage } = data;
+    const params = new URLSearchParams({
+      search,
+      page: String(page),
+      per_page: String(perPage),
+    });
+    return ownerRequest(
+      `/wp-json/xplore/v1/partner/ad-listings?${params.toString()}`,
+      "GET",
+      undefined,
+      { email, identityToken },
+    );
+  });
+
+export const fetchPartnerAds = createServerFn({ method: "GET" })
+  .validator(ownerIdentitySchema.extend({
+    page: z.number().int().positive().optional().default(1),
+    perPage: z.number().int().positive().max(100).optional().default(20),
+  }))
+  .handler(async ({ data }) => {
+    const { email, identityToken, page, perPage } = data;
+    return ownerRequest(
+      `/wp-json/xplore/v1/partner/ads?page=${page}&per_page=${perPage}`,
+      "GET",
+      undefined,
+      { email, identityToken },
+    );
+  });
+
+export const createPartnerAd = createServerFn({ method: "POST" })
+  .inputValidator((input: z.infer<typeof partnerAdSchema>) => partnerAdSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { email, identityToken, ...ad } = data;
+    return ownerRequest("/wp-json/xplore/v1/partner/ads", "POST", ad, { email, identityToken });
+  });
+
+const partnerAdImageUploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(180),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  base64: z.string().min(1).max(12_000_000),
+}).extend(ownerIdentitySchema.shape);
+
+export const uploadPartnerAdImage = createServerFn({ method: "POST" })
+  .inputValidator(partnerAdImageUploadSchema)
+  .handler(async ({ data }) => {
+    const { email, identityToken, ...upload } = data;
+    return ownerRequest("/wp-json/xplore/v1/partner/ads/media", "POST", upload, { email, identityToken });
+  });
+
+export const updatePartnerAd = createServerFn({ method: "POST" })
+  .inputValidator((input: z.infer<typeof partnerAdSchema> & { id: number }) => partnerAdSchema.extend({ id: z.number().int().positive() }).parse(input))
+  .handler(async ({ data }) => {
+    const { email, identityToken, id, ...ad } = data;
+    return ownerRequest(`/wp-json/xplore/v1/partner/ads/${id}`, "POST", ad, { email, identityToken });
+  });
+
 
 export const fetchAdminListingDetail = createServerFn({ method: "GET" })
   .validator(ownerIdentitySchema.extend({ listingId: z.number().int().positive() }))
@@ -199,15 +378,13 @@ export const fetchAdminListings = createServerFn({ method: "GET" })
       // 100 already, so this is typically one request per page.
       for (let offset = 0; offset < validIds.length; offset += 100) {
         const batch = validIds.slice(offset, offset + 100);
-        const response = await fetch(
-          `${WP_ORIGIN}/wp-json/xplore/v1/table-reservations/admin/enabled-listings?ids=${batch.join(",")}`,
+        const response = await wordpressRequest(
+          `/wp-json/xplore/v1/table-reservations/admin/enabled-listings?ids=${batch.join(",")}`,
+          "GET",
           {
-            headers: {
-              Accept: "application/json",
-              "X-Xplore-PWA-Secret": secret,
-              Authorization: `Bearer ${secret}`,
-            },
-            cache: "no-store",
+            Accept: "application/json",
+            "X-Xplore-PWA-Secret": secret,
+            Authorization: `Bearer ${secret}`,
           },
         );
         if (!response.ok) throw new Error(`Reservation settings lookup failed (HTTP ${response.status}).`);
