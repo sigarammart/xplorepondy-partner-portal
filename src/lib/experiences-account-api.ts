@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/verify.server";
+import { wpFetch } from "@/lib/wp-http.server";
 
 const WP_ORIGIN = "https://xplorepondy.com";
 
@@ -35,7 +36,7 @@ async function experienceAccountRequest<T>(path: string, email: string, identity
   if (!secret) throw new Error("The WordPress experience account bridge is not configured.");
   const url = new URL("/wp-json/xpe/v1/account/" + path, WP_ORIGIN);
   if (init?.method !== "POST" && init?.method !== "PATCH" && init?.method !== "PUT") url.searchParams.set("email", email.trim().toLowerCase());
-  const response = await fetch(url.toString(), {
+  const response = await wpFetch(url.toString(), {
     ...init, cache: "no-store", signal: AbortSignal.timeout(20000),
     headers: { Accept: "application/json", "X-Xplore-PWA-Secret": secret, ...(init?.headers ?? {}) },
   });
@@ -68,7 +69,7 @@ async function experienceBookingRequest<T>(path: string, email: string, identity
   if (!secret) throw new Error("The WordPress experience booking bridge is not configured.");
   const url = new URL("/wp-json/xpe/v1/" + path, WP_ORIGIN);
   if (init?.method !== "POST") url.searchParams.set("email", email.trim().toLowerCase());
-  const response = await fetch(url.toString(), {
+  const response = await wpFetch(url.toString(), {
     ...init, cache: "no-store", signal: AbortSignal.timeout(20000),
     headers: { Accept: "application/json", "X-Xplore-PWA-Secret": secret, ...(init?.headers ?? {}) },
   });
