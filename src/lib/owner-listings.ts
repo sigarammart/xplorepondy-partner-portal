@@ -1,7 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
+import { setDefaultResultOrder } from "node:dns";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { verifyWpIdentityToken } from "@/lib/wp-identity-token.server";
+
+setDefaultResultOrder("ipv4first");
 
 const WP_ORIGIN = (process.env.XPLORE_WORDPRESS_URL || "https://xplorepondy.com").replace(/\/$/, "");
 const OWNER_LISTINGS_BASE = "/wp-json/xplore/v1/owner";
