@@ -1,13 +1,60 @@
 import { createServerFn } from "@tanstack/react-start";
-import { setDefaultResultOrder } from "node:dns";
+import { request as httpsRequest } from "node:https";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { verifyWpIdentityToken } from "@/lib/wp-identity-token.server";
 
-setDefaultResultOrder("ipv4first");
 
 const WP_ORIGIN = (process.env.XPLORE_WORDPRESS_URL || "https://xplorepondy.com").replace(/\/$/, "");
 const OWNER_LISTINGS_BASE = "/wp-json/xplore/v1/owner";
+
+/**
+ * WordPress currently has a reachable IPv4 address but its IPv6 endpoint resets
+ * connections from the partner runtime. Use Node HTTPS with an explicit IPv4
+ * family for server-to-server WordPress calls. This avoids changing global DNS
+ * behavior and preserves the WordPress hostname for TLS/SNI.
+ */
+async function wordpressRequest(
+  path: string,
+  method: "GET" | "POST",
+  headers: Record<string, string>,
+  body?: string,
+): Promise<{ ok: boolean; status: number; text: () => Promise<string>; json: () => Promise<unknown> }> {
+  const url = new URL(`${WP_ORIGIN}${path}`);
+
+  const response = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+    const request = httpsRequest(
+      url,
+      {
+        method,
+        family: 4,
+        servername: url.hostname,
+        headers,
+        timeout: 30_000,
+      },
+      (incoming) => {
+        const chunks: Buffer[] = [];
+        incoming.on("data", (chunk: Buffer | string) => chunks.push(Buffer.from(chunk)));
+        incoming.on("end", () => {
+          resolve({ status: incoming.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") });
+        });
+        incoming.on("error", reject);
+      },
+    );
+
+    request.on("timeout", () => request.destroy(new Error("WordPress request timed out.")));
+    request.on("error", reject);
+    if (body !== undefined) request.write(body);
+    request.end();
+  });
+
+  return {
+    ok: response.status >= 200 && response.status < 300,
+    status: response.status,
+    text: async () => response.body,
+    json: async () => JSON.parse(response.body),
+  };
+}
 const ownerIdentitySchema = z.object({
   email: z.string().trim().email().optional(),
   identityToken: z.string().max(4096).optional(),
@@ -71,9 +118,10 @@ async function ownerRequest(path: string, method: "GET" | "POST", body?: unknown
     );
   }
 
-  const response = await fetch(`${WP_ORIGIN}${path}`, {
+  const response = await wordpressRequest(
+    path,
     method,
-    headers: {
+    {
       Accept: "application/json",
       // Use the same server-to-server credential format as the existing
       // WordPress booking/session bridge. Keep the legacy X-* headers too for
@@ -83,10 +131,8 @@ async function ownerRequest(path: string, method: "GET" | "POST", body?: unknown
       "X-Xplore-PWA-User-Email": callerEmail,
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
     },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    cache: "no-store",
-    redirect: "error",
-  });
+    body === undefined ? undefined : JSON.stringify(body),
+  );
 
   const text = await response.text();
   let result: unknown;
@@ -156,9 +202,10 @@ async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_co
     // post meta used by the app tracking endpoint. The admin listing endpoint
     // can return an older/inconsistent app_view_count value, so use this source
     // to keep admin and owner dashboards in sync.
-    const response = await fetch(
-      `${WP_ORIGIN}/wp-json/wp/v2/listing?include=${ids.join(",")}&per_page=${Math.min(ids.length, 100)}&_fields=id,xplore_view_count`,
-      { headers: { Accept: "application/json" }, cache: "no-store" },
+    const response = await wordpressRequest(
+      `/wp-json/wp/v2/listing?include=${ids.join(",")}&per_page=${Math.min(ids.length, 100)}&_fields=id,xplore_view_count`,
+      "GET",
+      { Accept: "application/json" },
     );
     if (!response.ok) return payload;
     const rows = await response.json() as Array<{ id: number; xplore_view_count?: number }>;
@@ -331,15 +378,13 @@ export const fetchAdminListings = createServerFn({ method: "GET" })
       // 100 already, so this is typically one request per page.
       for (let offset = 0; offset < validIds.length; offset += 100) {
         const batch = validIds.slice(offset, offset + 100);
-        const response = await fetch(
-          `${WP_ORIGIN}/wp-json/xplore/v1/table-reservations/admin/enabled-listings?ids=${batch.join(",")}`,
+        const response = await wordpressRequest(
+          `/wp-json/xplore/v1/table-reservations/admin/enabled-listings?ids=${batch.join(",")}`,
+          "GET",
           {
-            headers: {
-              Accept: "application/json",
-              "X-Xplore-PWA-Secret": secret,
-              Authorization: `Bearer ${secret}`,
-            },
-            cache: "no-store",
+            Accept: "application/json",
+            "X-Xplore-PWA-Secret": secret,
+            Authorization: `Bearer ${secret}`,
           },
         );
         if (!response.ok) throw new Error(`Reservation settings lookup failed (HTTP ${response.status}).`);
