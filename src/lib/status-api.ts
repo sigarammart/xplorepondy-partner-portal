@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/verify.server";
 import { verifyWpIdentityToken } from "@/lib/wp-identity-token.server";
+import { wpFetch } from "@/lib/wp-http.server";
 
 const WP_ORIGIN = (process.env.XPLORE_WORDPRESS_URL || "https://xplorepondy.com").replace(/\/$/, "");
 const identitySchema = z.object({
@@ -17,7 +18,7 @@ async function statusRequest(path: string, method: "GET" | "POST", body?: unknow
   if (!email) throw new Error("Please sign in again before managing your status.");
   const secret = process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim();
   if (!secret) throw new Error("Status publishing is not configured on the server.");
-  const response = await fetch(`${WP_ORIGIN}${path}`, {
+  const response = await wpFetch(`${WP_ORIGIN}${path}`, {
     method,
     headers: {
       Accept: "application/json",
