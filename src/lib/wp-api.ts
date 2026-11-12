@@ -6404,29 +6404,63 @@ async function pwaBridgeRequest(path: string, init?: RequestInit) {
   return payload;
 }
 
+/**
+ * Use IPv4 for the table-reservation bridge. This WordPress host currently
+ * resets IPv6 connections from the partner runtime; native fetch may choose
+ * that unusable address and surface only the generic "fetch failed" error.
+ * Keep the URL hostname for TLS SNI and preserve the existing timeout,
+ * cache-busting, headers and response contract.
+ */
 async function tableReservationRequest(path: string, init?: RequestInit) {
   const isGet = !init?.method || init.method.toUpperCase() === "GET";
   const requestPath = isGet
     ? path + (path.includes("?") ? "&" : "?") + "_xp_ts=" + Date.now()
     : path;
   const url = new URL("/wp-json/xplore/v1/table-reservations" + requestPath, WP_ORIGIN);
-  const response = await fetch(url.toString(), {
-    ...init,
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      ...(init?.headers ?? {}),
-    },
-    signal: AbortSignal.timeout(15000),
+  const headers = new Headers({
+    Accept: "application/json",
+    ...(init?.headers ?? {}),
   });
-  const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!response.ok) {
-    const message = typeof payload?.message === "string" ? payload.message : "Reservation request failed (HTTP " + response.status + ").";
+  const body = init?.body == null ? undefined : String(init.body);
+  const response = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+    const request = httpsRequest(
+      url,
+      {
+        method: init?.method ?? "GET",
+        family: 4,
+        servername: url.hostname,
+        headers: Object.fromEntries(headers.entries()),
+        timeout: 15_000,
+      },
+      (incoming) => {
+        const chunks: Buffer[] = [];
+        incoming.on("data", (chunk: Buffer | string) => chunks.push(Buffer.from(chunk)));
+        incoming.on("end", () => {
+          resolve({
+            status: incoming.statusCode ?? 0,
+            body: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+        incoming.on("error", reject);
+      },
+    );
+    request.on("timeout", () => request.destroy(new Error("WordPress table-reservation request timed out.")));
+    request.on("error", reject);
+    if (body !== undefined) request.write(body);
+    request.end();
+  });
+
+  const payload = response.body
+    ? JSON.parse(response.body) as Record<string, unknown>
+    : null;
+  if (response.status < 200 || response.status >= 300) {
+    const message = typeof payload?.message === "string"
+      ? payload.message
+      : "Reservation request failed (HTTP " + response.status + ").";
     throw new Error(message);
   }
   return payload;
 }
-
 export const fetchTableReservationConfig = createServerFn({ method: "GET" })
   .validator(z.object({ listingId: z.coerce.number().int().positive() }))
   .handler(async ({ data }) => {
