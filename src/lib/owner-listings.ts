@@ -54,11 +54,18 @@ async function ownerRequest(path: string, method: "GET" | "POST", body?: unknown
   // The partner portal may use the dedicated app bridge secret. Prefer the
   // shared WP social-session bridge secret when present, with the dedicated
   // partner/app bridge secret as a backwards-compatible fallback.
+  // Keep the owner-listings bridge aligned with the WordPress plugin's
+  // accepted secret names. WP_SOCIAL_SESSION_BRIDGE_SECRET is preferred,
+  // while XPLORE_PWA_SESSION_SECRET and the legacy XPGP_APP_BRIDGE_SECRET
+  // remain valid fallbacks during the migration.
   const secret =
     process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim() ||
+    process.env.XPLORE_PWA_SESSION_SECRET?.trim() ||
     process.env.XPGP_APP_BRIDGE_SECRET?.trim();
   if (!secret) {
-    throw new Error("Owner listing integration is not configured on the server.");
+    throw new Error(
+      "Owner listing integration is not configured on the server. Set WP_SOCIAL_SESSION_BRIDGE_SECRET (or XPLORE_PWA_SESSION_SECRET) in the Partner Portal environment.",
+    );
   }
 
   const response = await fetch(`${WP_ORIGIN}${path}`, {
