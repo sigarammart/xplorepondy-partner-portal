@@ -96,9 +96,38 @@ function LoginPage() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <Logo />
-      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-primary">Sign in</p>
+    <div className="xp-partner-public-page min-h-dvh overflow-hidden">
+      <header className="xp-partner-public-header">
+        <Logo />
+        <div className="flex items-center gap-3">
+          <span className="hidden text-sm text-muted-foreground sm:inline">Already a partner?</span>
+          <a href="#partner-login" className="rounded-full border border-border px-4 py-2 text-sm font-semibold transition hover:border-primary hover:text-primary">Sign in</a>
+        </div>
+      </header>
+      <main>
+        <section className="xp-partner-public-hero">
+          <div className="xp-partner-public-hero-glow" />
+          <div className="xp-partner-public-hero-inner">
+            <div className="xp-partner-public-copy">
+              <span className="xp-partner-public-eyebrow">Xplore Pondy Partner</span>
+              <h1>Grow your business where Pondicherry travelers are already exploring.</h1>
+              <p>Claim and manage your presence on Xplore Pondy, reach more visitors, promote offers, manage bookings, publish updates, and turn traveler interest into real business.</p>
+              <div className="xp-partner-public-actions">
+                <a href="#partner-login" className="inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground shadow-lg transition hover:-translate-y-0.5">Get started</a>
+                <a href="#partner-tools" className="inline-flex items-center justify-center rounded-xl border border-white/25 bg-white/5 px-6 py-3 font-semibold text-white backdrop-blur transition hover:bg-white/10">Explore partner tools</a>
+              </div>
+              <div className="xp-partner-public-proof">
+                <span><strong>Listings</strong><small>Showcase your business</small></span>
+                <span><strong>Bookings</strong><small>Manage reservations</small></span>
+                <span><strong>Reach</strong><small>Connect with travelers</small></span>
+              </div>
+            </div>
+            <div id="partner-login" className="xp-partner-login-card">
+              <div className="mb-5">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Partner login</span>
+                <h2 className="mt-1 font-display text-2xl font-semibold">Welcome back</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Manage your Xplore Pondy business presence.</p>
+              </div>
       <h1 className="mt-1 font-display text-3xl font-semibold">Welcome back</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Google for a quick account, or sign in with your xplorepondy.com username and password.
@@ -174,6 +203,34 @@ function LoginPage() {
           Continue without signing in
         </Link>
       </p>
+            </div>
+          </div>
+        </section>
+        <section id="partner-tools" className="xp-partner-public-tools">
+          <div className="mx-auto max-w-6xl">
+            <div className="mx-auto max-w-2xl text-center">
+              <span className="xp-partner-public-eyebrow">Everything in one place</span>
+              <h2 className="mt-2 font-display text-3xl font-semibold sm:text-4xl">Tools built for local businesses</h2>
+              <p className="mt-3 text-muted-foreground">One partner workspace to keep your listings fresh, engage visitors and manage the activity that matters.</p>
+            </div>
+            <div className="xp-partner-feature-grid mt-10">
+              <article><span>01</span><h3>Manage your listing</h3><p>Update your business information, photos, amenities and customer-facing details.</p></article>
+              <article><span>02</span><h3>Promote with XP Ads</h3><p>Put your business in premium placements across Xplore Pondy and reach travelers at the right moment.</p></article>
+              <article><span>03</span><h3>Events & experiences</h3><p>Create and manage events and experiences so visitors can discover what you offer.</p></article>
+              <article><span>04</span><h3>Bookings & reservations</h3><p>Keep reservations, customer requests and booking activity in one partner dashboard.</p></article>
+              <article><span>05</span><h3>Publish status updates</h3><p>Share offers, new photos and timely business updates with people exploring Pondicherry.</p></article>
+              <article><span>06</span><h3>Track performance</h3><p>Understand listing views, engagement and activity so you can make better decisions.</p></article>
+            </div>
+          </div>
+        </section>
+        <section className="xp-partner-public-cta">
+          <div>
+            <span className="xp-partner-public-eyebrow">Built for Pondicherry businesses</span>
+            <h2 className="mt-2 font-display text-3xl font-semibold">Put your business in front of the people planning their Pondy trip.</h2>
+          </div>
+          <a href="#partner-login" className="inline-flex shrink-0 items-center justify-center rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground">Partner with Xplore Pondy</a>
+        </section>
+      </main>
     </div>
   );
 }
