@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/verify.server";
+import { wpFetch } from "@/lib/wp-http.server";
 
 const WP_ORIGIN = "https://xplorepondy.com";
 
@@ -118,7 +119,7 @@ export const fetchXploreEvents = createServerFn({ method: "GET" })
     });
     if (data.slug) query.set("slug", data.slug);
     else if (data.search) query.set("search", data.search);
-    const response = await fetch(`${WP_ORIGIN}/wp-json/xplore/v1/events?${query.toString()}`, {
+    const response = await wpFetch(`${WP_ORIGIN}/wp-json/xplore/v1/events?${query.toString()}`, {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(12000),
     });
@@ -170,7 +171,7 @@ async function eventAccountRequest<T>(path: string, email: string, identityToken
   if (!secret) throw new Error("The WordPress event account bridge is not configured.");
   const url = new URL("/wp-json/xplore/v1/event-account/" + path, WP_ORIGIN);
   if (init?.method !== "POST") url.searchParams.set("email", email.trim().toLowerCase());
-  const response = await fetch(url.toString(), {
+  const response = await wpFetch(url.toString(), {
     ...init, cache: "no-store", signal: AbortSignal.timeout(15000),
     headers: { Accept: "application/json", "X-Xplore-PWA-Secret": secret, ...(init?.headers ?? {}) },
   });
