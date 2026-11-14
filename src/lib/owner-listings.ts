@@ -155,7 +155,32 @@ async function ownerRequest(path: string, method: "GET" | "POST", body?: unknown
 
 export const fetchOwnerListings = createServerFn({ method: "GET" })
   .validator(ownerIdentitySchema)
-  .handler(async ({ data }) => ownerRequest(`${OWNER_LISTINGS_BASE}/listings`, "GET", undefined, data));
+  .handler(async ({ data }) => {
+    const owned = await ownerRequest(`${OWNER_LISTINGS_BASE}/listings`, "GET", undefined, data);
+
+    // Listing Moderators are not owners. Merge their explicitly assigned
+    // status-publishing listings into the common listing source used by the
+    // status manager and other partner features. Keep a graceful fallback
+    // until the WordPress moderator endpoint is deployed.
+    try {
+      const moderated = await ownerRequest(`${OWNER_LISTINGS_BASE}/moderators/listings`, "GET", undefined, data) as {
+        items?: Array<{ id?: number; title?: string; modified?: string; slug?: string; url?: string }>;
+      };
+      const ownedItems = Array.isArray((owned as { items?: unknown[] })?.items)
+        ? (owned as { items: Array<{ id?: number; title?: string; modified?: string; slug?: string; url?: string }> }).items
+        : [];
+      const moderatorItems = Array.isArray(moderated?.items) ? moderated.items : [];
+      const byId = new Map<number, Record<string, unknown>>();
+      for (const item of [...ownedItems, ...moderatorItems]) {
+        const id = Number(item.id ?? 0);
+        const title = String(item.title ?? "").trim();
+        if (Number.isSafeInteger(id) && id > 0 && title) byId.set(id, { ...item, id, title });
+      }
+      return { ...(owned as Record<string, unknown>), items: [...byId.values()] };
+    } catch {
+      return owned;
+    }
+  });
 
 export const fetchOwnerListingFormSchema = createServerFn({ method: "GET" })
   .validator(ownerIdentitySchema)
