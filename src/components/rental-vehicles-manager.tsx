@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { CarFront, CheckCircle2, ChevronDown, CircleAlert, Edit3, Bike, LoaderCircle, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { CarFront, CheckCircle2, CircleAlert, Edit3, Bike, LoaderCircle, Plus, RefreshCw, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createRentalVehicle, deleteRentalVehicle, fetchRentalVehicles, updateRentalVehicle, type RentalVehicle } from "@/lib/rentals";
@@ -13,6 +13,37 @@ type RentalForm = {
   minimumDurationHours: string; pickupLocation: string; deliveryAvailable: boolean; deliveryCharge: string;
   featuredImageUrl: string; gallery: string;
 };
+
+
+type RentalPreset = Omit<RentalForm, "registrationYear" | "pickupLocation" | "featuredImageUrl" | "gallery" | "description"> & {
+  id: string;
+  label: string;
+  note: string;
+};
+
+const rentalPresets: RentalPreset[] = [
+  { id: "bike-activa-6g", label: "Honda Activa 6G", note: "Popular scooter", vehicleType: "bike", brand: "Honda", model: "Activa 6G", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "110", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "100", pricePerDay: "500", pricePerWeek: "2800", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "bike-jupiter", label: "TVS Jupiter", note: "Comfort scooter", vehicleType: "bike", brand: "TVS", model: "Jupiter", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "110", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "100", pricePerDay: "500", pricePerWeek: "2800", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "bike-access-125", label: "Suzuki Access 125", note: "125cc scooter", vehicleType: "bike", brand: "Suzuki", model: "Access 125", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "120", pricePerDay: "550", pricePerWeek: "3000", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "bike-rayzr-125", label: "Yamaha RayZR 125", note: "Lightweight scooter", vehicleType: "bike", brand: "Yamaha", model: "RayZR 125", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "120", pricePerDay: "550", pricePerWeek: "3000", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "bike-shine-125", label: "Honda Shine 125", note: "Commuter bike", vehicleType: "bike", brand: "Honda", model: "Shine 125", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "120", pricePerDay: "550", pricePerWeek: "3000", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "bike-apache-160", label: "TVS Apache RTR 160", note: "Performance bike", vehicleType: "bike", brand: "TVS", model: "Apache RTR 160", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "160", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "150", pricePerDay: "700", pricePerWeek: "3800", securityDeposit: "2000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "bike-fzs", label: "Yamaha FZ-S FI", note: "Street bike", vehicleType: "bike", brand: "Yamaha", model: "FZ-S FI", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "150", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "150", pricePerDay: "700", pricePerWeek: "3800", securityDeposit: "2000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "bike-classic-350", label: "Royal Enfield Classic 350", note: "Touring favourite", vehicleType: "bike", brand: "Royal Enfield", model: "Classic 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "250", pricePerDay: "1200", pricePerWeek: "6500", securityDeposit: "3000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "bike-hunter-350", label: "Royal Enfield Hunter 350", note: "Urban roadster", vehicleType: "bike", brand: "Royal Enfield", model: "Hunter 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "250", pricePerDay: "1200", pricePerWeek: "6500", securityDeposit: "3000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "bike-bullet-350", label: "Royal Enfield Bullet 350", note: "Classic cruiser", vehicleType: "bike", brand: "Royal Enfield", model: "Bullet 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "250", pricePerDay: "1200", pricePerWeek: "6500", securityDeposit: "3000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+
+  { id: "car-swift", label: "Maruti Suzuki Swift", note: "Compact hatchback", vehicleType: "car", brand: "Maruti Suzuki", model: "Swift", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "250", pricePerDay: "1800", pricePerWeek: "10000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "car-wagonr", label: "Maruti Suzuki Wagon R", note: "City hatchback", vehicleType: "car", brand: "Maruti Suzuki", model: "Wagon R", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "250", pricePerDay: "1800", pricePerWeek: "10000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "car-dzire", label: "Maruti Suzuki Dzire", note: "Compact sedan", vehicleType: "car", brand: "Maruti Suzuki", model: "Dzire", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "275", pricePerDay: "2000", pricePerWeek: "11000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "car-baleno", label: "Maruti Suzuki Baleno", note: "Premium hatchback", vehicleType: "car", brand: "Maruti Suzuki", model: "Baleno", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "275", pricePerDay: "2000", pricePerWeek: "11000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "car-i20", label: "Hyundai i20", note: "Premium hatchback", vehicleType: "car", brand: "Hyundai", model: "i20", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "300", pricePerDay: "2200", pricePerWeek: "12000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "car-i10-nios", label: "Hyundai Grand i10 Nios", note: "Compact city car", vehicleType: "car", brand: "Hyundai", model: "Grand i10 Nios", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "275", pricePerDay: "2000", pricePerWeek: "11000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "car-venue", label: "Hyundai Venue", note: "Compact SUV", vehicleType: "car", brand: "Hyundai", model: "Venue", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "350", pricePerDay: "2600", pricePerWeek: "14000", securityDeposit: "7000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "car-punch", label: "Tata Punch", note: "Compact SUV", vehicleType: "car", brand: "Tata", model: "Punch", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "325", pricePerDay: "2400", pricePerWeek: "13000", securityDeposit: "6000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "car-nexon", label: "Tata Nexon", note: "Compact SUV", vehicleType: "car", brand: "Tata", model: "Nexon", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "350", pricePerDay: "2600", pricePerWeek: "14000", securityDeposit: "7000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  { id: "car-glanza", label: "Toyota Glanza", note: "Premium hatchback", vehicleType: "car", brand: "Toyota", model: "Glanza", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "300", pricePerDay: "2200", pricePerWeek: "12000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+];
 
 const emptyForm: RentalForm = {
   vehicleType: "bike", brand: "", model: "", variant: "", registrationYear: "",
@@ -53,6 +84,7 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
   const [editing, setEditing] = useState<RentalVehicle | null>(null);
   const [form, setForm] = useState<RentalForm>(emptyForm);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
 
   async function load() {
     setLoading(true); setError("");
@@ -71,6 +103,37 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
   function startNew(type: "bike" | "car") {
     setEditing(null);
     setForm({ ...emptyForm, vehicleType: type });
+    setFormOpen(true);
+  }
+
+  function togglePreset(id: string) {
+    setSelectedPresets((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  function usePreset(id: string) {
+    const preset = rentalPresets.find((item) => item.id === id);
+    if (!preset) return;
+    setEditing(null);
+    setForm({
+      ...emptyForm,
+      vehicleType: preset.vehicleType,
+      brand: preset.brand,
+      model: preset.model,
+      variant: preset.variant,
+      fuelType: preset.fuelType,
+      transmission: preset.transmission,
+      engineCc: preset.engineCc,
+      seatingCapacity: preset.seatingCapacity,
+      hasAc: preset.hasAc,
+      helmetsIncluded: preset.helmetsIncluded,
+      pricePerHour: preset.pricePerHour,
+      pricePerDay: preset.pricePerDay,
+      pricePerWeek: preset.pricePerWeek,
+      securityDeposit: preset.securityDeposit,
+      minimumDurationHours: preset.minimumDurationHours,
+      deliveryAvailable: preset.deliveryAvailable,
+      deliveryCharge: preset.deliveryCharge,
+    });
     setFormOpen(true);
   }
 
@@ -137,6 +200,46 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
           <Button size="sm" variant="outline" onClick={() => startNew("car")}><Plus className="mr-2 size-4" />Add car</Button>
         </div>
       </div>
+
+      <section className="mt-5 rounded-2xl border border-border/70 bg-muted/30 p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Quick add popular vehicles</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Check the vehicles you have in your rental fleet. We will create them as pending-review vehicles with suggested rental details that you can edit later.</p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><span>{selectedPresets.length} selected</span><button type="button" className="font-medium text-primary hover:underline" onClick={() => setSelectedPresets([])}>Clear</button></div>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {rentalPresets.map((preset) => {
+            const selected = selectedPresets.includes(preset.id);
+            return (
+              <label key={preset.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${selected ? "border-primary bg-primary/5 ring-1 ring-primary/40" : "border-border/70 bg-background hover:bg-muted"}`}>
+                <input type="checkbox" className="sr-only" checked={selected} onChange={() => togglePreset(preset.id)} />
+                <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{selected && <Check className="size-3.5" />}</span>
+                <span className="min-w-0"><span className="block text-sm font-semibold">{preset.label}</span><span className="block text-xs text-muted-foreground">{preset.note} · {preset.vehicleType === "bike" ? "Bike" : "Car"}</span></span>
+              </label>
+            );
+          })}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">Need something else? Use <button type="button" className="font-medium text-primary hover:underline" onClick={() => startNew("bike")}>manual entry</button> to enter any bike or car.</p>
+          <Button size="sm" disabled={selectedPresets.length === 0 || saving} onClick={() => {
+            const first = rentalPresets.find((item) => item.id === selectedPresets[0]);
+            if (selectedPresets.length === 1 && first) {
+              usePreset(first.id);
+              setSelectedPresets([]);
+              return;
+            }
+            if (first) {
+              usePreset(first.id);
+              toast.info(`Selected ${selectedPresets.length} vehicles. Add each selected preset from the form, then return here for the next one.`);
+              setSelectedPresets((current) => current.slice(1));
+            }
+          }}>
+            <Plus className="mr-2 size-4" />Add selected
+          </Button>
+        </div>
+      </section>
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         {(["all", "bike", "car"] as const).map((type) => (
