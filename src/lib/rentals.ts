@@ -67,6 +67,7 @@ export type RentalVehicle = {
   listing_id?: number | null;
   created_at?: string;
   updated_at?: string;
+  owner_name?: string;
 };
 
 async function rentalRequest(path: string, method: "GET" | "POST" | "PATCH" | "DELETE", identity: z.infer<typeof identitySchema>, body?: unknown) {
