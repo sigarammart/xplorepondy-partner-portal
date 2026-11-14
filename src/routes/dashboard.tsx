@@ -686,19 +686,19 @@ function ListingOwnerDashboardPage() {
   }, [loggedIn, isAdministrator, email, identityToken, adminListingsPage, refreshKey]);
 
   useEffect(() => {
-    if (!loggedIn || !isAdministrator || !email) {
-      setAdminAllListings([]);
-      setAdminAllListingsLoaded(false);
-      setAdminAllListingsLoading(false);
-      return;
-    }
+    // Do not hydrate the entire administrator directory when the dashboard
+    // mounts. Rentals, Listings, Status and Listing Moderators can work from
+    // their own paginated/owner data. The full directory is only required by
+    // Statistics, so load it when that view is actually opened.
+    if (!loggedIn || !isAdministrator || !email || view !== "statistics") return;
+    if (adminAllListingsLoaded || adminAllListingsLoading) return;
+
     let cancelled = false;
     setAdminAllListingsLoading(true);
-    setAdminAllListingsLoaded(false);
     setAdminAllListingsError("");
     void (async () => {
-      // Statistics and listing filters must use the full directory, not only
-      // the 10-row page currently visible in Admin: All Listings.
+      // Statistics needs the full directory, unlike Admin: All Listings,
+      // which remains independently paginated at 10 rows per page.
       const pageSize = 50;
       const first = await fetchAdminListings({
         data: { email, ...(identityToken ? { identityToken } : {}), page: 1, perPage: pageSize },
@@ -706,9 +706,9 @@ function ListingOwnerDashboardPage() {
       const totalCount = Number(first.total) || (first.items ?? []).length;
       const totalPages = Math.max(1, Number(first.total_pages) || Math.ceil(totalCount / pageSize));
       const allItems = [...(first.items ?? [])];
-      // Avoid firing nine or more heavyweight admin requests simultaneously.
-      // Each page also resolves canonical view counters and reservation flags,
-      // so unrestricted Promise.all can overload the server and surface "Failed to fetch".
+
+      // Keep concurrency low because each page also resolves canonical view
+      // counters and reservation flags.
       const pageConcurrency = 2;
       for (let pageStart = 2; pageStart <= totalPages; pageStart += pageConcurrency) {
         const pages = Array.from(
@@ -746,7 +746,7 @@ function ListingOwnerDashboardPage() {
       if (!cancelled) setAdminAllListingsLoading(false);
     });
     return () => { cancelled = true; };
-  }, [loggedIn, isAdministrator, email, identityToken, refreshKey]);
+  }, [loggedIn, isAdministrator, email, identityToken, view, adminAllListingsLoaded, adminAllListingsLoading, refreshKey]);
 
   useEffect(() => {
     if (!email) {
