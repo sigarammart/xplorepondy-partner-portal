@@ -17,7 +17,7 @@ if (defined('XP_RENTALS_LOADED')) {
 define('XP_RENTALS_LOADED', true);
 
 define('XP_RENTALS_VERSION', '0.1.4');
-define('XP_RENTALS_DB_VERSION', '2');
+define('XP_RENTALS_DB_VERSION', '3');
 define('XP_RENTALS_PLUGIN_FILE', __FILE__);
 define('XP_RENTALS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 
@@ -42,6 +42,7 @@ function xp_rentals_install_tables() {
         owner_user_id bigint(20) unsigned NOT NULL,
         listing_id bigint(20) unsigned NULL,
         vehicle_type varchar(12) NOT NULL,
+        bike_subtype varchar(20) NOT NULL DEFAULT '',
         brand varchar(100) NOT NULL,
         model varchar(120) NOT NULL,
         variant varchar(120) NOT NULL DEFAULT '',
@@ -189,6 +190,7 @@ function xp_rentals_vehicle_payload($row, $private = false) {
     $payload = [
         'id' => (int) $row->id,
         'vehicle_type' => (string) $row->vehicle_type,
+        'bike_subtype' => (string) $row->bike_subtype,
         'brand' => (string) $row->brand,
         'model' => (string) $row->model,
         'variant' => (string) $row->variant,
@@ -249,6 +251,13 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
         $errors[] = 'vehicle_type must be bicycle, bike or car.';
     }
 
+    if (isset($data['bike_subtype']) && !in_array($data['bike_subtype'], ['', 'scooter', 'e-scooter', 'bike', 'e-bike'], true)) {
+        $errors[] = 'bike_subtype must be scooter, e-scooter, bike or e-bike.';
+    }
+    if (($data['vehicle_type'] ?? '') !== 'bike' && !empty($data['bike_subtype'])) {
+        $errors[] = 'bike_subtype can only be set for bikes.';
+    }
+
     foreach (['brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location'] as $field) {
         if (isset($data[$field]) && !is_scalar($data[$field])) {
             $errors[] = $field . ' must be text.';
@@ -269,13 +278,15 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
 }
 
 function xp_rentals_normalize_vehicle_input($data) {
-    $text_fields = ['brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location', 'description', 'featured_image_url'];
+    $text_fields = ['bike_subtype', 'brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location', 'description', 'featured_image_url'];
     $integer_fields = ['listing_id', 'registration_year', 'engine_cc', 'seating_capacity', 'minimum_duration_hours'];
     $decimal_fields = ['price_per_hour', 'price_per_day', 'price_per_weekday', 'price_per_weekend', 'price_per_week', 'security_deposit', 'delivery_charge'];
     $boolean_fields = ['has_ac', 'helmets_included', 'delivery_available'];
 
     $clean = [];
     if (isset($data['vehicle_type'])) $clean['vehicle_type'] = sanitize_key($data['vehicle_type']);
+    if (($clean['vehicle_type'] ?? '') !== 'bike') $clean['bike_subtype'] = '';
+    elseif (isset($data['bike_subtype'])) $clean['bike_subtype'] = sanitize_key($data['bike_subtype']);
     foreach ($text_fields as $field) {
         if (array_key_exists($field, $data)) {
             $clean[$field] = $field === 'description' ? sanitize_textarea_field($data[$field]) : sanitize_text_field($data[$field]);
@@ -301,7 +312,7 @@ function xp_rentals_normalize_vehicle_input($data) {
 
 function xp_rentals_vehicle_to_db($data) {
     $map = [
-        'vehicle_type' => 'vehicle_type', 'brand' => 'brand', 'model' => 'model',
+        'vehicle_type' => 'vehicle_type', 'bike_subtype' => 'bike_subtype', 'brand' => 'brand', 'model' => 'model',
         'variant' => 'variant', 'listing_id' => 'listing_id',
         'registration_year' => 'registration_year', 'fuel_type' => 'fuel_type',
         'transmission' => 'transmission', 'engine_cc' => 'engine_cc',
@@ -505,6 +516,7 @@ add_action('rest_api_init', function () {
             'callback' => 'xp_rentals_public_list_vehicles',
             'args' => [
                 'vehicle_type' => ['sanitize_callback' => 'sanitize_key'],
+                'bike_subtype' => ['sanitize_callback' => 'sanitize_key'],
                 'search' => ['sanitize_callback' => 'sanitize_text_field'],
                 'page' => ['default' => 1, 'sanitize_callback' => 'absint'],
                 'per_page' => ['default' => 20, 'sanitize_callback' => 'absint'],
@@ -655,6 +667,7 @@ function xp_rentals_public_list_vehicles(WP_REST_Request $request) {
     $per_page = min(50, max(1, absint($request->get_param('per_page'))));
     $offset = ($page - 1) * $per_page;
     $type = sanitize_key((string) $request->get_param('vehicle_type'));
+    $bike_subtype = sanitize_key((string) $request->get_param('bike_subtype'));
     $search = sanitize_text_field((string) $request->get_param('search'));
     $table = xp_rentals_table('vehicles');
 
@@ -664,6 +677,7 @@ function xp_rentals_public_list_vehicles(WP_REST_Request $request) {
 
     $where = "status = 'active'";
     if (in_array($type, ['bike', 'car'], true)) $where .= $wpdb->prepare(' AND vehicle_type = %s', $type);
+    if ($type === 'bike' && in_array($bike_subtype, ['scooter', 'e-scooter', 'bike', 'e-bike'], true)) $where .= $wpdb->prepare(' AND bike_subtype = %s', $bike_subtype);
     if ($search !== '') {
         $like = '%' . $wpdb->esc_like($search) . '%';
         $where .= $wpdb->prepare(' AND (brand LIKE %s OR model LIKE %s OR variant LIKE %s)', $like, $like, $like);
