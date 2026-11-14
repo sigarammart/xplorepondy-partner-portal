@@ -631,6 +631,9 @@ function xp_rentals_partner_delete_vehicle(WP_REST_Request $request) {
 
 function xp_rentals_public_list_vehicles(WP_REST_Request $request) {
     global $wpdb;
+    // Rental inventory must not be served from a stale page cache.
+    nocache_headers();
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     $page = max(1, absint($request->get_param('page')));
     $per_page = min(50, max(1, absint($request->get_param('per_page'))));
     $offset = ($page - 1) * $per_page;
