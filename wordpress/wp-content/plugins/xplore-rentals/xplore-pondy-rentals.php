@@ -307,7 +307,146 @@ function xp_rentals_vehicle_to_db($data) {
     return $result;
 }
 
+
+function xp_rentals_media_payload($attachment_id) {
+    $url = wp_get_attachment_url($attachment_id);
+    if (!$url) return null;
+    $thumb = wp_get_attachment_image_src($attachment_id, 'medium');
+    return [
+        'id' => (int) $attachment_id,
+        'url' => (string) $url,
+        'thumbnail_url' => $thumb ? (string) $thumb[0] : (string) $url,
+        'title' => (string) get_the_title($attachment_id),
+        'mime_type' => (string) get_post_mime_type($attachment_id),
+    ];
+}
+
+function xp_rentals_partner_media_list(WP_REST_Request $request) {
+    $user = xp_rentals_current_user($request);
+    if (is_wp_error($user)) return $user;
+
+    $page = max(1, absint($request->get_param('page')));
+    $per_page = min(100, max(1, absint($request->get_param('per_page'))));
+    $search = sanitize_text_field((string) $request->get_param('search'));
+
+    $args = [
+        'post_type' => 'attachment',
+        'post_status' => 'inherit',
+        'post_mime_type' => 'image',
+        'posts_per_page' => $per_page,
+        'paged' => $page,
+        'orderby' => 'date',
+        'order' => 'DESC',
+    ];
+    if (!user_can($user, 'manage_options')) {
+        $args['author'] = (int) $user->ID;
+    }
+    if ($search !== '') {
+        $args['s'] = $search;
+    }
+
+    $query = new WP_Query($args);
+    $items = array_values(array_filter(array_map('xp_rentals_media_payload', wp_list_pluck($query->posts, 'ID'))));
+
+    return rest_ensure_response([
+        'items' => $items,
+        'page' => $page,
+        'per_page' => $per_page,
+        'total' => (int) $query->found_posts,
+        'total_pages' => (int) $query->max_num_pages,
+    ]);
+}
+
+function xp_rentals_partner_media_upload(WP_REST_Request $request) {
+    $user = xp_rentals_current_user($request);
+    if (is_wp_error($user)) return $user;
+
+    $data = $request->get_json_params();
+    $filename = sanitize_file_name((string) ($data['filename'] ?? ''));
+    $mime_type = sanitize_mime_type((string) ($data['mime_type'] ?? ''));
+    $base64 = (string) ($data['base64'] ?? '');
+
+    if ($filename === '' || $base64 === '') {
+        return new WP_Error('xp_rentals_media_invalid', 'A filename and image file are required.', ['status' => 400]);
+    }
+
+    $allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!in_array($mime_type, $allowed, true)) {
+        return new WP_Error('xp_rentals_media_type', 'Only JPG, PNG and WebP images are supported.', ['status' => 400]);
+    }
+
+    if (strlen($base64) > 12 * 1024 * 1024) {
+        return new WP_Error('xp_rentals_media_size', 'Image upload is limited to 8 MB.', ['status' => 413]);
+    }
+
+    if (preg_match('/^data:[^;]+;base64,(.*)$/s', $base64, $matches)) {
+        $base64 = $matches[1];
+    }
+
+    $binary = base64_decode($base64, true);
+    if ($binary === false || strlen($binary) > 8 * 1024 * 1024) {
+        return new WP_Error('xp_rentals_media_size', 'Image upload is limited to 8 MB.', ['status' => 413]);
+    }
+
+    $filetype = wp_check_filetype($filename);
+    if (!$filetype['type'] || $filetype['type'] !== $mime_type) {
+        return new WP_Error('xp_rentals_media_type', 'The filename extension does not match the image type.', ['status' => 400]);
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+
+    $upload = wp_upload_bits($filename, null, $binary);
+    if (!empty($upload['error'])) {
+        return new WP_Error('xp_rentals_media_upload_failed', $upload['error'], ['status' => 500]);
+    }
+
+    $attachment = [
+        'post_mime_type' => $mime_type,
+        'post_title' => sanitize_text_field(pathinfo($filename, PATHINFO_FILENAME)),
+        'post_content' => '',
+        'post_status' => 'inherit',
+        'post_author' => (int) $user->ID,
+    ];
+    $attachment_id = wp_insert_attachment($attachment, $upload['file']);
+    if (is_wp_error($attachment_id)) {
+        @unlink($upload['file']);
+        return new WP_Error('xp_rentals_media_attachment_failed', $attachment_id->get_error_message(), ['status' => 500]);
+    }
+
+    $metadata = wp_generate_attachment_metadata($attachment_id, $upload['file']);
+    if (!is_wp_error($metadata) && $metadata) {
+        wp_update_attachment_metadata($attachment_id, $metadata);
+    }
+
+    $payload = xp_rentals_media_payload($attachment_id);
+    if (!$payload) {
+        return new WP_Error('xp_rentals_media_response_failed', 'Image was uploaded but could not be returned.', ['status' => 500]);
+    }
+
+    return new WP_REST_Response($payload, 201);
+}
+
 add_action('rest_api_init', function () {
+    register_rest_route('xplore-rentals/v1', '/partner/media', [
+        [
+            'methods' => WP_REST_Server::READABLE,
+            'permission_callback' => 'xp_rentals_current_user',
+            'callback' => 'xp_rentals_partner_media_list',
+            'args' => [
+                'page' => ['default' => 1, 'sanitize_callback' => 'absint'],
+                'per_page' => ['default' => 40, 'sanitize_callback' => 'absint'],
+                'search' => ['sanitize_callback' => 'sanitize_text_field'],
+            ],
+        ],
+        [
+            'methods' => WP_REST_Server::CREATABLE,
+            'permission_callback' => 'xp_rentals_current_user',
+            'callback' => 'xp_rentals_partner_media_upload',
+        ],
+    ]);
+
     register_rest_route('xplore-rentals/v1', '/partner/vehicles', [
         [
             'methods' => WP_REST_Server::READABLE,
