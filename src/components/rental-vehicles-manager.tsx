@@ -357,7 +357,7 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
     setSaving(true); setError("");
     try {
       const updated = await updateRentalVehicle({ data: {
-        email, identityToken, vehicleId: vehicle.id, vehicleType: vehicle.vehicle_type, bikeSubtype: vehicle.vehicle_type === "bike" ? (vehicle.bike_subtype || "bike") : undefined, brand: vehicle.brand, model: vehicle.model, vehicle.model,
+        email, identityToken, vehicleId: vehicle.id, vehicleType: vehicle.vehicle_type, bikeSubtype: vehicle.vehicle_type === "bike" ? (vehicle.bike_subtype || "bike") : undefined, brand: vehicle.brand, model: vehicle.model,
         variant: vehicle.variant, registrationYear: vehicle.registration_year, fuelType: vehicle.fuel_type, transmission: vehicle.transmission,
         engineCc: vehicle.engine_cc, seatingCapacity: vehicle.seating_capacity, hasAc: vehicle.has_ac, helmetsIncluded: vehicle.helmets_included,
         description: vehicle.description, pricePerHour: vehicle.price_per_hour, pricePerDay: vehicle.price_per_day,
