@@ -601,7 +601,11 @@ function xp_rentals_partner_update_vehicle(WP_REST_Request $request) {
     if ($errors) return new WP_Error('xp_rentals_invalid_vehicle', implode(' ', $errors), ['status' => 400]);
 
     $clean = xp_rentals_normalize_vehicle_input($data);
-    if (!user_can($user, 'manage_options')) unset($clean['status']);
+    if (!user_can($user, 'manage_options')) {
+        // Brand + model define the public vehicle-model grouping. Owners may
+        // not change those values after submission; administrators can.
+        unset($clean['brand'], $clean['model'], $clean['status']);
+    }
     $clean['updated_at'] = current_time('mysql');
     $db_data = xp_rentals_vehicle_to_db($clean);
     $db_data['updated_at'] = $clean['updated_at'];
