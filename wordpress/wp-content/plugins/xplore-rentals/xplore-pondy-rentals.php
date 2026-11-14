@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Pondy Rentals
  * Description: Standalone bike and car rental inventory, availability and booking API for Xplore Pondy.
- * Version: 0.1.4
+ * Version: 0.1.5
  * Author: Xplore Pondy
  * Text Domain: xplore-pondy-rentals
  */
@@ -16,7 +16,7 @@ if (defined('XP_RENTALS_LOADED')) {
 }
 define('XP_RENTALS_LOADED', true);
 
-define('XP_RENTALS_VERSION', '0.1.4');
+define('XP_RENTALS_VERSION', '0.1.5');
 define('XP_RENTALS_DB_VERSION', '3');
 define('XP_RENTALS_PLUGIN_FILE', __FILE__);
 define('XP_RENTALS_PLUGIN_DIR', plugin_dir_path(__FILE__));
