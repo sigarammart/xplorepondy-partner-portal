@@ -1,0 +1,198 @@
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { CarFront, CheckCircle2, ChevronDown, CircleAlert, Edit3, Bike, LoaderCircle, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { createRentalVehicle, deleteRentalVehicle, fetchRentalVehicles, updateRentalVehicle, type RentalVehicle } from "@/lib/rentals";
+
+type RentalForm = {
+  vehicleType: "bike" | "car";
+  brand: string; model: string; variant: string; registrationYear: string;
+  fuelType: string; transmission: string; engineCc: string; seatingCapacity: string;
+  hasAc: boolean; helmetsIncluded: boolean; description: string;
+  pricePerHour: string; pricePerDay: string; pricePerWeek: string; securityDeposit: string;
+  minimumDurationHours: string; pickupLocation: string; deliveryAvailable: boolean; deliveryCharge: string;
+  featuredImageUrl: string; gallery: string;
+};
+
+const emptyForm: RentalForm = {
+  vehicleType: "bike", brand: "", model: "", variant: "", registrationYear: "",
+  fuelType: "", transmission: "", engineCc: "", seatingCapacity: "", hasAc: false, helmetsIncluded: false,
+  description: "", pricePerHour: "", pricePerDay: "", pricePerWeek: "", securityDeposit: "",
+  minimumDurationHours: "24", pickupLocation: "", deliveryAvailable: false, deliveryCharge: "",
+  featuredImageUrl: "", gallery: "",
+};
+
+function money(value: number | null | undefined) {
+  if (value == null) return "—";
+  return `₹${Number(value).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
+function toForm(vehicle: RentalVehicle): RentalForm {
+  return {
+    vehicleType: vehicle.vehicle_type, brand: vehicle.brand, model: vehicle.model, variant: vehicle.variant,
+    registrationYear: vehicle.registration_year ? String(vehicle.registration_year) : "",
+    fuelType: vehicle.fuel_type, transmission: vehicle.transmission, engineCc: vehicle.engine_cc ? String(vehicle.engine_cc) : "",
+    seatingCapacity: vehicle.seating_capacity ? String(vehicle.seating_capacity) : "",
+    hasAc: vehicle.has_ac, helmetsIncluded: vehicle.helmets_included, description: vehicle.description,
+    pricePerHour: vehicle.price_per_hour != null ? String(vehicle.price_per_hour) : "",
+    pricePerDay: String(vehicle.price_per_day ?? ""), pricePerWeek: vehicle.price_per_week != null ? String(vehicle.price_per_week) : "",
+    securityDeposit: String(vehicle.security_deposit ?? ""), minimumDurationHours: String(vehicle.minimum_duration_hours ?? 24),
+    pickupLocation: vehicle.pickup_location, deliveryAvailable: vehicle.delivery_available, deliveryCharge: String(vehicle.delivery_charge ?? ""),
+    featuredImageUrl: vehicle.featured_image_url, gallery: vehicle.gallery.join("\n"),
+  };
+}
+
+export function RentalVehiclesManager({ email, identityToken }: { email?: string; identityToken?: string }) {
+  const identity = { email, identityToken };
+  const [vehicles, setVehicles] = useState<RentalVehicle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "bike" | "car">("all");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<RentalVehicle | null>(null);
+  const [form, setForm] = useState<RentalForm>(emptyForm);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+
+  async function load() {
+    setLoading(true); setError("");
+    try {
+      const result = await fetchRentalVehicles({ data: identity }) as { items?: RentalVehicle[] };
+      setVehicles(result.items ?? []);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not load rental vehicles.");
+    } finally { setLoading(false); }
+  }
+
+  useEffect(() => { void load(); }, [email, identityToken]);
+
+  const filtered = useMemo(() => vehicles.filter((v) => typeFilter === "all" || v.vehicle_type === typeFilter), [vehicles, typeFilter]);
+
+  function startNew(type: "bike" | "car") {
+    setEditing(null);
+    setForm({ ...emptyForm, vehicleType: type });
+    setFormOpen(true);
+  }
+
+  function startEdit(vehicle: RentalVehicle) {
+    setEditing(vehicle); setForm(toForm(vehicle)); setFormOpen(true);
+  }
+
+  function setField<K extends keyof RentalForm>(key: K, value: RentalForm[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    const price = Number(form.pricePerDay);
+    if (!form.brand.trim() || !form.model.trim() || !Number.isFinite(price) || price < 0) {
+      setError("Brand, model and a valid daily rental price are required.");
+      return;
+    }
+    setSaving(true); setError("");
+    const payload = {
+      email, identityToken, vehicleType: form.vehicleType, brand: form.brand.trim(), model: form.model.trim(), variant: form.variant.trim(),
+      registrationYear: form.registrationYear ? Number(form.registrationYear) : null,
+      fuelType: form.fuelType.trim(), transmission: form.transmission.trim(), engineCc: form.engineCc ? Number(form.engineCc) : null,
+      seatingCapacity: form.seatingCapacity ? Number(form.seatingCapacity) : null, hasAc: form.hasAc, helmetsIncluded: form.helmetsIncluded,
+      description: form.description.trim(), pricePerHour: form.pricePerHour ? Number(form.pricePerHour) : null, pricePerDay: price,
+      pricePerWeek: form.pricePerWeek ? Number(form.pricePerWeek) : null, securityDeposit: form.securityDeposit ? Number(form.securityDeposit) : 0,
+      minimumDurationHours: form.minimumDurationHours ? Number(form.minimumDurationHours) : 24, pickupLocation: form.pickupLocation.trim(),
+      deliveryAvailable: form.deliveryAvailable, deliveryCharge: form.deliveryCharge ? Number(form.deliveryCharge) : 0,
+      featuredImageUrl: form.featuredImageUrl.trim(), gallery: form.gallery.split("\n").map((s) => s.trim()).filter(Boolean),
+    };
+    try {
+      const result = editing
+        ? await updateRentalVehicle({ data: { ...payload, vehicleId: editing.id } })
+        : await createRentalVehicle({ data: payload });
+      const vehicle = result as RentalVehicle;
+      setVehicles((current) => editing ? current.map((item) => item.id === editing.id ? vehicle : item) : [vehicle, ...current]);
+      setFormOpen(false);
+      toast.success(editing ? "Rental vehicle updated." : "Rental vehicle submitted for review.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not save rental vehicle.");
+    } finally { setSaving(false); }
+  }
+
+  async function remove() {
+    if (!deleteId) return;
+    setSaving(true); setError("");
+    try {
+      await deleteRentalVehicle({ data: { email, identityToken, vehicleId: deleteId } });
+      setVehicles((current) => current.filter((item) => item.id !== deleteId));
+      setDeleteId(null);
+      toast.success("Rental vehicle deleted.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not delete rental vehicle.");
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <section className="mt-5 rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div><div className="flex items-center gap-3"><div className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CarFront className="size-6" /></div><div><h2 className="font-display text-2xl font-semibold">Rental Vehicles</h2><p className="text-sm text-muted-foreground">Manage bikes and cars available for online rental.</p></div></div></div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" disabled={loading} onClick={() => void load()}><RefreshCw className={`mr-2 size-4 ${loading ? "animate-spin" : ""}`} />Refresh</Button>
+          <Button size="sm" onClick={() => startNew("bike")}><Plus className="mr-2 size-4" />Add bike</Button>
+          <Button size="sm" variant="outline" onClick={() => startNew("car")}><Plus className="mr-2 size-4" />Add car</Button>
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        {(["all", "bike", "car"] as const).map((type) => (
+          <button key={type} type="button" onClick={() => setTypeFilter(type)} className={`rounded-full border px-4 py-2 text-sm font-medium transition ${typeFilter === type ? "border-primary bg-primary/10 text-primary" : "border-border/70 hover:bg-muted"}`}>
+            {type === "all" ? "All vehicles" : type === "bike" ? "Bikes" : "Cars"} <span className="ml-1 text-xs text-muted-foreground">({type === "all" ? vehicles.length : vehicles.filter((v) => v.vehicle_type === type).length})</span>
+          </button>
+        ))}
+      </div>
+
+      {error && <div role="alert" className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"><CircleAlert className="mt-0.5 size-4 shrink-0" />{error}</div>}
+
+      {loading ? (
+        <div className="mt-6 space-y-3">{Array.from({ length: 3 }, (_, i) => <div key={i} className="xp-skeleton h-28 rounded-2xl" />)}</div>
+      ) : filtered.length === 0 ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center"><CarFront className="mx-auto size-9 text-muted-foreground" /><h3 className="mt-3 font-semibold">No rental vehicles yet</h3><p className="mt-1 text-sm text-muted-foreground">Add your first bike or car to start building your rental inventory.</p><div className="mt-4 flex justify-center gap-2"><Button onClick={() => startNew("bike")}><Bike className="mr-2 size-4" />Add bike</Button><Button variant="outline" onClick={() => startNew("car")}><CarFront className="mr-2 size-4" />Add car</Button></div></div>
+      ) : (
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((vehicle) => (
+            <article key={vehicle.id} className="overflow-hidden rounded-2xl border border-border/70 bg-background">
+              <div className="relative aspect-[16/9] bg-muted">
+                {vehicle.featured_image_url ? <img src={vehicle.featured_image_url} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-muted-foreground">{vehicle.vehicle_type === "bike" ? <Bike className="size-12" /> : <CarFront className="size-12" />}</div>}
+                <span className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-semibold ${vehicle.status === "active" ? "bg-emerald-500 text-white" : vehicle.status === "inactive" ? "bg-slate-700 text-white" : "bg-amber-500 text-white"}`}>{vehicle.status === "draft" ? "Pending review" : vehicle.status}</span>
+              </div>
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{vehicle.vehicle_type}</p><h3 className="mt-1 text-lg font-semibold">{vehicle.brand} {vehicle.model}</h3>{vehicle.variant && <p className="text-sm text-muted-foreground">{vehicle.variant}</p>}</div><p className="shrink-0 text-right font-bold text-primary">{money(vehicle.price_per_day)}<span className="block text-[11px] font-medium text-muted-foreground">per day</span></p></div>
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span>{vehicle.fuel_type || "Fuel —"}</span><span>{vehicle.transmission || "Transmission —"}</span><span>{vehicle.vehicle_type === "bike" && vehicle.engine_cc ? `${vehicle.engine_cc} cc` : vehicle.seating_capacity ? `${vehicle.seating_capacity} seats` : "Specs —"}</span><span>Deposit {money(vehicle.security_deposit)}</span></div>
+                <div className="mt-4 flex gap-2"><Button size="sm" variant="outline" className="flex-1" onClick={() => startEdit(vehicle)}><Edit3 className="mr-1.5 size-4" />Edit</Button><Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleteId(vehicle.id)}><Trash2 className="size-4" /></Button></div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {formOpen && (
+        <div className="fixed inset-0 z-[80] overflow-y-auto bg-black/50 p-3 sm:p-6">
+          <div className="mx-auto my-4 max-w-4xl rounded-3xl bg-card shadow-2xl ring-1 ring-border/70">
+            <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-3xl border-b border-border bg-card/95 px-5 py-4 backdrop-blur sm:px-6"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary">{editing ? "Edit rental vehicle" : "New rental vehicle"}</p><h2 className="mt-1 text-xl font-semibold">{form.vehicleType === "bike" ? "Bike details" : "Car details"}</h2></div><button type="button" onClick={() => setFormOpen(false)} className="rounded-full p-2 hover:bg-muted" aria-label="Close"><X className="size-5" /></button></div>
+            <form onSubmit={(event) => void save(event)} className="space-y-6 p-5 sm:p-6">
+              <section><h3 className="font-semibold">Vehicle type</h3><div className="mt-3 grid grid-cols-2 gap-3"><button type="button" onClick={() => setField("vehicleType", "bike")} className={`rounded-2xl border p-4 text-left ${form.vehicleType === "bike" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border/70"}`}><Bike className="size-6 text-primary" /><span className="mt-2 block font-semibold">Bike</span><span className="text-xs text-muted-foreground">Motorcycles and scooters</span></button><button type="button" onClick={() => setField("vehicleType", "car")} className={`rounded-2xl border p-4 text-left ${form.vehicleType === "car" ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border/70"}`}><CarFront className="size-6 text-primary" /><span className="mt-2 block font-semibold">Car</span><span className="text-xs text-muted-foreground">Cars and compact vehicles</span></button></div></section>
+              <section><h3 className="font-semibold">Basic information</h3><div className="mt-3 grid gap-4 sm:grid-cols-2"><Field label="Brand *" value={form.brand} onChange={(v) => setField("brand", v)} placeholder="Royal Enfield" /><Field label="Model *" value={form.model} onChange={(v) => setField("model", v)} placeholder="Classic 350" /><Field label="Variant" value={form.variant} onChange={(v) => setField("variant", v)} placeholder="Signals / Standard" /><Field label="Registration year" type="number" value={form.registrationYear} onChange={(v) => setField("registrationYear", v)} placeholder="2024" /><Field label="Fuel type" value={form.fuelType} onChange={(v) => setField("fuelType", v)} placeholder="Petrol / Electric / Diesel" /><Field label="Transmission" value={form.transmission} onChange={(v) => setField("transmission", v)} placeholder="Manual / Automatic" /><Field label={form.vehicleType === "bike" ? "Engine CC" : "Seating capacity"} type="number" value={form.vehicleType === "bike" ? form.engineCc : form.seatingCapacity} onChange={(v) => setField(form.vehicleType === "bike" ? "engineCc" : "seatingCapacity", v)} placeholder={form.vehicleType === "bike" ? "350" : "5"} />{form.vehicleType === "car" && <Field label="Engine CC" type="number" value={form.engineCc} onChange={(v) => setField("engineCc", v)} placeholder="1197" />}</div></section>
+              <section><h3 className="font-semibold">Rental pricing</h3><div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Field label="Hourly price" type="number" value={form.pricePerHour} onChange={(v) => setField("pricePerHour", v)} placeholder="Optional" /><Field label="Daily price *" type="number" value={form.pricePerDay} onChange={(v) => setField("pricePerDay", v)} placeholder="1200" /><Field label="Weekly price" type="number" value={form.pricePerWeek} onChange={(v) => setField("pricePerWeek", v)} placeholder="Optional" /><Field label="Security deposit" type="number" value={form.securityDeposit} onChange={(v) => setField("securityDeposit", v)} placeholder="2000" /></div></section>
+              <section><h3 className="font-semibold">Pickup & delivery</h3><div className="mt-3 grid gap-4 sm:grid-cols-2"><Field label="Pickup location" value={form.pickupLocation} onChange={(v) => setField("pickupLocation", v)} placeholder="Heritage Town, Puducherry" /><Field label="Minimum rental hours" type="number" value={form.minimumDurationHours} onChange={(v) => setField("minimumDurationHours", v)} placeholder="24" /><label className="flex items-center gap-3 rounded-xl border border-border/70 p-3 text-sm"><input type="checkbox" checked={form.deliveryAvailable} onChange={(e) => setField("deliveryAvailable", e.target.checked)} />Delivery available</label>{form.deliveryAvailable && <Field label="Delivery charge" type="number" value={form.deliveryCharge} onChange={(v) => setField("deliveryCharge", v)} placeholder="200" />}</div></section>
+              <section><h3 className="font-semibold">Vehicle features</h3><div className="mt-3 flex flex-wrap gap-3"><label className="flex items-center gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm"><input type="checkbox" checked={form.helmetsIncluded} onChange={(e) => setField("helmetsIncluded", e.target.checked)} />Helmets included</label>{form.vehicleType === "car" && <label className="flex items-center gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm"><input type="checkbox" checked={form.hasAc} onChange={(e) => setField("hasAc", e.target.checked)} />Air conditioning</label>}</div></section>
+              <section><h3 className="font-semibold">Photos</h3><div className="mt-3 grid gap-4 sm:grid-cols-2"><Field label="Featured image URL" value={form.featuredImageUrl} onChange={(v) => setField("featuredImageUrl", v)} placeholder="https://..." /><Field label="Gallery image URLs" value={form.gallery} onChange={(v) => setField("gallery", v)} placeholder="One URL per line" /></div><p className="mt-2 text-xs text-muted-foreground">For this first UI pass, images are supplied as URLs. WordPress media upload can be added next without changing the rental data model.</p></section>
+              <section><h3 className="font-semibold">Description</h3><textarea value={form.description} onChange={(e) => setField("description", e.target.value)} rows={5} placeholder="Describe the vehicle, included items and rental conditions." className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></section>
+              <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <CheckCircle2 className="mr-2 size-4" />}{editing ? "Save changes" : "Submit vehicle"}</Button></div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteId && <div className="fixed inset-0 z-[90] grid place-items-center bg-black/50 p-4"><div className="w-full max-w-md rounded-2xl bg-card p-5 shadow-2xl ring-1 ring-border/70"><h3 className="text-lg font-semibold">Delete rental vehicle?</h3><p className="mt-2 text-sm text-muted-foreground">Vehicles with pending or confirmed bookings cannot be deleted. Deactivate them instead.</p><div className="mt-5 flex justify-end gap-2"><Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button><Button variant="destructive" disabled={saving} onClick={() => void remove()}>{saving ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}Delete</Button></div></div></div>}
+    </section>
+  );
+}
+
+function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string }) {
+  return <label className="block text-sm"><span className="font-medium">{label}</span><input type={type} min={type === "number" ? "0" : undefined} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="mt-1.5 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></label>;
+}
