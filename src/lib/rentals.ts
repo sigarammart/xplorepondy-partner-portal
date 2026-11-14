@@ -15,6 +15,7 @@ const vehicleSchema = identitySchema.extend({
   vehicleId: z.number().int().positive().optional(),
   status: z.enum(["draft", "active", "inactive"]).optional(),
   vehicleType: z.enum(["bicycle", "bike", "car"]),
+  bikeSubtype: z.enum(["scooter", "e-scooter", "bike", "e-bike"]).optional(),
   brand: z.string().trim().min(1).max(100),
   model: z.string().trim().min(1).max(120),
   variant: z.string().trim().max(120).optional(),
@@ -43,6 +44,7 @@ const vehicleSchema = identitySchema.extend({
 export type RentalVehicle = {
   id: number;
   vehicle_type: "bicycle" | "bike" | "car";
+  bike_subtype: "scooter" | "e-scooter" | "bike" | "e-bike" | "";
   brand: string;
   model: string;
   variant: string;
@@ -113,6 +115,7 @@ async function rentalRequest(path: string, method: "GET" | "POST" | "PATCH" | "D
 function vehicleBody(data: z.infer<typeof vehicleSchema>) {
   return {
     vehicle_type: data.vehicleType,
+    bike_subtype: data.vehicleType === "bike" ? (data.bikeSubtype ?? "bike") : "",
     brand: data.brand,
     model: data.model,
     variant: data.variant ?? "",
