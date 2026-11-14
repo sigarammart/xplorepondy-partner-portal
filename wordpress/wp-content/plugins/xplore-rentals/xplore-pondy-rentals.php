@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Pondy Rentals
  * Description: Standalone bike and car rental inventory, availability and booking API for Xplore Pondy.
- * Version: 0.1.2
+ * Version: 0.1.3
  * Author: Xplore Pondy
  * Text Domain: xplore-pondy-rentals
  */
@@ -16,8 +16,8 @@ if (defined('XP_RENTALS_LOADED')) {
 }
 define('XP_RENTALS_LOADED', true);
 
-define('XP_RENTALS_VERSION', '0.1.2');
-define('XP_RENTALS_DB_VERSION', '1');
+define('XP_RENTALS_VERSION', '0.1.3');
+define('XP_RENTALS_DB_VERSION', '2');
 define('XP_RENTALS_PLUGIN_FILE', __FILE__);
 define('XP_RENTALS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 
@@ -55,6 +55,8 @@ function xp_rentals_install_tables() {
         description text NULL,
         price_per_hour decimal(10,2) NULL,
         price_per_day decimal(10,2) NOT NULL DEFAULT 0,
+        price_per_weekday decimal(10,2) NOT NULL DEFAULT 0,
+        price_per_weekend decimal(10,2) NOT NULL DEFAULT 0,
         price_per_week decimal(10,2) NULL,
         security_deposit decimal(10,2) NOT NULL DEFAULT 0,
         minimum_duration_hours smallint(5) unsigned NOT NULL DEFAULT 24,
@@ -196,6 +198,8 @@ function xp_rentals_vehicle_payload($row, $private = false) {
         'description' => (string) $row->description,
         'price_per_hour' => $row->price_per_hour !== null ? (float) $row->price_per_hour : null,
         'price_per_day' => (float) $row->price_per_day,
+        'price_per_weekday' => (float) $row->price_per_weekday,
+        'price_per_weekend' => (float) $row->price_per_weekend,
         'price_per_week' => $row->price_per_week !== null ? (float) $row->price_per_week : null,
         'security_deposit' => (float) $row->security_deposit,
         'minimum_duration_hours' => (int) $row->minimum_duration_hours,
@@ -247,7 +251,7 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
         }
     }
 
-    foreach (['price_per_hour', 'price_per_day', 'price_per_week', 'security_deposit', 'delivery_charge'] as $field) {
+    foreach (['price_per_hour', 'price_per_day', 'price_per_weekday', 'price_per_weekend', 'price_per_week', 'security_deposit', 'delivery_charge'] as $field) {
         if (isset($data[$field]) && (!is_numeric($data[$field]) || (float) $data[$field] < 0)) {
             $errors[] = $field . ' must be a non-negative amount.';
         }
@@ -263,7 +267,7 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
 function xp_rentals_normalize_vehicle_input($data) {
     $text_fields = ['brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location', 'description', 'featured_image_url'];
     $integer_fields = ['listing_id', 'registration_year', 'engine_cc', 'seating_capacity', 'minimum_duration_hours'];
-    $decimal_fields = ['price_per_hour', 'price_per_day', 'price_per_week', 'security_deposit', 'delivery_charge'];
+    $decimal_fields = ['price_per_hour', 'price_per_day', 'price_per_weekday', 'price_per_weekend', 'price_per_week', 'security_deposit', 'delivery_charge'];
     $boolean_fields = ['has_ac', 'helmets_included', 'delivery_available'];
 
     $clean = [];
@@ -300,6 +304,7 @@ function xp_rentals_vehicle_to_db($data) {
         'seating_capacity' => 'seating_capacity', 'has_ac' => 'has_ac',
         'helmets_included' => 'helmets_included', 'description' => 'description',
         'price_per_hour' => 'price_per_hour', 'price_per_day' => 'price_per_day',
+        'price_per_weekday' => 'price_per_weekday', 'price_per_weekend' => 'price_per_weekend',
         'price_per_week' => 'price_per_week', 'security_deposit' => 'security_deposit',
         'minimum_duration_hours' => 'minimum_duration_hours',
         'pickup_location' => 'pickup_location', 'delivery_available' => 'delivery_available',
