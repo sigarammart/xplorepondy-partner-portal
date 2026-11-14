@@ -145,6 +145,7 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
   const [error, setError] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "bicycle" | "bike" | "car">("all");
   const [quickAddTab, setQuickAddTab] = useState<"bicycle" | "bike" | "car">("bicycle");
+  const [bikePresetTab, setBikePresetTab] = useState<"scooter" | "e-scooter" | "bike" | "e-bike">("scooter");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<RentalVehicle | null>(null);
   const [form, setForm] = useState<RentalForm>(emptyForm);
@@ -178,6 +179,10 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
     setForm({ ...emptyForm, vehicleType: type });
     setFormStatus("draft");
     setFormOpen(true);
+  }
+
+  function presetBikeSubtype(preset: RentalPreset): "scooter" | "e-scooter" | "bike" | "e-bike" {
+    return preset.note.toLowerCase().includes("scooter") ? "scooter" : "bike";
   }
 
   function togglePreset(id: string) {
@@ -414,8 +419,17 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
             );
           })}
         </div>
+        {quickAddTab === "bike" && <div className="mt-4 grid grid-cols-4 rounded-xl border border-border/70 bg-background/60 p-1" role="tablist" aria-label="Bike category">
+          {(["scooter", "e-scooter", "bike", "e-bike"] as const).map((subtype) => {
+            const count = rentalPresets.filter((preset) => preset.vehicleType === "bike" && presetBikeSubtype(preset) === subtype).length;
+            const active = bikePresetTab === subtype;
+            return <button key={subtype} type="button" role="tab" aria-selected={active} onClick={() => setBikePresetTab(subtype)} className={active ? "min-h-10 rounded-lg px-2 text-xs font-semibold bg-primary text-primary-foreground shadow-sm" : "min-h-10 rounded-lg px-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"}>
+              {subtype === "e-scooter" ? "E-Scooter" : subtype === "e-bike" ? "E-Bikes" : subtype === "scooter" ? "Scooter" : "Bikes"} <span className="opacity-70">({count})</span>
+            </button>;
+          })}
+        </div>}
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {rentalPresets.filter((preset) => preset.vehicleType === quickAddTab).map((preset) => {
+          {rentalPresets.filter((preset) => preset.vehicleType === quickAddTab && (quickAddTab !== "bike" || presetBikeSubtype(preset) === bikePresetTab)).map((preset) => {
             const selected = selectedPresets.includes(preset.id);
             return (
               <label key={preset.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${selected ? "border-primary bg-primary/5 ring-1 ring-primary/40" : "border-border/70 bg-background hover:bg-muted"}`}>
