@@ -22,27 +22,65 @@ type RentalPreset = Omit<RentalForm, "registrationYear" | "pickupLocation" | "fe
 };
 
 const rentalPresets: RentalPreset[] = [
-  { id: "bike-activa-6g", label: "Honda Activa 6G", note: "Popular scooter", vehicleType: "bike", brand: "Honda", model: "Activa 6G", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "110", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "100", pricePerDay: "500", pricePerWeek: "2800", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "bike-jupiter", label: "TVS Jupiter", note: "Comfort scooter", vehicleType: "bike", brand: "TVS", model: "Jupiter", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "110", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "100", pricePerDay: "500", pricePerWeek: "2800", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "bike-access-125", label: "Suzuki Access 125", note: "125cc scooter", vehicleType: "bike", brand: "Suzuki", model: "Access 125", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "120", pricePerDay: "550", pricePerWeek: "3000", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "bike-rayzr-125", label: "Yamaha RayZR 125", note: "Lightweight scooter", vehicleType: "bike", brand: "Yamaha", model: "RayZR 125", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "120", pricePerDay: "550", pricePerWeek: "3000", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "bike-shine-125", label: "Honda Shine 125", note: "Commuter bike", vehicleType: "bike", brand: "Honda", model: "Shine 125", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "120", pricePerDay: "550", pricePerWeek: "3000", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "bike-apache-160", label: "TVS Apache RTR 160", note: "Performance bike", vehicleType: "bike", brand: "TVS", model: "Apache RTR 160", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "160", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "150", pricePerDay: "700", pricePerWeek: "3800", securityDeposit: "2000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "bike-fzs", label: "Yamaha FZ-S FI", note: "Street bike", vehicleType: "bike", brand: "Yamaha", model: "FZ-S FI", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "150", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "150", pricePerDay: "700", pricePerWeek: "3800", securityDeposit: "2000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "bike-classic-350", label: "Royal Enfield Classic 350", note: "Touring favourite", vehicleType: "bike", brand: "Royal Enfield", model: "Classic 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "250", pricePerDay: "1200", pricePerWeek: "6500", securityDeposit: "3000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "bike-hunter-350", label: "Royal Enfield Hunter 350", note: "Urban roadster", vehicleType: "bike", brand: "Royal Enfield", model: "Hunter 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "250", pricePerDay: "1200", pricePerWeek: "6500", securityDeposit: "3000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "bike-bullet-350", label: "Royal Enfield Bullet 350", note: "Classic cruiser", vehicleType: "bike", brand: "Royal Enfield", model: "Bullet 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "250", pricePerDay: "1200", pricePerWeek: "6500", securityDeposit: "3000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-
-  { id: "car-swift", label: "Maruti Suzuki Swift", note: "Compact hatchback", vehicleType: "car", brand: "Maruti Suzuki", model: "Swift", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "250", pricePerDay: "1800", pricePerWeek: "10000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "car-wagonr", label: "Maruti Suzuki Wagon R", note: "City hatchback", vehicleType: "car", brand: "Maruti Suzuki", model: "Wagon R", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "250", pricePerDay: "1800", pricePerWeek: "10000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "car-dzire", label: "Maruti Suzuki Dzire", note: "Compact sedan", vehicleType: "car", brand: "Maruti Suzuki", model: "Dzire", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "275", pricePerDay: "2000", pricePerWeek: "11000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "car-baleno", label: "Maruti Suzuki Baleno", note: "Premium hatchback", vehicleType: "car", brand: "Maruti Suzuki", model: "Baleno", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "275", pricePerDay: "2000", pricePerWeek: "11000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "car-i20", label: "Hyundai i20", note: "Premium hatchback", vehicleType: "car", brand: "Hyundai", model: "i20", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "300", pricePerDay: "2200", pricePerWeek: "12000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "car-i10-nios", label: "Hyundai Grand i10 Nios", note: "Compact city car", vehicleType: "car", brand: "Hyundai", model: "Grand i10 Nios", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "275", pricePerDay: "2000", pricePerWeek: "11000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "car-venue", label: "Hyundai Venue", note: "Compact SUV", vehicleType: "car", brand: "Hyundai", model: "Venue", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "350", pricePerDay: "2600", pricePerWeek: "14000", securityDeposit: "7000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "car-punch", label: "Tata Punch", note: "Compact SUV", vehicleType: "car", brand: "Tata", model: "Punch", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "325", pricePerDay: "2400", pricePerWeek: "13000", securityDeposit: "6000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "car-nexon", label: "Tata Nexon", note: "Compact SUV", vehicleType: "car", brand: "Tata", model: "Nexon", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "350", pricePerDay: "2600", pricePerWeek: "14000", securityDeposit: "7000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
-  { id: "car-glanza", label: "Toyota Glanza", note: "Premium hatchback", vehicleType: "car", brand: "Toyota", model: "Glanza", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "300", pricePerDay: "2200", pricePerWeek: "12000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+    { id: "bike-activa-6g", label: "Honda Activa 6G", note: "Popular scooter", vehicleType: "bike", brand: "Honda", model: "Activa 6G", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "110", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "100", pricePerDay: "500", pricePerWeek: "2800", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-jupiter", label: "TVS Jupiter", note: "Comfort scooter", vehicleType: "bike", brand: "TVS", model: "Jupiter", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "110", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "100", pricePerDay: "500", pricePerWeek: "2800", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-access-125", label: "Suzuki Access 125", note: "125cc scooter", vehicleType: "bike", brand: "Suzuki", model: "Access 125", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "120", pricePerDay: "550", pricePerWeek: "3000", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-rayzr-125", label: "Yamaha RayZR 125", note: "Lightweight scooter", vehicleType: "bike", brand: "Yamaha", model: "RayZR 125", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "120", pricePerDay: "550", pricePerWeek: "3000", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-shine-125", label: "Honda Shine 125", note: "Commuter bike", vehicleType: "bike", brand: "Honda", model: "Shine 125", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "120", pricePerDay: "550", pricePerWeek: "3000", securityDeposit: "1500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-apache-160", label: "TVS Apache RTR 160", note: "Performance bike", vehicleType: "bike", brand: "TVS", model: "Apache RTR 160", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "160", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "150", pricePerDay: "700", pricePerWeek: "3800", securityDeposit: "2000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-fzs", label: "Yamaha FZ-S FI", note: "Street bike", vehicleType: "bike", brand: "Yamaha", model: "FZ-S FI", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "150", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "150", pricePerDay: "700", pricePerWeek: "3800", securityDeposit: "2000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-pulsar-150", label: "Bajaj Pulsar 150", note: "Popular commuter", vehicleType: "bike", brand: "Bajaj", model: "Pulsar 150", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "150", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "150", pricePerDay: "700", pricePerWeek: "3800", securityDeposit: "2000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-pulsar-n160", label: "Bajaj Pulsar N160", note: "Sport commuter", vehicleType: "bike", brand: "Bajaj", model: "Pulsar N160", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "160", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "160", pricePerDay: "750", pricePerWeek: "4000", securityDeposit: "2000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-xtreme-125r", label: "Hero Xtreme 125R", note: "Sport commuter", vehicleType: "bike", brand: "Hero", model: "Xtreme 125R", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "125", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "140", pricePerDay: "650", pricePerWeek: "3500", securityDeposit: "1800", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-classic-350", label: "Royal Enfield Classic 350", note: "Touring favourite", vehicleType: "bike", brand: "Royal Enfield", model: "Classic 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "250", pricePerDay: "1200", pricePerWeek: "6500", securityDeposit: "3000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-hunter-350", label: "Royal Enfield Hunter 350", note: "Urban roadster", vehicleType: "bike", brand: "Royal Enfield", model: "Hunter 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "250", pricePerDay: "1200", pricePerWeek: "6500", securityDeposit: "3000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-bullet-350", label: "Royal Enfield Bullet 350", note: "Classic cruiser", vehicleType: "bike", brand: "Royal Enfield", model: "Bullet 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "250", pricePerDay: "1200", pricePerWeek: "6500", securityDeposit: "3000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-meteor-350", label: "Royal Enfield Meteor 350", note: "Cruiser bike", vehicleType: "bike", brand: "Royal Enfield", model: "Meteor 350", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "350", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "275", pricePerDay: "1300", pricePerWeek: "7000", securityDeposit: "3500", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "bike-dominar-400", label: "Bajaj Dominar 400", note: "Touring motorcycle", vehicleType: "bike", brand: "Bajaj", model: "Dominar 400", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "400", seatingCapacity: "2", hasAc: false, helmetsIncluded: true, pricePerHour: "300", pricePerDay: "1600", pricePerWeek: "8500", securityDeposit: "4000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-swift", label: "Maruti Suzuki Swift", note: "Compact hatchback", vehicleType: "car", brand: "Maruti Suzuki", model: "Swift", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "250", pricePerDay: "1800", pricePerWeek: "10000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-wagonr", label: "Maruti Suzuki Wagon R", note: "City hatchback", vehicleType: "car", brand: "Maruti Suzuki", model: "Wagon R", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "250", pricePerDay: "1800", pricePerWeek: "10000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-dzire", label: "Maruti Suzuki Dzire", note: "Compact sedan", vehicleType: "car", brand: "Maruti Suzuki", model: "Dzire", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "275", pricePerDay: "2000", pricePerWeek: "11000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-baleno", label: "Maruti Suzuki Baleno", note: "Premium hatchback", vehicleType: "car", brand: "Maruti Suzuki", model: "Baleno", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "275", pricePerDay: "2000", pricePerWeek: "11000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-i20", label: "Hyundai i20", note: "Premium hatchback", vehicleType: "car", brand: "Hyundai", model: "i20", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "300", pricePerDay: "2200", pricePerWeek: "12000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-i10-nios", label: "Hyundai Grand i10 Nios", note: "Compact city car", vehicleType: "car", brand: "Hyundai", model: "Grand i10 Nios", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "275", pricePerDay: "2000", pricePerWeek: "11000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-venue", label: "Hyundai Venue", note: "Compact SUV", vehicleType: "car", brand: "Hyundai", model: "Venue", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "350", pricePerDay: "2600", pricePerWeek: "14000", securityDeposit: "7000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-punch", label: "Tata Punch", note: "Compact SUV", vehicleType: "car", brand: "Tata", model: "Punch", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "325", pricePerDay: "2400", pricePerWeek: "13000", securityDeposit: "6000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-nexon", label: "Tata Nexon", note: "Compact SUV", vehicleType: "car", brand: "Tata", model: "Nexon", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "350", pricePerDay: "2600", pricePerWeek: "14000", securityDeposit: "7000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-glanza", label: "Toyota Glanza", note: "Premium hatchback", vehicleType: "car", brand: "Toyota", model: "Glanza", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1200", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "300", pricePerDay: "2200", pricePerWeek: "12000", securityDeposit: "5000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-ertiga", label: "Maruti Suzuki Ertiga", note: "7-seater MPV", vehicleType: "car", brand: "Maruti Suzuki", model: "Ertiga", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1500", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "400", pricePerDay: "3000", pricePerWeek: "16000", securityDeposit: "8000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-creta", label: "Hyundai Creta", note: "Mid-size SUV", vehicleType: "car", brand: "Hyundai", model: "Creta", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1500", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "425", pricePerDay: "3200", pricePerWeek: "17500", securityDeposit: "8000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-seltos", label: "Kia Seltos", note: "Mid-size SUV", vehicleType: "car", brand: "Kia", model: "Seltos", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "1500", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "450", pricePerDay: "3300", pricePerWeek: "18000", securityDeposit: "8000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-innova", label: "Toyota Innova Crysta", note: "Premium 7-seater", vehicleType: "car", brand: "Toyota", model: "Innova Crysta", variant: "", fuelType: "Petrol", transmission: "Manual", engineCc: "2400", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "550", pricePerDay: "4500", pricePerWeek: "24000", securityDeposit: "10000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
+  
+    { id: "car-fortuner", label: "Toyota Fortuner", note: "Premium SUV", vehicleType: "car", brand: "Toyota", model: "Fortuner", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "2800", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "800", pricePerDay: "6500", pricePerWeek: "35000", securityDeposit: "15000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
 ];
 
 const emptyForm: RentalForm = {
@@ -222,24 +260,35 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
       <section className="mt-5 rounded-2xl border border-border/70 bg-muted/30 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="font-semibold">Quick add popular vehicles</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Check the vehicles you have in your rental fleet. We will create them as pending-review vehicles with suggested rental details that you can edit later.</p>
+            <h3 className="font-semibold">Quick add vehicles</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Select the vehicles you have in your fleet. Each selected vehicle opens with suggested rental details that you can edit before submitting.</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><span>{selectedPresets.length} selected</span><button type="button" className="font-medium text-primary hover:underline" onClick={() => setSelectedPresets([])}>Clear</button></div>
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {rentalPresets.map((preset) => {
-            const selected = selectedPresets.includes(preset.id);
-            return (
-              <label key={preset.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${selected ? "border-primary bg-primary/5 ring-1 ring-primary/40" : "border-border/70 bg-background hover:bg-muted"}`}>
-                <input type="checkbox" className="sr-only" checked={selected} onChange={() => togglePreset(preset.id)} />
-                <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{selected && <Check className="size-3.5" />}</span>
-                <span className="min-w-0"><span className="block text-sm font-semibold">{preset.label}</span><span className="block text-xs text-muted-foreground">{preset.note} · {preset.vehicleType === "bike" ? "Bike" : "Car"}</span></span>
-              </label>
-            );
-          })}
-        </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+
+        {(["bike", "car"] as const).map((vehicleType) => (
+          <div key={vehicleType} className="mt-5">
+            <div className="mb-3 flex items-center gap-2">
+              {vehicleType === "bike" ? <Bike className="size-5 text-primary" /> : <CarFront className="size-5 text-primary" />}
+              <h4 className="font-semibold">{vehicleType === "bike" ? "Bikes" : "Cars"}</h4>
+              <span className="text-xs text-muted-foreground">({rentalPresets.filter((preset) => preset.vehicleType === vehicleType).length})</span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {rentalPresets.filter((preset) => preset.vehicleType === vehicleType).map((preset) => {
+                const selected = selectedPresets.includes(preset.id);
+                return (
+                  <label key={preset.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${selected ? "border-primary bg-primary/5 ring-1 ring-primary/40" : "border-border/70 bg-background hover:bg-muted"}`}>
+                    <input type="checkbox" className="sr-only" checked={selected} onChange={() => togglePreset(preset.id)} />
+                    <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{selected && <Check className="size-3.5" />}</span>
+                    <span className="min-w-0"><span className="block text-sm font-semibold">{preset.label}</span><span className="block text-xs text-muted-foreground">{preset.note}</span></span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
           <p className="text-xs text-muted-foreground">Need something else? Use <button type="button" className="font-medium text-primary hover:underline" onClick={() => startNew("bike")}>manual entry</button> to enter any bike or car.</p>
           <Button size="sm" disabled={selectedPresets.length === 0 || saving} onClick={addSelectedPresets}>
             <Plus className="mr-2 size-4" />Add selected
