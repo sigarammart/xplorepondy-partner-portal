@@ -85,6 +85,7 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
   const [form, setForm] = useState<RentalForm>(emptyForm);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
+  const [presetQueue, setPresetQueue] = useState<string[]>([]);
 
   async function load() {
     setLoading(true); setError("");
@@ -137,6 +138,14 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
     setFormOpen(true);
   }
 
+  function addSelectedPresets() {
+    if (selectedPresets.length === 0) return;
+    const [first, ...rest] = selectedPresets;
+    setPresetQueue(rest);
+    setSelectedPresets([]);
+    usePreset(first);
+  }
+
   function startEdit(vehicle: RentalVehicle) {
     setEditing(vehicle); setForm(toForm(vehicle)); setFormOpen(true);
   }
@@ -170,8 +179,17 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
         : await createRentalVehicle({ data: payload });
       const vehicle = result as RentalVehicle;
       setVehicles((current) => editing ? current.map((item) => item.id === editing.id ? vehicle : item) : [vehicle, ...current]);
-      setFormOpen(false);
-      toast.success(editing ? "Rental vehicle updated." : "Rental vehicle submitted for review.");
+
+      if (!editing && presetQueue.length > 0) {
+        const [nextPreset, ...remainingPresets] = presetQueue;
+        setPresetQueue(remainingPresets);
+        usePreset(nextPreset);
+        toast.success("Vehicle added for review. Next selected vehicle is ready.");
+      } else {
+        setFormOpen(false);
+        setPresetQueue([]);
+        toast.success(editing ? "Rental vehicle updated." : "Rental vehicle submitted for review.");
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not save rental vehicle.");
     } finally { setSaving(false); }
@@ -223,19 +241,7 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">Need something else? Use <button type="button" className="font-medium text-primary hover:underline" onClick={() => startNew("bike")}>manual entry</button> to enter any bike or car.</p>
-          <Button size="sm" disabled={selectedPresets.length === 0 || saving} onClick={() => {
-            const first = rentalPresets.find((item) => item.id === selectedPresets[0]);
-            if (selectedPresets.length === 1 && first) {
-              usePreset(first.id);
-              setSelectedPresets([]);
-              return;
-            }
-            if (first) {
-              usePreset(first.id);
-              toast.info(`Selected ${selectedPresets.length} vehicles. Add each selected preset from the form, then return here for the next one.`);
-              setSelectedPresets((current) => current.slice(1));
-            }
-          }}>
+          <Button size="sm" disabled={selectedPresets.length === 0 || saving} onClick={addSelectedPresets}>
             <Plus className="mr-2 size-4" />Add selected
           </Button>
         </div>
