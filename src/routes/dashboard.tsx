@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, Megaphone, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, LogOut, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, Megaphone, ShieldCheck, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, LogOut, Menu, QrCode, Settings2, Store, Ticket, X, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,13 @@ import { HeaderAuth } from "@/components/header-auth";
 import { OwnerListingsManager } from "@/components/owner-listings-manager";
 import { PartnerAdsManager } from "@/components/partner-ads-manager";
 import { OwnerStatusManager } from "@/components/owner-status-manager";
+import { ListingModeratorsManager } from "@/components/listing-moderators-manager";
 import { authEnabled, signOut } from "@/lib/auth/client";
 
 export const Route = createFileRoute("/dashboard")({
-  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
-    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics", "status", "ads"].includes(String(search.view))
-      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "ads"
+  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "moderators"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
+    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics", "status", "ads", "moderators"].includes(String(search.view))
+      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "ads" | "moderators"
       : undefined,
     bookingType: ["table", "events", "experiences"].includes(String(search.bookingType))
       ? search.bookingType as "table" | "events" | "experiences"
@@ -888,6 +889,7 @@ function ListingOwnerDashboardPage() {
     { key: "listings", label: "Listings", icon: Store, count: visibleOwnerListings.length || dashboard?.listings.length || 0, view: "listings" as const, bookingType: undefined, child: false },
     { key: "statistics", label: "Statistics", icon: ChartNoAxesCombined, count: undefined, view: "statistics" as const, bookingType: undefined, child: false },
     { key: "status", label: "My Status", icon: Camera, count: undefined, view: "status" as const, bookingType: undefined, child: false },
+    { key: "moderators", label: "Listing Moderators", icon: ShieldCheck, count: undefined, view: "moderators" as const, bookingType: undefined, child: false },
     { key: "ads", label: "XP Ads", icon: Megaphone, count: undefined, view: "ads" as const, bookingType: undefined, child: false },
     { key: "events", label: "Events", icon: CalendarDays, count: events.length, view: "events" as const, bookingType: undefined, child: false },
     { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length, view: "experiences" as const, bookingType: undefined, child: false },
@@ -1117,6 +1119,18 @@ function ListingOwnerDashboardPage() {
                   </article>
                 </section>
               </>
+            )}
+
+            {view === "moderators" && (
+              <ListingModeratorsManager
+                email={email}
+                identityToken={identityToken ?? undefined}
+                listings={visibleOwnerListings.map((item) => ({
+                  id: Number(item.id ?? item.wpId),
+                  wpId: Number(item.wpId ?? item.id),
+                  title: item.title,
+                }))}
+              />
             )}
 
             {view === "status" && (
