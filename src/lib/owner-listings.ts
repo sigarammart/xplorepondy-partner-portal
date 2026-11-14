@@ -155,7 +155,32 @@ async function ownerRequest(path: string, method: "GET" | "POST", body?: unknown
 
 export const fetchOwnerListings = createServerFn({ method: "GET" })
   .validator(ownerIdentitySchema)
-  .handler(async ({ data }) => ownerRequest(`${OWNER_LISTINGS_BASE}/listings`, "GET", undefined, data));
+  .handler(async ({ data }) => {
+    const owned = await ownerRequest(`${OWNER_LISTINGS_BASE}/listings`, "GET", undefined, data);
+
+    // Listing Moderators are not owners. Merge their explicitly assigned
+    // status-publishing listings into the common listing source used by the
+    // status manager and other partner features. Keep a graceful fallback
+    // until the WordPress moderator endpoint is deployed.
+    try {
+      const moderated = await ownerRequest(`${OWNER_LISTINGS_BASE}/moderators/listings`, "GET", undefined, data) as {
+        items?: Array<{ id?: number; title?: string; modified?: string; slug?: string; url?: string }>;
+      };
+      const ownedItems = Array.isArray((owned as { items?: unknown[] })?.items)
+        ? (owned as { items: Array<{ id?: number; title?: string; modified?: string; slug?: string; url?: string }> }).items
+        : [];
+      const moderatorItems = Array.isArray(moderated?.items) ? moderated.items : [];
+      const byId = new Map<number, Record<string, unknown>>();
+      for (const item of [...ownedItems, ...moderatorItems]) {
+        const id = Number(item.id ?? 0);
+        const title = String(item.title ?? "").trim();
+        if (Number.isSafeInteger(id) && id > 0 && title) byId.set(id, { ...item, id, title });
+      }
+      return { ...(owned as Record<string, unknown>), items: [...byId.values()] };
+    } catch {
+      return owned;
+    }
+  });
 
 export const fetchOwnerListingFormSchema = createServerFn({ method: "GET" })
   .validator(ownerIdentitySchema)
@@ -186,6 +211,7 @@ export const uploadOwnerListingImage = createServerFn({ method: "POST" })
 const adminListingsSchema = ownerIdentitySchema.extend({
   page: z.number().int().positive().optional().default(1),
   perPage: z.number().int().positive().max(100).optional().default(100),
+  search: z.string().trim().max(120).optional(),
 });
 
 async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_count?: number }>(
@@ -351,12 +377,49 @@ export const fetchAdminListingDetail = createServerFn({ method: "GET" })
     );
   });
 
+export const searchAdminListings = createServerFn({ method: "GET" })
+  .validator(ownerIdentitySchema.extend({
+    search: z.string().trim().min(1).max(120),
+  }))
+  .handler(async ({ data }) => {
+    const { search, email, identityToken } = data;
+    const trimmedSearch = search.trim();
+    const query = encodeURIComponent(trimmedSearch);
+    // Search the WordPress listing index server-side instead of filtering the
+    // single 10-row admin page currently loaded in the browser. This keeps the
+    // normal dashboard lightweight while allowing administrators to find any
+    // listing in the catalogue. Numeric queries use the listing ID directly.
+    const endpoint = /^\\d+$/.test(trimmedSearch)
+      ? `/wp-json/wp/v2/listing?include=${query}&per_page=10&_embed=1`
+      : `/wp-json/wp/v2/listing?search=${query}&per_page=10&_embed=1`;
+    const payload = await ownerRequest(
+      endpoint,
+      "GET",
+      undefined,
+      { email, identityToken },
+    ) as Array<Record<string, unknown>>;
+
+    return {
+      items: payload.map((item) => ({
+        id: Number(item.id),
+        title: typeof item.title === "object" && item.title && "rendered" in item.title
+          ? String((item.title as { rendered?: unknown }).rendered ?? `Listing #${item.id}`)
+          : String(item.title ?? `Listing #${item.id}`),
+        status: String(item.status ?? "publish"),
+        url: typeof item.link === "string" ? item.link : undefined,
+        featured_image: undefined,
+      })),
+      total: payload.length,
+    };
+  });
+
 export const fetchAdminListings = createServerFn({ method: "GET" })
   .validator(adminListingsSchema)
   .handler(async ({ data }) => {
-    const { email, identityToken, page, perPage } = data;
+    const { email, identityToken, page, perPage, search } = data;
+    const searchParam = search?.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
     const payload = await ownerRequest(
-      `/wp-json/xplore/v1/admin/listings?page=${page}&per_page=${perPage}`,
+      `/wp-json/xplore/v1/admin/listings?page=${page}&per_page=${perPage}${searchParam}`,
       "GET",
       undefined,
       { email, identityToken },

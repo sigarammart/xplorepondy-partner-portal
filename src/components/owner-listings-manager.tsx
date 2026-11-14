@@ -4,7 +4,7 @@ import { resolvePlace, searchGooglePlacesOnly, type PlaceSuggestion } from "@/li
 import { CheckCircle2, ClipboardList, ExternalLink, FilePlus2, Pencil, RefreshCw, Store, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createOwnerListingSubmission, fetchAdminListingDetail, fetchAdminListings, fetchOwnerListingFormSchema, fetchOwnerListings, submitOwnerListingEdit, uploadOwnerListingImage } from "@/lib/owner-listings";
+import { createOwnerListingSubmission, fetchAdminListingDetail, fetchAdminListings, fetchOwnerListingFormSchema, fetchOwnerListings, searchAdminListings, submitOwnerListingEdit, uploadOwnerListingImage } from "@/lib/owner-listings";
 
 type OwnerManagedListing = {
   id: number; title: string; description?: string; status: string; url?: string; owner_email?: string; author_email?: string; email?: string; owner?: { email?: string }; author?: { email?: string };
@@ -81,6 +81,8 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
   const [listingPage, setListingPage] = useState(1);
   const [listingPageCount, setListingPageCount] = useState(1);
   const [listingSearch, setListingSearch] = useState("");
+  const [searchItems, setSearchItems] = useState<OwnerManagedListing[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const listingsPerPage = 10;
   const [submissions, setSubmissions] = useState<OwnerSubmission[]>([]);
   const [schema, setSchema] = useState<FormSchema | null>(null);
@@ -109,11 +111,15 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
   const allowedIds = new Set(allowedListingIds);
   const visibleItems = listingsResolved ? (isAdministrator ? items : items.filter((item) => allowedIds.has(item.id))) : [];
   const normalizedListingSearch = listingSearch.trim().toLocaleLowerCase();
-  const filteredItems = visibleItems.filter((item) =>
+  const localFilteredItems = visibleItems.filter((item) =>
     item.title.toLocaleLowerCase().includes(normalizedListingSearch) ||
     String(item.id).includes(normalizedListingSearch) ||
     item.status.toLocaleLowerCase().includes(normalizedListingSearch)
   );
+  // Administrators search the complete directory through WordPress when a
+  // query is entered. Non-admin users continue to search their already-loaded
+  // owner-scoped list locally.
+  const filteredItems = isAdministrator && normalizedListingSearch.length > 0 ? searchItems : localFilteredItems;
   const totalListingPages = isAdministrator ? listingPageCount : Math.max(1, Math.ceil(filteredItems.length / listingsPerPage));
   const paginatedItems = isAdministrator ? filteredItems : filteredItems.slice((listingPage - 1) * listingsPerPage, listingPage * listingsPerPage);
 
@@ -191,6 +197,44 @@ export function OwnerListingsManager({ loggedIn, isAdministrator, allowedListing
       setError(reason instanceof Error ? reason.message : "Could not load owner listings.");
     } finally { setLoading(false); }
   }
+
+  useEffect(() => {
+    if (!isAdministrator || !loggedIn || !listingsResolved) {
+      setSearchItems([]);
+      setSearchLoading(false);
+      return;
+    }
+    const query = listingSearch.trim();
+    if (!query) {
+      setSearchItems([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearchLoading(true);
+    const timer = window.setTimeout(() => {
+      void searchAdminListings({
+        data: { search: query, ...ownerIdentity },
+      }).then((result) => {
+        if (cancelled) return;
+        const response = result as { items?: OwnerManagedListing[] };
+        setSearchItems(Array.isArray(response.items) ? response.items : []);
+      }).catch((reason) => {
+        if (!cancelled) {
+          setSearchItems([]);
+          setError(reason instanceof Error ? reason.message : "Could not search the administrator listing directory.");
+        }
+      }).finally(() => {
+        if (!cancelled) setSearchLoading(false);
+      });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isAdministrator, loggedIn, listingsResolved, listingSearch, email, identityToken]);
 
   useEffect(() => {
     if (!loggedIn) { setItems([]); setSubmissions([]); return; }
