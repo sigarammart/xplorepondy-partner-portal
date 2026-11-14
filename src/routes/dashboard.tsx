@@ -1139,6 +1139,7 @@ function ListingOwnerDashboardPage() {
               <RentalVehiclesManager
                 email={email}
                 identityToken={identityToken ?? undefined}
+                isAdministrator={isAdministrator}
               />
             )}
 
