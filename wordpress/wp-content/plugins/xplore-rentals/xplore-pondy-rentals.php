@@ -124,6 +124,10 @@ function xp_rentals_install_tables() {
 add_action('plugins_loaded', function () {
     if (get_option('xp_rentals_db_version') !== XP_RENTALS_DB_VERSION) {
         xp_rentals_install_tables();
+        global $wpdb;
+        $vehicles_table = xp_rentals_table('vehicles');
+        $wpdb->query("UPDATE {$vehicles_table} SET price_per_weekday = price_per_day WHERE price_per_weekday = 0 AND price_per_day > 0");
+        $wpdb->query("UPDATE {$vehicles_table} SET price_per_weekend = price_per_day WHERE price_per_weekend = 0 AND price_per_day > 0");
         update_option('xp_rentals_db_version', XP_RENTALS_DB_VERSION, false);
     }
 });
