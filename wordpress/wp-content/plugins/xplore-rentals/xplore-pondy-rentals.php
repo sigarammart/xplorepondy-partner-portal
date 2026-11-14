@@ -163,7 +163,7 @@ function xp_rentals_partner_identity(WP_REST_Request $request) {
         return new WP_Error('xp_rentals_user_not_found', 'Partner account was not found.', ['status' => 403]);
     }
 
-    if (!user_can($user, 'manage_options') && !array_intersect(['vendor', 'owner'], (array) $user->roles)) {
+    if (!user_can($user, 'manage_options') && !array_intersect(['vendor', 'owner', 'administrator'], (array) $user->roles)) {
         return new WP_Error('xp_rentals_forbidden', 'Your account cannot manage rental vehicles.', ['status' => 403]);
     }
 
@@ -411,17 +411,15 @@ function xp_rentals_partner_create_vehicle(WP_REST_Request $request) {
     if ($errors) return new WP_Error('xp_rentals_invalid_vehicle', implode(' ', $errors), ['status' => 400]);
 
     $clean = xp_rentals_normalize_vehicle_input($data);
-    $clean['status'] = user_can($user, 'manage_options') && isset($clean['status']) ? $clean['status'] : 'draft';
+    // Owners can submit vehicles for review but cannot publish them directly.
+    $clean['status'] = 'draft';
     $now = current_time('mysql');
-    $clean['owner_user_id'] = (int) $user->ID;
-    $clean['created_at'] = $now;
-    $clean['updated_at'] = $now;
+    $db_data = xp_rentals_vehicle_to_db($clean);
+    $db_data['owner_user_id'] = (int) $user->ID;
+    $db_data['created_at'] = $now;
+    $db_data['updated_at'] = $now;
 
-    $ok = $wpdb->insert(xp_rentals_table('vehicles'), xp_rentals_vehicle_to_db($clean) + [
-        'owner_user_id' => $clean['owner_user_id'],
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
+    $ok = $wpdb->insert(xp_rentals_table('vehicles'), $db_data);
     if (!$ok) return new WP_Error('xp_rentals_create_failed', 'Vehicle could not be saved.', ['status' => 500]);
 
     $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . xp_rentals_table('vehicles') . ' WHERE id = %d', $wpdb->insert_id));
