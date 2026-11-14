@@ -13,6 +13,7 @@ const identitySchema = z.object({
 
 const vehicleSchema = identitySchema.extend({
   vehicleId: z.number().int().positive().optional(),
+  status: z.enum(["draft", "active", "inactive"]).optional(),
   vehicleType: z.enum(["bike", "car"]),
   brand: z.string().trim().min(1).max(100),
   model: z.string().trim().min(1).max(120),
@@ -128,6 +129,7 @@ function vehicleBody(data: z.infer<typeof vehicleSchema>) {
     delivery_charge: data.deliveryCharge ?? 0,
     featured_image_url: data.featuredImageUrl ?? "",
     gallery: data.gallery ?? [],
+    ...(data.status ? { status: data.status } : {}),
   };
 }
 
