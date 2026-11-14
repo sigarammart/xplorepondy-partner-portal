@@ -382,13 +382,17 @@ export const searchAdminListings = createServerFn({ method: "GET" })
   }))
   .handler(async ({ data }) => {
     const { search, email, identityToken } = data;
-    const query = encodeURIComponent(search.trim());
+    const trimmedSearch = search.trim();
+    const query = encodeURIComponent(trimmedSearch);
     // Search the WordPress listing index server-side instead of filtering the
     // single 10-row admin page currently loaded in the browser. This keeps the
     // normal dashboard lightweight while allowing administrators to find any
-    // listing in the catalogue.
+    // listing in the catalogue. Numeric queries use the listing ID directly.
+    const endpoint = /^\\d+$/.test(trimmedSearch)
+      ? `/wp-json/wp/v2/listing?include=${query}&per_page=10&_embed=1`
+      : `/wp-json/wp/v2/listing?search=${query}&per_page=10&_embed=1`;
     const payload = await ownerRequest(
-      `/wp-json/wp/v2/listing?search=${query}&per_page=10&_embed=1`,
+      endpoint,
       "GET",
       undefined,
       { email, identityToken },
