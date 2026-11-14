@@ -211,6 +211,7 @@ export const uploadOwnerListingImage = createServerFn({ method: "POST" })
 const adminListingsSchema = ownerIdentitySchema.extend({
   page: z.number().int().positive().optional().default(1),
   perPage: z.number().int().positive().max(100).optional().default(100),
+  search: z.string().trim().max(120).optional(),
 });
 
 async function attachCanonicalAppViewCounts<T extends { id?: number; app_view_count?: number }>(
@@ -415,9 +416,10 @@ export const searchAdminListings = createServerFn({ method: "GET" })
 export const fetchAdminListings = createServerFn({ method: "GET" })
   .validator(adminListingsSchema)
   .handler(async ({ data }) => {
-    const { email, identityToken, page, perPage } = data;
+    const { email, identityToken, page, perPage, search } = data;
+    const searchParam = search?.trim() ? `&search=${encodeURIComponent(search.trim())}` : "";
     const payload = await ownerRequest(
-      `/wp-json/xplore/v1/admin/listings?page=${page}&per_page=${perPage}`,
+      `/wp-json/xplore/v1/admin/listings?page=${page}&per_page=${perPage}${searchParam}`,
       "GET",
       undefined,
       { email, identityToken },
