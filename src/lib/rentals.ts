@@ -146,3 +146,35 @@ export const updateRentalVehicle = createServerFn({ method: "POST" })
 export const deleteRentalVehicle = createServerFn({ method: "POST" })
   .inputValidator((input: z.infer<typeof identitySchema> & { vehicleId: number }) => z.object({ ...identitySchema.shape, vehicleId: z.number().int().positive() }).parse(input))
   .handler(async ({ data }) => rentalRequest(`/wp-json/xplore-rentals/v1/partner/vehicles/${data.vehicleId}`, "DELETE", data));
+
+export type RentalMediaItem = {
+  id: number;
+  url: string;
+  thumbnail_url: string;
+  title: string;
+  mime_type: string;
+};
+
+const rentalMediaUploadSchema = identitySchema.extend({
+  filename: z.string().trim().min(1).max(255),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  base64: z.string().min(1).max(12 * 1024 * 1024),
+});
+
+export const fetchRentalMedia = createServerFn({ method: "GET" })
+  .validator(identitySchema.extend({
+    search: z.string().trim().max(100).optional(),
+  }))
+  .handler(async ({ data }) => {
+    const query = data.search ? `&search=${encodeURIComponent(data.search)}` : "";
+    return rentalRequest(`/wp-json/xplore-rentals/v1/partner/media?per_page=40${query}`, "GET", data);
+  });
+
+export const uploadRentalMedia = createServerFn({ method: "POST" })
+  .inputValidator((input: z.infer<typeof rentalMediaUploadSchema>) => rentalMediaUploadSchema.parse(input))
+  .handler(async ({ data }) => rentalRequest(
+    "/wp-json/xplore-rentals/v1/partner/media",
+    "POST",
+    data,
+    { filename: data.filename, mime_type: data.mimeType, base64: data.base64 },
+  ));
