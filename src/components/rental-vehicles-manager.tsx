@@ -142,7 +142,8 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "bike" | "car">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "bicycle" | "bike" | "car">("all");
+  const [quickAddTab, setQuickAddTab] = useState<"bicycle" | "bike" | "car">("bicycle");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<RentalVehicle | null>(null);
   const [form, setForm] = useState<RentalForm>(emptyForm);
@@ -393,27 +394,31 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><span>{selectedPresets.length} selected</span><button type="button" className="font-medium text-primary hover:underline" onClick={() => setSelectedPresets([])}>Clear</button></div>
         </div>
 
-        {(["bicycle", "bike", "car"] as const).map((vehicleType) => (
-          <div key={vehicleType} className="mt-5">
-            <div className="mb-3 flex items-center gap-2">
-              {vehicleType === "car" ? <CarFront className="size-5 text-primary" /> : <Bike className="size-5 text-primary" />}
-              <h4 className="font-semibold">{vehicleType === "bicycle" ? "Bicycles" : vehicleType === "bike" ? "Bikes" : "Cars"}</h4>
-              <span className="text-xs text-muted-foreground">({rentalPresets.filter((preset) => preset.vehicleType === vehicleType).length})</span>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {rentalPresets.filter((preset) => preset.vehicleType === vehicleType).map((preset) => {
-                const selected = selectedPresets.includes(preset.id);
-                return (
-                  <label key={preset.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${selected ? "border-primary bg-primary/5 ring-1 ring-primary/40" : "border-border/70 bg-background hover:bg-muted"}`}>
-                    <input type="checkbox" className="sr-only" checked={selected} onChange={() => togglePreset(preset.id)} />
-                    <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{selected && <Check className="size-3.5" />}</span>
-                    <span className="min-w-0"><span className="block text-sm font-semibold">{preset.label}</span><span className="block text-xs text-muted-foreground">{preset.note}</span></span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+        <div className="mt-5 grid grid-cols-3 rounded-2xl border border-border/70 bg-background/60 p-1" role="tablist" aria-label="Quick add vehicle type">
+          {(["bicycle", "bike", "car"] as const).map((vehicleType) => {
+            const count = rentalPresets.filter((preset) => preset.vehicleType === vehicleType).length;
+            const active = quickAddTab === vehicleType;
+            return (
+              <button key={vehicleType} type="button" role="tab" aria-selected={active} onClick={() => setQuickAddTab(vehicleType)} className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition ${active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
+                {vehicleType === "car" ? <CarFront className="size-4" /> : <Bike className="size-4" />}
+                {vehicleType === "bicycle" ? "Bicycles" : vehicleType === "bike" ? "Bikes" : "Cars"}
+                <span className={active ? "text-primary-foreground/80" : "text-muted-foreground"}>({count})</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {rentalPresets.filter((preset) => preset.vehicleType === quickAddTab).map((preset) => {
+            const selected = selectedPresets.includes(preset.id);
+            return (
+              <label key={preset.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${selected ? "border-primary bg-primary/5 ring-1 ring-primary/40" : "border-border/70 bg-background hover:bg-muted"}`}>
+                <input type="checkbox" className="sr-only" checked={selected} onChange={() => togglePreset(preset.id)} />
+                <span className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{selected && <Check className="size-3.5" />}</span>
+                <span className="min-w-0"><span className="block text-sm font-semibold">{preset.label}</span><span className="block text-xs text-muted-foreground">{preset.note}</span></span>
+              </label>
+            );
+          })}
+        </div>
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
           <p className="text-xs text-muted-foreground">Need something else? Use <button type="button" className="font-medium text-primary hover:underline" onClick={() => startNew("bike")}>manual entry</button> to enter any bike or car.</p>
