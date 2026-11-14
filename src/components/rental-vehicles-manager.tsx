@@ -121,7 +121,7 @@ function toForm(vehicle: RentalVehicle): RentalForm {
   };
 }
 
-export function RentalVehiclesManager({ email, identityToken }: { email?: string; identityToken?: string }) {
+export function RentalVehiclesManager({ email, identityToken, isAdministrator = false }: { email?: string; identityToken?: string; isAdministrator?: boolean }) {
   const identity = { email, identityToken };
   const [vehicles, setVehicles] = useState<RentalVehicle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,6 +140,7 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaSearch, setMediaSearch] = useState("");
   const [mediaUploading, setMediaUploading] = useState(false);
+  const [formStatus, setFormStatus] = useState<"draft" | "active" | "inactive">("draft");
 
   async function load() {
     setLoading(true); setError("");
@@ -158,6 +159,7 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
   function startNew(type: "bike" | "car") {
     setEditing(null);
     setForm({ ...emptyForm, vehicleType: type });
+    setFormStatus("draft");
     setFormOpen(true);
   }
 
@@ -275,7 +277,7 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
   }
 
   function startEdit(vehicle: RentalVehicle) {
-    setEditing(vehicle); setForm(toForm(vehicle)); setFormOpen(true);
+    setEditing(vehicle); setForm(toForm(vehicle)); setFormStatus(vehicle.status); setFormOpen(true);
   }
 
   function setField<K extends keyof RentalForm>(key: K, value: RentalForm[K]) {
@@ -300,6 +302,7 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
       minimumDurationHours: form.minimumDurationHours ? Number(form.minimumDurationHours) : 24, pickupLocation: form.pickupLocation.trim(),
       deliveryAvailable: form.deliveryAvailable, deliveryCharge: form.deliveryCharge ? Number(form.deliveryCharge) : 0,
       featuredImageUrl: form.featuredImageUrl.trim(), gallery: form.gallery.split("\n").map((s) => s.trim()).filter(Boolean),
+      ...(isAdministrator && editing ? { status: formStatus } : {}),
     };
     try {
       const result = editing
@@ -320,6 +323,25 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not save rental vehicle.");
+    } finally { setSaving(false); }
+  }
+
+  async function changeVehicleStatus(vehicle: RentalVehicle, status: "draft" | "active" | "inactive") {
+    setSaving(true); setError("");
+    try {
+      const updated = await updateRentalVehicle({ data: {
+        email, identityToken, vehicleId: vehicle.id, vehicleType: vehicle.vehicle_type, brand: vehicle.brand, model: vehicle.model,
+        variant: vehicle.variant, registrationYear: vehicle.registration_year, fuelType: vehicle.fuel_type, transmission: vehicle.transmission,
+        engineCc: vehicle.engine_cc, seatingCapacity: vehicle.seating_capacity, hasAc: vehicle.has_ac, helmetsIncluded: vehicle.helmets_included,
+        description: vehicle.description, pricePerHour: vehicle.price_per_hour, pricePerDay: vehicle.price_per_day, pricePerWeek: vehicle.price_per_week,
+        securityDeposit: vehicle.security_deposit, minimumDurationHours: vehicle.minimum_duration_hours, pickupLocation: vehicle.pickup_location,
+        deliveryAvailable: vehicle.delivery_available, deliveryCharge: vehicle.delivery_charge, featuredImageUrl: vehicle.featured_image_url,
+        gallery: vehicle.gallery, status,
+      } }) as RentalVehicle;
+      setVehicles((current) => current.map((item) => item.id === vehicle.id ? updated : item));
+      toast.success(status === "active" ? "Rental vehicle approved and published." : status === "draft" ? "Rental vehicle returned to pending review." : "Rental vehicle deactivated.");
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Could not update rental approval.");
     } finally { setSaving(false); }
   }
 
@@ -411,6 +433,14 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{vehicle.vehicle_type}</p><h3 className="mt-1 text-lg font-semibold">{vehicle.brand} {vehicle.model}</h3>{vehicle.variant && <p className="text-sm text-muted-foreground">{vehicle.variant}</p>}</div><p className="shrink-0 text-right font-bold text-primary">{money(vehicle.price_per_day)}<span className="block text-[11px] font-medium text-muted-foreground">per day</span></p></div>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground"><span>{vehicle.fuel_type || "Fuel —"}</span><span>{vehicle.transmission || "Transmission —"}</span><span>{vehicle.vehicle_type === "bike" && vehicle.engine_cc ? `${vehicle.engine_cc} cc` : vehicle.seating_capacity ? `${vehicle.seating_capacity} seats` : "Specs —"}</span><span>Deposit {money(vehicle.security_deposit)}</span></div>
+                {isAdministrator && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-muted/30 p-2">
+                    <span className="mr-1 text-xs font-medium text-muted-foreground">Approval</span>
+                    <Button type="button" size="sm" variant={vehicle.status === "active" ? "default" : "outline"} disabled={saving} onClick={() => void changeVehicleStatus(vehicle, "active")}>Approve & publish</Button>
+                    <Button type="button" size="sm" variant={vehicle.status === "draft" ? "default" : "outline"} disabled={saving} onClick={() => void changeVehicleStatus(vehicle, "draft")}>Pending review</Button>
+                    <Button type="button" size="sm" variant={vehicle.status === "inactive" ? "default" : "outline"} disabled={saving} onClick={() => void changeVehicleStatus(vehicle, "inactive")}>Deactivate</Button>
+                  </div>
+                )}
                 <div className="mt-4 flex gap-2"><Button size="sm" variant="outline" className="flex-1" onClick={() => startEdit(vehicle)}><Edit3 className="mr-1.5 size-4" />Edit</Button><Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleteId(vehicle.id)}><Trash2 className="size-4" /></Button></div>
               </div>
             </article>
@@ -428,6 +458,18 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
               <section><h3 className="font-semibold">Rental pricing</h3><div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Field label="Hourly price" type="number" value={form.pricePerHour} onChange={(v) => setField("pricePerHour", v)} placeholder="Optional" /><Field label="Daily price *" type="number" value={form.pricePerDay} onChange={(v) => setField("pricePerDay", v)} placeholder="1200" /><Field label="Weekly price" type="number" value={form.pricePerWeek} onChange={(v) => setField("pricePerWeek", v)} placeholder="Optional" /><Field label="Security deposit" type="number" value={form.securityDeposit} onChange={(v) => setField("securityDeposit", v)} placeholder="2000" /></div></section>
               <section><h3 className="font-semibold">Pickup & delivery</h3><div className="mt-3 grid gap-4 sm:grid-cols-2"><Field label="Pickup location" value={form.pickupLocation} onChange={(v) => setField("pickupLocation", v)} placeholder="Heritage Town, Puducherry" /><Field label="Minimum rental hours" type="number" value={form.minimumDurationHours} onChange={(v) => setField("minimumDurationHours", v)} placeholder="24" /><label className="flex items-center gap-3 rounded-xl border border-border/70 p-3 text-sm"><input type="checkbox" checked={form.deliveryAvailable} onChange={(e) => setField("deliveryAvailable", e.target.checked)} />Delivery available</label>{form.deliveryAvailable && <Field label="Delivery charge" type="number" value={form.deliveryCharge} onChange={(v) => setField("deliveryCharge", v)} placeholder="200" />}</div></section>
               <section><h3 className="font-semibold">Vehicle features</h3><div className="mt-3 flex flex-wrap gap-3"><label className="flex items-center gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm"><input type="checkbox" checked={form.helmetsIncluded} onChange={(e) => setField("helmetsIncluded", e.target.checked)} />Helmets included</label>{form.vehicleType === "car" && <label className="flex items-center gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm"><input type="checkbox" checked={form.hasAc} onChange={(e) => setField("hasAc", e.target.checked)} />Air conditioning</label>}</div></section>
+              {isAdministrator && editing && (
+                <section className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+                  <h3 className="font-semibold">Administrator approval</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Approve this vehicle to make it visible in the public rental catalogue.</p>
+                  <select value={formStatus} onChange={(event) => setFormStatus(event.target.value as "draft" | "active" | "inactive")} className="mt-3 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm sm:max-w-sm">
+                    <option value="draft">Pending review</option>
+                    <option value="active">Approved & published</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </section>
+              )}
+
               <section>
                 <h3 className="font-semibold">Photos</h3>
                 <div className="mt-3 grid gap-4 sm:grid-cols-2">
