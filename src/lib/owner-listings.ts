@@ -376,6 +376,38 @@ export const fetchAdminListingDetail = createServerFn({ method: "GET" })
     );
   });
 
+export const searchAdminListings = createServerFn({ method: "GET" })
+  .validator(ownerIdentitySchema.extend({
+    search: z.string().trim().min(1).max(120),
+  }))
+  .handler(async ({ data }) => {
+    const { search, email, identityToken } = data;
+    const query = encodeURIComponent(search.trim());
+    // Search the WordPress listing index server-side instead of filtering the
+    // single 10-row admin page currently loaded in the browser. This keeps the
+    // normal dashboard lightweight while allowing administrators to find any
+    // listing in the catalogue.
+    const payload = await ownerRequest(
+      `/wp-json/wp/v2/listing?search=${query}&per_page=10&_embed=1`,
+      "GET",
+      undefined,
+      { email, identityToken },
+    ) as Array<Record<string, unknown>>;
+
+    return {
+      items: payload.map((item) => ({
+        id: Number(item.id),
+        title: typeof item.title === "object" && item.title && "rendered" in item.title
+          ? String((item.title as { rendered?: unknown }).rendered ?? `Listing #${item.id}`)
+          : String(item.title ?? `Listing #${item.id}`),
+        status: String(item.status ?? "publish"),
+        url: typeof item.link === "string" ? item.link : undefined,
+        featured_image: undefined,
+      })),
+      total: payload.length,
+    };
+  });
+
 export const fetchAdminListings = createServerFn({ method: "GET" })
   .validator(adminListingsSchema)
   .handler(async ({ data }) => {
