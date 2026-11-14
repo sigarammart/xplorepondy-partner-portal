@@ -215,6 +215,10 @@ function xp_rentals_vehicle_payload($row, $private = false) {
         $payload['created_at'] = (string) $row->created_at;
         $payload['updated_at'] = (string) $row->updated_at;
     } else {
+        // Expose the provider's display name so customers can choose between
+        // multiple rental owners offering the same vehicle model.
+        $owner = get_userdata((int) $row->owner_user_id);
+        $payload['provider_name'] = $owner ? (string) $owner->display_name : 'Rental provider';
         // Keep owner/internal workflow state out of public catalogue responses.
         unset($payload['status']);
     }
