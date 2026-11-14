@@ -14,7 +14,7 @@ const identitySchema = z.object({
 const vehicleSchema = identitySchema.extend({
   vehicleId: z.number().int().positive().optional(),
   status: z.enum(["draft", "active", "inactive"]).optional(),
-  vehicleType: z.enum(["bike", "car"]),
+  vehicleType: z.enum(["bicycle", "bike", "car"]),
   brand: z.string().trim().min(1).max(100),
   model: z.string().trim().min(1).max(120),
   variant: z.string().trim().max(120).optional(),
@@ -40,7 +40,7 @@ const vehicleSchema = identitySchema.extend({
 
 export type RentalVehicle = {
   id: number;
-  vehicle_type: "bike" | "car";
+  vehicle_type: "bicycle" | "bike" | "car";
   brand: string;
   model: string;
   variant: string;
