@@ -16,7 +16,7 @@ type RentalForm = {
 };
 
 
-type RentalPreset = Omit<RentalForm, "registrationYear" | "pickupLocation" | "featuredImageUrl" | "gallery" | "description"> & {
+type RentalPreset = Omit<RentalForm, "registrationYear" | "pickupLocation" | "featuredImageUrl" | "gallery" | "description" | "bikeSubtype"> & {
   id: string;
   label: string;
   note: string;
