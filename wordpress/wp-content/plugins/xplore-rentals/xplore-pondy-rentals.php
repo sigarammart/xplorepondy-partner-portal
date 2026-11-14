@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Pondy Rentals
  * Description: Standalone bike and car rental inventory, availability and booking API for Xplore Pondy.
- * Version: 0.1.1
+ * Version: 0.1.2
  * Author: Xplore Pondy
  * Text Domain: xplore-pondy-rentals
  */
@@ -16,7 +16,7 @@ if (defined('XP_RENTALS_LOADED')) {
 }
 define('XP_RENTALS_LOADED', true);
 
-define('XP_RENTALS_VERSION', '0.1.1');
+define('XP_RENTALS_VERSION', '0.1.2');
 define('XP_RENTALS_DB_VERSION', '1');
 define('XP_RENTALS_PLUGIN_FILE', __FILE__);
 define('XP_RENTALS_PLUGIN_DIR', plugin_dir_path(__FILE__));
@@ -209,6 +209,8 @@ function xp_rentals_vehicle_payload($row, $private = false) {
 
     if ($private) {
         $payload['owner_user_id'] = (int) $row->owner_user_id;
+        $owner = get_userdata((int) $row->owner_user_id);
+        $payload['owner_name'] = $owner ? (string) $owner->display_name : 'Unknown owner';
         $payload['listing_id'] = $row->listing_id ? (int) $row->listing_id : null;
         $payload['created_at'] = (string) $row->created_at;
         $payload['updated_at'] = (string) $row->updated_at;
@@ -231,8 +233,8 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
         }
     }
 
-    if (isset($data['vehicle_type']) && !in_array($data['vehicle_type'], ['bike', 'car'], true)) {
-        $errors[] = 'vehicle_type must be bike or car.';
+    if (isset($data['vehicle_type']) && !in_array($data['vehicle_type'], ['bicycle', 'bike', 'car'], true)) {
+        $errors[] = 'vehicle_type must be bicycle, bike or car.';
     }
 
     foreach (['brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location'] as $field) {
@@ -531,7 +533,7 @@ function xp_rentals_partner_list_vehicles(WP_REST_Request $request) {
     $table = xp_rentals_table('vehicles');
 
     $where = user_can($user, 'manage_options') ? '1=1' : $wpdb->prepare('owner_user_id = %d', $user->ID);
-    if (in_array($type, ['bike', 'car'], true)) $where .= $wpdb->prepare(' AND vehicle_type = %s', $type);
+    if (in_array($type, ['bicycle', 'bike', 'car'], true)) $where .= $wpdb->prepare(' AND vehicle_type = %s', $type);
 
     $rows = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$table} WHERE {$where} ORDER BY updated_at DESC LIMIT %d OFFSET %d", $per_page, $offset));
     $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table} WHERE {$where}");
@@ -635,6 +637,10 @@ function xp_rentals_public_list_vehicles(WP_REST_Request $request) {
     $type = sanitize_key((string) $request->get_param('vehicle_type'));
     $search = sanitize_text_field((string) $request->get_param('search'));
     $table = xp_rentals_table('vehicles');
+
+    // Prevent page-cache layers from serving stale rental inventory.
+    nocache_headers();
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
     $where = "status = 'active'";
     if (in_array($type, ['bike', 'car'], true)) $where .= $wpdb->prepare(' AND vehicle_type = %s', $type);
