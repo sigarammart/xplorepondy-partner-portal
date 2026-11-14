@@ -28,6 +28,8 @@ const vehicleSchema = identitySchema.extend({
   description: z.string().max(5000).optional(),
   pricePerHour: z.number().min(0).nullable().optional(),
   pricePerDay: z.number().min(0),
+  pricePerWeekday: z.number().min(0),
+  pricePerWeekend: z.number().min(0),
   pricePerWeek: z.number().min(0).nullable().optional(),
   securityDeposit: z.number().min(0).optional(),
   minimumDurationHours: z.number().int().min(1).max(720).optional(),
@@ -54,6 +56,8 @@ export type RentalVehicle = {
   description: string;
   price_per_hour: number | null;
   price_per_day: number;
+  price_per_weekday: number;
+  price_per_weekend: number;
   price_per_week: number | null;
   security_deposit: number;
   minimum_duration_hours: number;
@@ -122,6 +126,8 @@ function vehicleBody(data: z.infer<typeof vehicleSchema>) {
     description: data.description ?? "",
     price_per_hour: data.pricePerHour ?? null,
     price_per_day: data.pricePerDay,
+    price_per_weekday: data.pricePerWeekday,
+    price_per_weekend: data.pricePerWeekend,
     price_per_week: data.pricePerWeek ?? null,
     security_deposit: data.securityDeposit ?? 0,
     minimum_duration_hours: data.minimumDurationHours ?? 24,
