@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { CarFront, CheckCircle2, CircleAlert, Edit3, Bike, LoaderCircle, Plus, RefreshCw, Trash2, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createRentalVehicle, deleteRentalVehicle, fetchRentalVehicles, updateRentalVehicle, type RentalVehicle } from "@/lib/rentals";
+import { createRentalVehicle, deleteRentalVehicle, fetchRentalMedia, fetchRentalVehicles, uploadRentalMedia, updateRentalVehicle, type RentalMediaItem, type RentalVehicle } from "@/lib/rentals";
 
 type RentalForm = {
   vehicleType: "bike" | "car";
@@ -134,6 +134,12 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [selectedPresets, setSelectedPresets] = useState<string[]>([]);
   const [presetQueue, setPresetQueue] = useState<string[]>([]);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [mediaPickerMode, setMediaPickerMode] = useState<"featured" | "gallery">("featured");
+  const [mediaItems, setMediaItems] = useState<RentalMediaItem[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaSearch, setMediaSearch] = useState("");
+  const [mediaUploading, setMediaUploading] = useState(false);
 
   async function load() {
     setLoading(true); setError("");
@@ -192,6 +198,80 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
     setPresetQueue(rest);
     setSelectedPresets([]);
     usePreset(first);
+  }
+
+  async function openMediaPicker(mode: "featured" | "gallery") {
+    setMediaPickerMode(mode);
+    setMediaPickerOpen(true);
+    setMediaSearch("");
+    setMediaLoading(true);
+    try {
+      const result = await fetchRentalMedia({ data: { email, identityToken } }) as { items?: RentalMediaItem[] };
+      setMediaItems(result.items ?? []);
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Could not load WordPress media.");
+    } finally {
+      setMediaLoading(false);
+    }
+  }
+
+  async function searchMedia() {
+    setMediaLoading(true);
+    try {
+      const result = await fetchRentalMedia({ data: { email, identityToken, search: mediaSearch } }) as { items?: RentalMediaItem[] };
+      setMediaItems(result.items ?? []);
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Could not search WordPress media.");
+    } finally {
+      setMediaLoading(false);
+    }
+  }
+
+  function selectMedia(item: RentalMediaItem) {
+    if (mediaPickerMode === "featured") {
+      setField("featuredImageUrl", item.url);
+    } else {
+      setForm((current) => {
+        const urls = current.gallery.split("\n").map((value) => value.trim()).filter(Boolean);
+        if (!urls.includes(item.url) && urls.length < 20) urls.push(item.url);
+        return { ...current, gallery: urls.join("\n") };
+      });
+    }
+    setMediaPickerOpen(false);
+  }
+
+  async function uploadMedia(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Please choose a JPG, PNG or WebP image.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Image uploads are limited to 8 MB.");
+      return;
+    }
+
+    setMediaUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Could not read the selected image."));
+        reader.readAsDataURL(file);
+      });
+      const item = await uploadRentalMedia({
+        data: { email, identityToken, filename: file.name, mimeType: file.type as "image/jpeg" | "image/png" | "image/webp", base64 },
+      }) as RentalMediaItem;
+      setMediaItems((current) => [item, ...current]);
+      selectMedia(item);
+      toast.success("Image uploaded to your WordPress Media Library.");
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Could not upload image.");
+    } finally {
+      setMediaUploading(false);
+    }
   }
 
   function startEdit(vehicle: RentalVehicle) {
@@ -348,7 +428,31 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
               <section><h3 className="font-semibold">Rental pricing</h3><div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Field label="Hourly price" type="number" value={form.pricePerHour} onChange={(v) => setField("pricePerHour", v)} placeholder="Optional" /><Field label="Daily price *" type="number" value={form.pricePerDay} onChange={(v) => setField("pricePerDay", v)} placeholder="1200" /><Field label="Weekly price" type="number" value={form.pricePerWeek} onChange={(v) => setField("pricePerWeek", v)} placeholder="Optional" /><Field label="Security deposit" type="number" value={form.securityDeposit} onChange={(v) => setField("securityDeposit", v)} placeholder="2000" /></div></section>
               <section><h3 className="font-semibold">Pickup & delivery</h3><div className="mt-3 grid gap-4 sm:grid-cols-2"><Field label="Pickup location" value={form.pickupLocation} onChange={(v) => setField("pickupLocation", v)} placeholder="Heritage Town, Puducherry" /><Field label="Minimum rental hours" type="number" value={form.minimumDurationHours} onChange={(v) => setField("minimumDurationHours", v)} placeholder="24" /><label className="flex items-center gap-3 rounded-xl border border-border/70 p-3 text-sm"><input type="checkbox" checked={form.deliveryAvailable} onChange={(e) => setField("deliveryAvailable", e.target.checked)} />Delivery available</label>{form.deliveryAvailable && <Field label="Delivery charge" type="number" value={form.deliveryCharge} onChange={(v) => setField("deliveryCharge", v)} placeholder="200" />}</div></section>
               <section><h3 className="font-semibold">Vehicle features</h3><div className="mt-3 flex flex-wrap gap-3"><label className="flex items-center gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm"><input type="checkbox" checked={form.helmetsIncluded} onChange={(e) => setField("helmetsIncluded", e.target.checked)} />Helmets included</label>{form.vehicleType === "car" && <label className="flex items-center gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm"><input type="checkbox" checked={form.hasAc} onChange={(e) => setField("hasAc", e.target.checked)} />Air conditioning</label>}</div></section>
-              <section><h3 className="font-semibold">Photos</h3><div className="mt-3 grid gap-4 sm:grid-cols-2"><Field label="Featured image URL" value={form.featuredImageUrl} onChange={(v) => setField("featuredImageUrl", v)} placeholder="https://..." /><Field label="Gallery image URLs" value={form.gallery} onChange={(v) => setField("gallery", v)} placeholder="One URL per line" /></div><p className="mt-2 text-xs text-muted-foreground">For this first UI pass, images are supplied as URLs. WordPress media upload can be added next without changing the rental data model.</p></section>
+              <section>
+                <h3 className="font-semibold">Photos</h3>
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-xl border border-border/70 p-3">
+                    <label className="text-sm font-medium">Featured image</label>
+                    {form.featuredImageUrl ? <img src={form.featuredImageUrl} alt="" className="mt-2 h-36 w-full rounded-lg object-cover" /> : <div className="mt-2 flex h-36 items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">No featured image</div>}
+                    <div className="mt-3 flex gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => void openMediaPicker("featured")}>Choose from Media Library</Button>
+                      {form.featuredImageUrl && <Button type="button" size="sm" variant="ghost" onClick={() => setField("featuredImageUrl", "")}>Remove</Button>}
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-border/70 p-3">
+                    <label className="text-sm font-medium">Gallery</label>
+                    <div className="mt-2 flex min-h-36 flex-wrap gap-2 rounded-lg bg-muted p-2">
+                      {form.gallery.split("\n").map((url) => url.trim()).filter(Boolean).map((url) => <img key={url} src={url} alt="" className="h-20 w-24 rounded-md object-cover" />)}
+                      {!form.gallery.trim() && <span className="m-auto text-sm text-muted-foreground">No gallery images</span>}
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => void openMediaPicker("gallery")}>Add from Media Library</Button>
+                      {form.gallery.trim() && <Button type="button" size="sm" variant="ghost" onClick={() => setField("gallery", "")}>Clear</Button>}
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">Images are stored in the WordPress Media Library and saved with the rental vehicle as their media URLs.</p>
+              </section>
               <section><h3 className="font-semibold">Description</h3><textarea value={form.description} onChange={(e) => setField("description", e.target.value)} rows={5} placeholder="Describe the vehicle, included items and rental conditions." className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /></section>
               <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <CheckCircle2 className="mr-2 size-4" />}{editing ? "Save changes" : "Submit vehicle"}</Button></div>
             </form>
@@ -357,6 +461,37 @@ export function RentalVehiclesManager({ email, identityToken }: { email?: string
       )}
 
       {deleteId && <div className="fixed inset-0 z-[90] grid place-items-center bg-black/50 p-4"><div className="w-full max-w-md rounded-2xl bg-card p-5 shadow-2xl ring-1 ring-border/70"><h3 className="text-lg font-semibold">Delete rental vehicle?</h3><p className="mt-2 text-sm text-muted-foreground">Vehicles with pending or confirmed bookings cannot be deleted. Deactivate them instead.</p><div className="mt-5 flex justify-end gap-2"><Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button><Button variant="destructive" disabled={saving} onClick={() => void remove()}>{saving ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}Delete</Button></div></div></div>}
+      {mediaPickerOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl ring-1 ring-border">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+              <div><h3 className="font-semibold">{mediaPickerMode === "featured" ? "Choose featured image" : "Add gallery images"}</h3><p className="text-xs text-muted-foreground">Your WordPress Media Library images</p></div>
+              <Button type="button" variant="ghost" size="icon" onClick={() => setMediaPickerOpen(false)}><X className="size-4" /></Button>
+            </div>
+            <div className="flex flex-wrap gap-2 border-b border-border p-4">
+              <input value={mediaSearch} onChange={(event) => setMediaSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchMedia(); }} placeholder="Search media..." className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm" />
+              <Button type="button" variant="outline" onClick={() => void searchMedia()}>Search</Button>
+              <label className="inline-flex cursor-pointer items-center rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
+                {mediaUploading ? <LoaderCircle className="mr-2 size-4 animate-spin" /> : <Plus className="mr-2 size-4" />}
+                Upload image
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={mediaUploading} onChange={(event) => void uploadMedia(event)} />
+              </label>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {mediaLoading ? <div className="flex min-h-48 items-center justify-center text-muted-foreground"><LoaderCircle className="mr-2 size-5 animate-spin" />Loading Media Library...</div> :
+                mediaItems.length === 0 ? <div className="flex min-h-48 items-center justify-center text-sm text-muted-foreground">No images found.</div> :
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                  {mediaItems.map((item) => (
+                    <button type="button" key={item.id} onClick={() => selectMedia(item)} className="group overflow-hidden rounded-xl border border-border bg-background text-left hover:border-primary hover:ring-1 hover:ring-primary">
+                      <img src={item.thumbnail_url} alt={item.title} className="aspect-square w-full object-cover" />
+                      <span className="block truncate p-2 text-xs">{item.title || "Untitled"}</span>
+                    </button>
+                  ))}
+                </div>}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
