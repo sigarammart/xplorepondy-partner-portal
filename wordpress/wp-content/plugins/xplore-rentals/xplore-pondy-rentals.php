@@ -212,6 +212,9 @@ function xp_rentals_vehicle_payload($row, $private = false) {
         $payload['listing_id'] = $row->listing_id ? (int) $row->listing_id : null;
         $payload['created_at'] = (string) $row->created_at;
         $payload['updated_at'] = (string) $row->updated_at;
+    } else {
+        // Keep owner/internal workflow state out of public catalogue responses.
+        unset($payload['status']);
     }
 
     return $payload;
