@@ -419,7 +419,12 @@ function xp_rentals_partner_create_vehicle(WP_REST_Request $request) {
     $db_data['created_at'] = $now;
     $db_data['updated_at'] = $now;
 
-    $ok = $wpdb->insert(xp_rentals_table('vehicles'), $db_data);
+    $formats = array_map(function ($value) {
+        if (is_int($value)) return '%d';
+        if (is_float($value)) return '%f';
+        return '%s';
+    }, array_values($db_data));
+    $ok = $wpdb->insert(xp_rentals_table('vehicles'), $db_data, $formats);
     if (!$ok) return new WP_Error('xp_rentals_create_failed', 'Vehicle could not be saved.', ['status' => 500]);
 
     $row = $wpdb->get_row($wpdb->prepare('SELECT * FROM ' . xp_rentals_table('vehicles') . ' WHERE id = %d', $wpdb->insert_id));
