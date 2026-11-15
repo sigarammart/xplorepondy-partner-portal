@@ -340,7 +340,7 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
       pricePerHour: form.pricePerHour ? Number(form.pricePerHour) : null, pricePerDay: weekdayPrice,
       pricePerWeekday: weekdayPrice, pricePerWeekend: weekendPrice,
       pricePerWeek: form.pricePerWeek ? Number(form.pricePerWeek) : null, securityDeposit: form.securityDeposit ? Number(form.securityDeposit) : 0,
-      minimumDurationHours: form.minimumDurationHours ? Number(form.minimumDurationHours) : 24, pickupLocation: form.pickupLocation.trim(),
+      minimumDurationHours: form.minimumDurationHours ? Number(form.minimumDurationHours) : 24, advanceBookingHours: form.advanceBookingHours ? Number(form.advanceBookingHours) : 2, pickupLocation: form.pickupLocation.trim(),
       deliveryAvailable: form.deliveryAvailable, deliveryCharge: form.deliveryCharge ? Number(form.deliveryCharge) : 0,
       featuredImageUrl: form.featuredImageUrl.trim(), gallery: form.gallery.split("\n").map((s) => s.trim()).filter(Boolean),
       ...(isAdministrator && editing ? { status: formStatus } : {}),
@@ -376,7 +376,7 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
         engineCc: vehicle.engine_cc, seatingCapacity: vehicle.seating_capacity, hasAc: vehicle.has_ac, helmetsIncluded: vehicle.helmets_included,
         description: vehicle.description, totalAvailable: vehicle.total_available ?? 1, customPlans: vehicle.custom_plans ?? [], amenities: vehicle.amenities ?? [], termsConditions: vehicle.terms_conditions ?? "", pricePerHour: vehicle.price_per_hour, pricePerDay: vehicle.price_per_day,
         pricePerWeekday: vehicle.price_per_weekday ?? vehicle.price_per_day, pricePerWeekend: vehicle.price_per_weekend ?? vehicle.price_per_day, pricePerWeek: vehicle.price_per_week,
-        securityDeposit: vehicle.security_deposit, minimumDurationHours: vehicle.minimum_duration_hours, pickupLocation: vehicle.pickup_location,
+        securityDeposit: vehicle.security_deposit, minimumDurationHours: vehicle.minimum_duration_hours, advanceBookingHours: vehicle.advance_booking_hours ?? 2, pickupLocation: vehicle.pickup_location,
         deliveryAvailable: vehicle.delivery_available, deliveryCharge: vehicle.delivery_charge, featuredImageUrl: vehicle.featured_image_url,
         gallery: vehicle.gallery, status,
       } }) as RentalVehicle;
