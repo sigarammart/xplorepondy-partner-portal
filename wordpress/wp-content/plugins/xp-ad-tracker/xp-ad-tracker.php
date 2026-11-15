@@ -202,6 +202,40 @@ add_shortcode('xp_ad_ctr', function() {
     return 'CTR: ' . xp_get_ad_ctr(get_the_ID());
 });
 
+
+/**
+ * Cached ad statistics for dashboards.
+ *
+ * Tracking itself remains uncached: every valid impression/click increments
+ * the database counter. Dashboard/reporting reads are cached for 6 hours so
+ * partner/admin pages do not repeatedly query postmeta for every ad.
+ */
+function xp_ads_get_cached_stats($post_id) {
+    $post_id = absint($post_id);
+    if (!$post_id) {
+        return ['views' => 0, 'clicks' => 0, 'ctr' => 0];
+    }
+
+    $cache_key = 'xp_ads_stats_v1_' . $post_id;
+    $cached = get_transient($cache_key);
+
+    if (is_array($cached) && isset($cached['views'], $cached['clicks'], $cached['ctr'])) {
+        return $cached;
+    }
+
+    $views  = (int) get_post_meta($post_id, '_ad_views', true);
+    $clicks = (int) get_post_meta($post_id, '_ad_clicks', true);
+    $stats = [
+        'views'  => $views,
+        'clicks' => $clicks,
+        'ctr'    => $views > 0 ? round(($clicks / $views) * 100, 2) : 0,
+    ];
+
+    set_transient($cache_key, $stats, 6 * HOUR_IN_SECONDS);
+
+    return $stats;
+}
+
 // 4) Vendor Ad Stats Shortcode
 function xp_listing_ad_stats($atts) {
     if (!is_user_logged_in()) return '';
@@ -234,9 +268,10 @@ function xp_listing_ad_stats($atts) {
             }
             if (!$found) continue;
 
-            $views  = (int) get_post_meta($ad->ID, '_ad_views', true);
-            $clicks = (int) get_post_meta($ad->ID, '_ad_clicks', true);
-            $ctr    = $views > 0 ? round(($clicks / $views) * 100, 2) : 0;
+            $stats = xp_ads_get_cached_stats($ad->ID);
+            $views  = $stats['views'];
+            $clicks = $stats['clicks'];
+            $ctr    = $stats['ctr'];
             $output .= "<p><strong>{$ad->post_title}</strong>: Views: {$views} | Clicks: {$clicks} | CTR: {$ctr}%</p>";
         }
     return $output;
@@ -390,8 +425,9 @@ function xp_ad_is_publicly_active($post_id) {
     if ($start && $now < $start) return false;
     if ($end && $now >= $end) return false;
 
-    $views = (int) get_post_meta($post_id, '_ad_views', true);
-    $clicks = (int) get_post_meta($post_id, '_ad_clicks', true);
+    $stats = xp_ads_get_cached_stats($post_id);
+    $views = $stats['views'];
+    $clicks = $stats['clicks'];
     $max_views = (int) get_post_meta($post_id, 'xp_ad_max_views', true);
     $max_clicks = (int) get_post_meta($post_id, 'xp_ad_max_clicks', true);
 
@@ -539,9 +575,10 @@ add_action('wp_ajax_get_dashboard_notices', function () {
     foreach ($ads_query->posts as $ad) {
         $ad_id    = $ad->ID;
         $ad_title = esc_html(get_the_title($ad_id));
-        $views    = (int) get_post_meta($ad_id, '_ad_views', true);
-        $clicks   = (int) get_post_meta($ad_id, '_ad_clicks', true);
-        $ctr      = $views > 0 ? number_format(($clicks / $views) * 100, 2) : '0.00';
+        $stats    = xp_ads_get_cached_stats($ad_id);
+        $views    = $stats['views'];
+        $clicks   = $stats['clicks'];
+        $ctr      = number_format($stats['ctr'], 2);
 
         $notices[] = [
             'class' => 'info',
@@ -683,7 +720,7 @@ function xp_ads_rest_payload($post_id) {
         'max_clicks' => (int) get_post_meta($post_id, 'xp_ad_max_clicks', true),
         'views' => $views,
         'clicks' => $clicks,
-        'ctr' => $views > 0 ? round(($clicks / $views) * 100, 2) : 0,
+        'ctr' => $stats['ctr'],
         'created_at' => get_post_time('c', true, $post_id),
     ];
 }
