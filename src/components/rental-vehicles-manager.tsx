@@ -13,6 +13,8 @@ type RentalForm = {
   totalAvailable: string;
   customPlans: Array<{ label: string; price: string }>;
   amenities: string[];
+  termsPresetRows: Array<{ id: string; text: string; enabled: boolean }>;
+  additionalTerms: string[];
   termsConditions: string;
   pricePerHour: string; pricePerDay: string; pricePerWeekday: string; pricePerWeekend: string; pricePerWeek: string; securityDeposit: string;
   minimumDurationHours: string; advanceBookingHours: string; pickupLocation: string; deliveryAvailable: boolean; deliveryCharge: string;
@@ -115,10 +117,32 @@ const rentalPresets: RentalPreset[] = [
 
 const rentalAmenities = ["Helmets", "Roadside Assistance", "Well Maintained", "Papers & Insurance", "Phone Mount", "Top Box / Luggage Carrier", "GPS Tracking"] as const;
 
+const rentalTermPresets = [
+  { id: "license", text: "Valid driving license is mandatory." },
+  { id: "security", text: "Security deposit (refundable) will be collected." },
+  { id: "fuel", text: "Fuel is not included in the rental price." },
+  { id: "damage", text: "Any damage will be charged as per actuals." },
+  { id: "area", text: "Ride within Pondicherry and nearby areas only." },
+  { id: "traffic", text: "Follow traffic rules and wear a helmet at all times." },
+  { id: "return", text: "Vehicle must be returned in the same condition in which it was provided." },
+  { id: "documents", text: "Original identification and required rental documents must be produced at pickup." },
+] as const;
+
+function defaultTermsPresetRows() {
+  return rentalTermPresets.map((term) => ({ ...term, enabled: false }));
+}
+
+function buildTermsConditions(form: RentalForm) {
+  return [
+    ...form.termsPresetRows.filter((term) => term.enabled).map((term) => term.text.trim()).filter(Boolean),
+    ...form.additionalTerms.map((term) => term.trim()).filter(Boolean),
+  ].join("\n");
+}
+
 const emptyForm: RentalForm = {
   vehicleType: "bicycle", bikeSubtype: "bike", brand: "", model: "", variant: "", registrationYear: "",
   fuelType: "", transmission: "", engineCc: "", seatingCapacity: "", hasAc: false, helmetsIncluded: false,
-  description: "", totalAvailable: "1", customPlans: [], amenities: [], termsConditions: "", advanceBookingHours: "2",
+  description: "", totalAvailable: "1", customPlans: [], amenities: [], termsPresetRows: defaultTermsPresetRows(), additionalTerms: [], termsConditions: "", advanceBookingHours: "2",
   pricePerHour: "", pricePerDay: "", pricePerWeekday: "", pricePerWeekend: "", pricePerWeek: "", securityDeposit: "",
   minimumDurationHours: "24", pickupLocation: "", deliveryAvailable: false, deliveryCharge: "",
   featuredImageUrl: "", gallery: "",
@@ -130,6 +154,13 @@ function money(value: number | null | undefined) {
 }
 
 function toForm(vehicle: RentalVehicle): RentalForm {
+  const existingTerms = (vehicle.terms_conditions ?? "").split(/\\r?\\n/).map((line) => line.replace(/^[-•*]\\s*/, "").trim()).filter(Boolean);
+  const termsPresetRows = rentalTermPresets.map((term) => {
+    const matched = existingTerms.find((line) => line === term.text);
+    return { ...term, enabled: Boolean(matched) };
+  });
+  const presetTexts = new Set(rentalTermPresets.map((term) => term.text));
+  const additionalTerms = existingTerms.filter((line) => !presetTexts.has(line));
   return {
     vehicleType: vehicle.vehicle_type, bikeSubtype: vehicle.bike_subtype || "bike", brand: vehicle.brand, model: vehicle.model, variant: vehicle.variant,
     registrationYear: vehicle.registration_year ? String(vehicle.registration_year) : "",
@@ -139,6 +170,7 @@ function toForm(vehicle: RentalVehicle): RentalForm {
     totalAvailable: String(vehicle.total_available ?? 1),
     customPlans: (vehicle.custom_plans ?? []).map((plan) => ({ label: plan.label, price: String(plan.price) })),
     amenities: vehicle.amenities ?? [],
+    termsPresetRows, additionalTerms,
     termsConditions: vehicle.terms_conditions ?? "",
     pricePerHour: vehicle.price_per_hour != null ? String(vehicle.price_per_hour) : "",
     pricePerDay: String(vehicle.price_per_day ?? ""), pricePerWeekday: String(vehicle.price_per_weekday ?? vehicle.price_per_day ?? ""), pricePerWeekend: String(vehicle.price_per_weekend ?? vehicle.price_per_day ?? ""), pricePerWeek: vehicle.price_per_week != null ? String(vehicle.price_per_week) : "",
@@ -226,6 +258,9 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
       minimumDurationHours: preset.minimumDurationHours,
       deliveryAvailable: preset.deliveryAvailable,
       deliveryCharge: preset.deliveryCharge,
+      termsPresetRows: defaultTermsPresetRows(),
+      additionalTerms: [],
+      termsConditions: "",
     });
     setFormOpen(true);
   }
@@ -324,6 +359,11 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
     event.preventDefault();
     const weekdayPrice = Number(form.pricePerWeekday || form.pricePerDay);
     const weekendPrice = Number(form.pricePerWeekend || form.pricePerDay);
+    const combinedTerms = buildTermsConditions(form).trim();
+    if (combinedTerms.length > 1000) {
+      setError("Terms & Conditions must be 1000 characters or less.");
+      return;
+    }
     if (!form.brand.trim() || !form.model.trim() || !Number.isFinite(weekdayPrice) || weekdayPrice < 0 || !Number.isFinite(weekendPrice) || weekendPrice < 0) {
       setError("Brand, model and valid Mon–Thu and Fri–Sun rental prices are required.");
       return;
@@ -336,7 +376,7 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
       seatingCapacity: form.seatingCapacity ? Number(form.seatingCapacity) : null, hasAc: form.hasAc, helmetsIncluded: form.helmetsIncluded,
       description: form.description.trim(), totalAvailable: Math.max(1, Number(form.totalAvailable) || 1),
       customPlans: form.customPlans.map((plan) => ({ label: plan.label.trim(), price: Number(plan.price) || 0 })).filter((plan) => plan.label),
-      amenities: form.amenities, termsConditions: form.termsConditions.trim(),
+      amenities: form.amenities, termsConditions: buildTermsConditions(form).trim(),
       pricePerHour: form.pricePerHour ? Number(form.pricePerHour) : null, pricePerDay: weekdayPrice,
       pricePerWeekday: weekdayPrice, pricePerWeekend: weekendPrice,
       pricePerWeek: form.pricePerWeek ? Number(form.pricePerWeek) : null, securityDeposit: form.securityDeposit ? Number(form.securityDeposit) : 0,
@@ -526,7 +566,36 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
                 </section>
               )}
 
-              <section><h3 className="font-semibold">Terms & Conditions</h3><textarea value={form.termsConditions} maxLength={1000} onChange={(e) => setField("termsConditions", e.target.value)} rows={6} placeholder="Enter rental terms, security deposit rules, fuel policy, damage policy, driving requirements and other conditions." className="mt-3 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" /><div className="mt-1 text-right text-xs text-muted-foreground">{form.termsConditions.length}/1000</div></section>
+              <section>
+                <h3 className="font-semibold">Terms & Conditions</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Select the terms you want to include. You can edit any preset before saving, or add your own terms below.</p>
+                <div className="mt-3 space-y-2">
+                  {form.termsPresetRows.map((term, index) => (
+                    <div key={term.id} className="flex items-start gap-3 rounded-xl border border-border/70 p-3">
+                      <input type="checkbox" checked={term.enabled} onChange={(event) => setForm((current) => ({ ...current, termsPresetRows: current.termsPresetRows.map((item, i) => i === index ? { ...item, enabled: event.target.checked } : item) }))} className="mt-2 size-4 shrink-0" aria-label={`Include preset term ${index + 1}`} />
+                      <input value={term.text} onChange={(event) => setForm((current) => ({ ...current, termsPresetRows: current.termsPresetRows.map((item, i) => i === index ? { ...item, text: event.target.value } : item) }))} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" aria-label={`Terms & Conditions preset ${index + 1}`} />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">Additional terms</span>
+                    <button type="button" className="text-sm font-medium text-primary hover:underline" onClick={() => setForm((current) => ({ ...current, additionalTerms: [...current.additionalTerms, ""] }))}>+ Add another term</button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {form.additionalTerms.map((term, index) => (
+                      <div key={index} className="flex items-center gap-3">
+                        <input type="checkbox" checked={term.trim().length > 0} onChange={() => {}} className="size-4 shrink-0" aria-label={`Include additional term ${index + 1}`} />
+                        <input value={term} onChange={(event) => setForm((current) => ({ ...current, additionalTerms: current.additionalTerms.map((item, i) => i === index ? event.target.value : item) }))} placeholder="Enter an additional rental term" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                        <button type="button" className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground" onClick={() => setForm((current) => ({ ...current, additionalTerms: current.additionalTerms.filter((_, i) => i !== index) }))}>Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                  Selected terms: {buildTermsConditions(form).length}/1000 characters
+                </div>
+              </section>
               <section>
                 <h3 className="font-semibold">Photos</h3>
                 <div className="mt-3 grid gap-4 sm:grid-cols-2">
