@@ -133,6 +133,22 @@ add_action('plugins_loaded', function () {
         $vehicles_table = xp_rentals_table('vehicles');
         $wpdb->query("UPDATE {$vehicles_table} SET price_per_weekday = price_per_day WHERE price_per_weekday = 0 AND price_per_day > 0");
         $wpdb->query("UPDATE {$vehicles_table} SET price_per_weekend = price_per_day WHERE price_per_weekend = 0 AND price_per_day > 0");
+        // Explicitly add the new rental fields for existing installations. dbDelta handles
+        // most schema changes, but these checks make the migration deterministic on older tables.
+        $column_migrations = [
+            'total_available' => "ALTER TABLE {$vehicles_table} ADD COLUMN total_available smallint(5) unsigned NOT NULL DEFAULT 1 AFTER description",
+            'custom_plans_json' => "ALTER TABLE {$vehicles_table} ADD COLUMN custom_plans_json longtext NULL AFTER total_available",
+            'amenities_json' => "ALTER TABLE {$vehicles_table} ADD COLUMN amenities_json longtext NULL AFTER custom_plans_json",
+            'terms_conditions' => "ALTER TABLE {$vehicles_table} ADD COLUMN terms_conditions text NULL AFTER amenities_json",
+        ];
+        foreach ($column_migrations as $column => $sql) {
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s",
+                $vehicles_table,
+                $column
+            ));
+            if (!$exists) $wpdb->query($sql);
+        }
         $wpdb->query("UPDATE {$vehicles_table} SET total_available = 1 WHERE total_available IS NULL OR total_available < 1");
         // Backfill the new bike category for existing inventory where it can be
         // safely inferred from the model name. Owners can refine it later.
