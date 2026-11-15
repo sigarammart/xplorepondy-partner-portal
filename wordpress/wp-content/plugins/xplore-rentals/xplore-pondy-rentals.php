@@ -58,6 +58,7 @@ function xp_rentals_install_tables() {
         custom_plans_json longtext NULL,
         amenities_json longtext NULL,
         terms_conditions text NULL,
+        advance_booking_hours smallint(5) unsigned NOT NULL DEFAULT 2,
         price_per_hour decimal(10,2) NULL,
         price_per_day decimal(10,2) NOT NULL DEFAULT 0,
         price_per_weekday decimal(10,2) NOT NULL DEFAULT 0,
@@ -140,6 +141,7 @@ add_action('plugins_loaded', function () {
             'custom_plans_json' => "ALTER TABLE {$vehicles_table} ADD COLUMN custom_plans_json longtext NULL AFTER total_available",
             'amenities_json' => "ALTER TABLE {$vehicles_table} ADD COLUMN amenities_json longtext NULL AFTER custom_plans_json",
             'terms_conditions' => "ALTER TABLE {$vehicles_table} ADD COLUMN terms_conditions text NULL AFTER amenities_json",
+            'advance_booking_hours' => "ALTER TABLE {$vehicles_table} ADD COLUMN advance_booking_hours smallint(5) unsigned NOT NULL DEFAULT 2 AFTER terms_conditions",
         ];
         foreach ($column_migrations as $column => $sql) {
             $exists = $wpdb->get_var($wpdb->prepare(
@@ -231,6 +233,7 @@ function xp_rentals_vehicle_payload($row, $private = false) {
         'custom_plans' => $row->custom_plans_json ? (json_decode($row->custom_plans_json, true) ?: []) : [],
         'amenities' => $row->amenities_json ? (json_decode($row->amenities_json, true) ?: []) : [],
         'terms_conditions' => (string) $row->terms_conditions,
+        'advance_booking_hours' => max(0, (int) $row->advance_booking_hours),
         'price_per_hour' => $row->price_per_hour !== null ? (float) $row->price_per_hour : null,
         'price_per_day' => (float) $row->price_per_day,
         'price_per_weekday' => (float) $row->price_per_weekday,
@@ -303,6 +306,7 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
     if (isset($data['custom_plans']) && (!is_array($data['custom_plans']) || count($data['custom_plans']) > 20)) $errors[] = 'custom_plans must be an array with at most 20 plans.';
     if (isset($data['amenities']) && (!is_array($data['amenities']) || count($data['amenities']) > 30)) $errors[] = 'amenities must be an array with at most 30 items.';
     if (isset($data['terms_conditions']) && mb_strlen((string) $data['terms_conditions']) > 1000) $errors[] = 'terms_conditions must be 1000 characters or fewer.';
+    if (isset($data['advance_booking_hours']) && (!is_numeric($data['advance_booking_hours']) || (int) $data['advance_booking_hours'] < 0 || (int) $data['advance_booking_hours'] > 720)) $errors[] = 'advance_booking_hours must be between 0 and 720 hours.';
     if (isset($data['status']) && !in_array($data['status'], ['draft', 'active', 'inactive'], true)) {
         $errors[] = 'status must be draft, active or inactive.';
     }
@@ -312,7 +316,7 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
 
 function xp_rentals_normalize_vehicle_input($data) {
     $text_fields = ['bike_subtype', 'brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location', 'description', 'featured_image_url', 'terms_conditions'];
-    $integer_fields = ['listing_id', 'registration_year', 'engine_cc', 'seating_capacity', 'minimum_duration_hours', 'total_available'];
+    $integer_fields = ['listing_id', 'registration_year', 'engine_cc', 'seating_capacity', 'minimum_duration_hours', 'total_available', 'advance_booking_hours'];
     $decimal_fields = ['price_per_hour', 'price_per_day', 'price_per_weekday', 'price_per_weekend', 'price_per_week', 'security_deposit', 'delivery_charge'];
     $boolean_fields = ['has_ac', 'helmets_included', 'delivery_available'];
 
@@ -366,7 +370,7 @@ function xp_rentals_vehicle_to_db($data) {
         'transmission' => 'transmission', 'engine_cc' => 'engine_cc',
         'seating_capacity' => 'seating_capacity', 'has_ac' => 'has_ac',
         'helmets_included' => 'helmets_included', 'description' => 'description',
-        'total_available' => 'total_available', 'custom_plans_json' => 'custom_plans_json', 'amenities_json' => 'amenities_json', 'terms_conditions' => 'terms_conditions',
+        'total_available' => 'total_available', 'custom_plans_json' => 'custom_plans_json', 'amenities_json' => 'amenities_json', 'terms_conditions' => 'terms_conditions', 'advance_booking_hours' => 'advance_booking_hours',
         'price_per_hour' => 'price_per_hour', 'price_per_day' => 'price_per_day',
         'price_per_weekday' => 'price_per_weekday', 'price_per_weekend' => 'price_per_weekend',
         'price_per_week' => 'price_per_week', 'security_deposit' => 'security_deposit',
