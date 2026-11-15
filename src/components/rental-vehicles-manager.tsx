@@ -10,13 +10,17 @@ type RentalForm = {
   brand: string; model: string; variant: string; registrationYear: string;
   fuelType: string; transmission: string; engineCc: string; seatingCapacity: string;
   hasAc: boolean; helmetsIncluded: boolean; description: string;
+  totalAvailable: string;
+  customPlans: Array<{ label: string; price: string }>;
+  amenities: string[];
+  termsConditions: string;
   pricePerHour: string; pricePerDay: string; pricePerWeekday: string; pricePerWeekend: string; pricePerWeek: string; securityDeposit: string;
   minimumDurationHours: string; pickupLocation: string; deliveryAvailable: boolean; deliveryCharge: string;
   featuredImageUrl: string; gallery: string;
 };
 
 
-type RentalPreset = Omit<RentalForm, "registrationYear" | "pickupLocation" | "featuredImageUrl" | "gallery" | "description" | "bikeSubtype"> & {
+type RentalPreset = Omit<RentalForm, "registrationYear" | "pickupLocation" | "featuredImageUrl" | "gallery" | "description" | "bikeSubtype" | "totalAvailable" | "customPlans" | "amenities" | "termsConditions"> & {
   id: string;
   label: string;
   note: string;
@@ -109,10 +113,13 @@ const rentalPresets: RentalPreset[] = [
   { id: "car-fortuner", label: "Toyota Fortuner", note: "Premium SUV", vehicleType: "car", brand: "Toyota", model: "Fortuner", variant: "", fuelType: "Petrol", transmission: "Automatic", engineCc: "2800", seatingCapacity: "5", hasAc: true, helmetsIncluded: false, pricePerHour: "800", pricePerDay: "6500", pricePerWeekday: "6500", pricePerWeekend: "6500", pricePerWeek: "35000", securityDeposit: "15000", minimumDurationHours: "24", deliveryAvailable: false, deliveryCharge: "" },
 ];
 
+const rentalAmenities = ["Helmets", "Roadside Assistance", "Well Maintained", "Papers & Insurance", "Phone Mount", "Top Box / Luggage Carrier", "GPS Tracking"] as const;
+
 const emptyForm: RentalForm = {
   vehicleType: "bicycle", bikeSubtype: "bike", brand: "", model: "", variant: "", registrationYear: "",
   fuelType: "", transmission: "", engineCc: "", seatingCapacity: "", hasAc: false, helmetsIncluded: false,
-  description: "", pricePerHour: "", pricePerDay: "", pricePerWeekday: "", pricePerWeekend: "", pricePerWeek: "", securityDeposit: "",
+  description: "", totalAvailable: "1", customPlans: [], amenities: [], termsConditions: "",
+  pricePerHour: "", pricePerDay: "", pricePerWeekday: "", pricePerWeekend: "", pricePerWeek: "", securityDeposit: "",
   minimumDurationHours: "24", pickupLocation: "", deliveryAvailable: false, deliveryCharge: "",
   featuredImageUrl: "", gallery: "",
 };
@@ -129,6 +136,10 @@ function toForm(vehicle: RentalVehicle): RentalForm {
     fuelType: vehicle.fuel_type, transmission: vehicle.transmission, engineCc: vehicle.engine_cc ? String(vehicle.engine_cc) : "",
     seatingCapacity: vehicle.seating_capacity ? String(vehicle.seating_capacity) : "",
     hasAc: vehicle.has_ac, helmetsIncluded: vehicle.helmets_included, description: vehicle.description,
+    totalAvailable: String(vehicle.total_available ?? 1),
+    customPlans: (vehicle.custom_plans ?? []).map((plan) => ({ label: plan.label, price: String(plan.price) })),
+    amenities: vehicle.amenities ?? [],
+    termsConditions: vehicle.terms_conditions ?? "",
     pricePerHour: vehicle.price_per_hour != null ? String(vehicle.price_per_hour) : "",
     pricePerDay: String(vehicle.price_per_day ?? ""), pricePerWeekday: String(vehicle.price_per_weekday ?? vehicle.price_per_day ?? ""), pricePerWeekend: String(vehicle.price_per_weekend ?? vehicle.price_per_day ?? ""), pricePerWeek: vehicle.price_per_week != null ? String(vehicle.price_per_week) : "",
     securityDeposit: String(vehicle.security_deposit ?? ""), minimumDurationHours: String(vehicle.minimum_duration_hours ?? 24),
@@ -323,7 +334,10 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
       registrationYear: form.registrationYear ? Number(form.registrationYear) : null,
       fuelType: form.fuelType.trim(), transmission: form.transmission.trim(), engineCc: form.engineCc ? Number(form.engineCc) : null,
       seatingCapacity: form.seatingCapacity ? Number(form.seatingCapacity) : null, hasAc: form.hasAc, helmetsIncluded: form.helmetsIncluded,
-      description: form.description.trim(), pricePerHour: form.pricePerHour ? Number(form.pricePerHour) : null, pricePerDay: weekdayPrice,
+      description: form.description.trim(), totalAvailable: Math.max(1, Number(form.totalAvailable) || 1),
+      customPlans: form.customPlans.map((plan) => ({ label: plan.label.trim(), price: Number(plan.price) || 0 })).filter((plan) => plan.label),
+      amenities: form.amenities, termsConditions: form.termsConditions.trim(),
+      pricePerHour: form.pricePerHour ? Number(form.pricePerHour) : null, pricePerDay: weekdayPrice,
       pricePerWeekday: weekdayPrice, pricePerWeekend: weekendPrice,
       pricePerWeek: form.pricePerWeek ? Number(form.pricePerWeek) : null, securityDeposit: form.securityDeposit ? Number(form.securityDeposit) : 0,
       minimumDurationHours: form.minimumDurationHours ? Number(form.minimumDurationHours) : 24, pickupLocation: form.pickupLocation.trim(),
