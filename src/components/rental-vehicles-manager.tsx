@@ -154,7 +154,7 @@ function money(value: number | null | undefined) {
 }
 
 function toForm(vehicle: RentalVehicle): RentalForm {
-  const existingTerms = (vehicle.terms_conditions ?? "").split(/\\r?\\n/).map((line) => line.replace(/^[-•*]\\s*/, "").trim()).filter(Boolean);
+  const existingTerms = (vehicle.terms_conditions ?? "").split(/\r?\n/).map((line) => line.replace(/^[-•*]\\s*/, "").trim()).filter(Boolean);
   const termsPresetRows = rentalTermPresets.map((term) => {
     const matched = existingTerms.find((line) => line === term.text);
     return { ...term, enabled: Boolean(matched) };
