@@ -14,7 +14,7 @@ type RentalForm = {
   customPlans: Array<{ label: string; price: string }>;
   amenities: string[];
   termsPresetRows: Array<{ id: string; text: string; enabled: boolean }>;
-  additionalTerms: string[];
+  additionalTerms: Array<{ text: string; enabled: boolean }>;
   termsConditions: string;
   pricePerHour: string; pricePerDay: string; pricePerWeekday: string; pricePerWeekend: string; pricePerWeek: string; securityDeposit: string;
   minimumDurationHours: string; advanceBookingHours: string; pickupLocation: string; deliveryAvailable: boolean; deliveryCharge: string;
@@ -135,7 +135,7 @@ function defaultTermsPresetRows() {
 function buildTermsConditions(form: RentalForm) {
   return [
     ...form.termsPresetRows.filter((term) => term.enabled).map((term) => term.text.trim()).filter(Boolean),
-    ...form.additionalTerms.map((term) => term.trim()).filter(Boolean),
+    ...form.additionalTerms.filter((term) => term.enabled).map((term) => term.text.trim()).filter(Boolean),
   ].join("\n");
 }
 
@@ -160,7 +160,7 @@ function toForm(vehicle: RentalVehicle): RentalForm {
     return { ...term, enabled: Boolean(matched) };
   });
   const presetTexts = new Set(rentalTermPresets.map((term) => term.text));
-  const additionalTerms = existingTerms.filter((line) => !presetTexts.has(line));
+  const additionalTerms = existingTerms.filter((line) => !presetTexts.has(line)).map((text) => ({ text, enabled: true }));
   return {
     vehicleType: vehicle.vehicle_type, bikeSubtype: vehicle.bike_subtype || "bike", brand: vehicle.brand, model: vehicle.model, variant: vehicle.variant,
     registrationYear: vehicle.registration_year ? String(vehicle.registration_year) : "",
@@ -580,13 +580,13 @@ export function RentalVehiclesManager({ email, identityToken, isAdministrator = 
                 <div className="mt-4">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium">Additional terms</span>
-                    <button type="button" className="text-sm font-medium text-primary hover:underline" onClick={() => setForm((current) => ({ ...current, additionalTerms: [...current.additionalTerms, ""] }))}>+ Add another term</button>
+                    <button type="button" className="text-sm font-medium text-primary hover:underline" onClick={() => setForm((current) => ({ ...current, additionalTerms: [...current.additionalTerms, { text: "", enabled: true }] }))}>+ Add another term</button>
                   </div>
                   <div className="mt-2 space-y-2">
                     {form.additionalTerms.map((term, index) => (
                       <div key={index} className="flex items-center gap-3">
-                        <input type="checkbox" checked={term.trim().length > 0} onChange={() => {}} className="size-4 shrink-0" aria-label={`Include additional term ${index + 1}`} />
-                        <input value={term} onChange={(event) => setForm((current) => ({ ...current, additionalTerms: current.additionalTerms.map((item, i) => i === index ? event.target.value : item) }))} placeholder="Enter an additional rental term" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+                        <input type="checkbox" checked={term.enabled} onChange={(event) => setForm((current) => ({ ...current, additionalTerms: current.additionalTerms.map((item, i) => i === index ? { ...item, enabled: event.target.checked } : item) }))} className="size-4 shrink-0" aria-label={`Include additional term ${index + 1}`} />
+                        <input value={term.text} onChange={(event) => setForm((current) => ({ ...current, additionalTerms: current.additionalTerms.map((item, i) => i === index ? { ...item, text: event.target.value } : item) }))} placeholder="Enter an additional rental term" className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
                         <button type="button" className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground" onClick={() => setForm((current) => ({ ...current, additionalTerms: current.additionalTerms.filter((_, i) => i !== index) }))}>Remove</button>
                       </div>
                     ))}
