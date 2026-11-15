@@ -16,8 +16,8 @@ if (defined('XP_RENTALS_LOADED')) {
 }
 define('XP_RENTALS_LOADED', true);
 
-define('XP_RENTALS_VERSION', '0.1.5');
-define('XP_RENTALS_DB_VERSION', '3');
+define('XP_RENTALS_VERSION', '0.1.6');
+define('XP_RENTALS_DB_VERSION', '4');
 define('XP_RENTALS_PLUGIN_FILE', __FILE__);
 define('XP_RENTALS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 
@@ -54,6 +54,10 @@ function xp_rentals_install_tables() {
         has_ac tinyint(1) NOT NULL DEFAULT 0,
         helmets_included tinyint(1) NOT NULL DEFAULT 0,
         description text NULL,
+        total_available smallint(5) unsigned NOT NULL DEFAULT 1,
+        custom_plans_json longtext NULL,
+        amenities_json longtext NULL,
+        terms_conditions text NULL,
         price_per_hour decimal(10,2) NULL,
         price_per_day decimal(10,2) NOT NULL DEFAULT 0,
         price_per_weekday decimal(10,2) NOT NULL DEFAULT 0,
@@ -129,6 +133,7 @@ add_action('plugins_loaded', function () {
         $vehicles_table = xp_rentals_table('vehicles');
         $wpdb->query("UPDATE {$vehicles_table} SET price_per_weekday = price_per_day WHERE price_per_weekday = 0 AND price_per_day > 0");
         $wpdb->query("UPDATE {$vehicles_table} SET price_per_weekend = price_per_day WHERE price_per_weekend = 0 AND price_per_day > 0");
+        $wpdb->query("UPDATE {$vehicles_table} SET total_available = 1 WHERE total_available IS NULL OR total_available < 1");
         // Backfill the new bike category for existing inventory where it can be
         // safely inferred from the model name. Owners can refine it later.
         $wpdb->query("UPDATE {$vehicles_table} SET bike_subtype = 'scooter' WHERE vehicle_type = 'bike' AND (bike_subtype = '' OR bike_subtype IS NULL) AND LOWER(model) REGEXP 'activa|jupiter|access|rayzr|dio|fascino|ntorq|aviator|cliq|navi|maestro|vespa|scooty|zest|aerox|zr'");
@@ -206,6 +211,10 @@ function xp_rentals_vehicle_payload($row, $private = false) {
         'has_ac' => (bool) $row->has_ac,
         'helmets_included' => (bool) $row->helmets_included,
         'description' => (string) $row->description,
+        'total_available' => max(1, (int) $row->total_available),
+        'custom_plans' => $row->custom_plans_json ? (json_decode($row->custom_plans_json, true) ?: []) : [],
+        'amenities' => $row->amenities_json ? (json_decode($row->amenities_json, true) ?: []) : [],
+        'terms_conditions' => (string) $row->terms_conditions,
         'price_per_hour' => $row->price_per_hour !== null ? (float) $row->price_per_hour : null,
         'price_per_day' => (float) $row->price_per_day,
         'price_per_weekday' => (float) $row->price_per_weekday,
@@ -262,7 +271,7 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
         $errors[] = 'bike_subtype can only be set for bikes.';
     }
 
-    foreach (['brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location'] as $field) {
+    foreach (['brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location', 'terms_conditions'] as $field) {
         if (isset($data[$field]) && !is_scalar($data[$field])) {
             $errors[] = $field . ' must be text.';
         }
@@ -274,6 +283,10 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
         }
     }
 
+    if (isset($data['total_available']) && (!is_numeric($data['total_available']) || (int) $data['total_available'] < 1 || (int) $data['total_available'] > 9999)) $errors[] = 'total_available must be between 1 and 9999.';
+    if (isset($data['custom_plans']) && (!is_array($data['custom_plans']) || count($data['custom_plans']) > 20)) $errors[] = 'custom_plans must be an array with at most 20 plans.';
+    if (isset($data['amenities']) && (!is_array($data['amenities']) || count($data['amenities']) > 30)) $errors[] = 'amenities must be an array with at most 30 items.';
+    if (isset($data['terms_conditions']) && mb_strlen((string) $data['terms_conditions']) > 1000) $errors[] = 'terms_conditions must be 1000 characters or fewer.';
     if (isset($data['status']) && !in_array($data['status'], ['draft', 'active', 'inactive'], true)) {
         $errors[] = 'status must be draft, active or inactive.';
     }
@@ -282,8 +295,8 @@ function xp_rentals_validate_vehicle($data, $partial = false) {
 }
 
 function xp_rentals_normalize_vehicle_input($data) {
-    $text_fields = ['bike_subtype', 'brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location', 'description', 'featured_image_url'];
-    $integer_fields = ['listing_id', 'registration_year', 'engine_cc', 'seating_capacity', 'minimum_duration_hours'];
+    $text_fields = ['bike_subtype', 'brand', 'model', 'variant', 'fuel_type', 'transmission', 'pickup_location', 'description', 'featured_image_url', 'terms_conditions'];
+    $integer_fields = ['listing_id', 'registration_year', 'engine_cc', 'seating_capacity', 'minimum_duration_hours', 'total_available'];
     $decimal_fields = ['price_per_hour', 'price_per_day', 'price_per_weekday', 'price_per_weekend', 'price_per_week', 'security_deposit', 'delivery_charge'];
     $boolean_fields = ['has_ac', 'helmets_included', 'delivery_available'];
 
@@ -293,7 +306,7 @@ function xp_rentals_normalize_vehicle_input($data) {
     elseif (isset($data['bike_subtype'])) $clean['bike_subtype'] = sanitize_key($data['bike_subtype']);
     foreach ($text_fields as $field) {
         if (array_key_exists($field, $data)) {
-            $clean[$field] = $field === 'description' ? sanitize_textarea_field($data[$field]) : sanitize_text_field($data[$field]);
+            $clean[$field] = in_array($field, ['description', 'terms_conditions'], true) ? sanitize_textarea_field($data[$field]) : sanitize_text_field($data[$field]);
         }
     }
     foreach ($integer_fields as $field) {
@@ -304,6 +317,21 @@ function xp_rentals_normalize_vehicle_input($data) {
     }
     foreach ($boolean_fields as $field) {
         if (array_key_exists($field, $data)) $clean[$field] = !empty($data[$field]) ? 1 : 0;
+    }
+    if (array_key_exists('custom_plans', $data)) {
+        $plans = is_array($data['custom_plans']) ? $data['custom_plans'] : [];
+        $clean_plans = [];
+        foreach ($plans as $plan) {
+            if (!is_array($plan)) continue;
+            $label = sanitize_text_field((string) ($plan['label'] ?? ''));
+            $price = max(0, round((float) ($plan['price'] ?? 0), 2));
+            if ($label !== '') $clean_plans[] = ['label' => $label, 'price' => $price];
+        }
+        $clean['custom_plans_json'] = wp_json_encode(array_slice($clean_plans, 0, 20));
+    }
+    if (array_key_exists('amenities', $data)) {
+        $amenities = is_array($data['amenities']) ? $data['amenities'] : [];
+        $clean['amenities_json'] = wp_json_encode(array_slice(array_unique(array_values(array_filter(array_map('sanitize_text_field', $amenities)))), 0, 30));
     }
     if (array_key_exists('gallery', $data)) {
         $gallery = is_array($data['gallery']) ? $data['gallery'] : [];
@@ -322,6 +350,7 @@ function xp_rentals_vehicle_to_db($data) {
         'transmission' => 'transmission', 'engine_cc' => 'engine_cc',
         'seating_capacity' => 'seating_capacity', 'has_ac' => 'has_ac',
         'helmets_included' => 'helmets_included', 'description' => 'description',
+        'total_available' => 'total_available', 'custom_plans_json' => 'custom_plans_json', 'amenities_json' => 'amenities_json', 'terms_conditions' => 'terms_conditions',
         'price_per_hour' => 'price_per_hour', 'price_per_day' => 'price_per_day',
         'price_per_weekday' => 'price_per_weekday', 'price_per_weekend' => 'price_per_weekend',
         'price_per_week' => 'price_per_week', 'security_deposit' => 'security_deposit',
