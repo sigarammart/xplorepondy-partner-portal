@@ -115,7 +115,7 @@ function xp_ads_public_track(WP_REST_Request $request) {
 
         $updated[] = [
             'ad_id' => $ad_id,
-            $action === 'click' ? 'clicks' : 'views' => xp_ads_increment_counter($ad_id, $meta_key),
+            ($action === 'click' ? 'clicks' : 'views') => xp_ads_increment_counter($ad_id, $meta_key),
         ];
     }
 
@@ -210,7 +210,7 @@ function xp_listing_ad_stats($atts) {
     $listing_id = $post->ID;
     $current_user_id = get_current_user_id();
     $output = '';
-        $ads = get_posts([
+    $ads = get_posts([
             'post_type'      => 'xp-ads',
             'posts_per_page' => 50,
             'no_found_rows'  => true,
@@ -222,8 +222,7 @@ function xp_listing_ad_stats($atts) {
             ]
         ]);
 
-        $output = '';
-        foreach ($ads as $ad) {
+    foreach ($ads as $ad) {
             $repeater = get_post_meta($ad->ID, 'xp_ad_user_id', true);
             if (!is_array($repeater)) continue;
 
