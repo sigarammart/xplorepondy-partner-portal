@@ -67,6 +67,65 @@ function xp_track_ad_views_callback() {
 }
 
 
+/**
+ * Cross-origin REST tracking endpoint for app.xplorepondy.com.
+ *
+ * The public app cannot depend on the WordPress admin-ajax URL being
+ * accessible from every browser/network. Keep the existing AJAX endpoints
+ * for WordPress pages, but expose the same increment operation through the
+ * normal WP REST stack so the PWA can send fire-and-forget impressions.
+ */
+add_action('rest_api_init', function () {
+    register_rest_route('xplore/v1', '/ads/track', [
+        'methods' => WP_REST_Server::CREATABLE,
+        'permission_callback' => '__return_true',
+        'callback' => 'xp_ads_public_track',
+    ]);
+});
+
+function xp_ads_public_track(WP_REST_Request $request) {
+    $action = sanitize_key((string) $request->get_param('action'));
+    $raw_ids = $request->get_param('ad_ids');
+
+    if ($raw_ids === null || $raw_ids === '') {
+        $raw_ids = $request->get_param('ad_id');
+    }
+
+    if (!is_array($raw_ids)) {
+        $raw_ids = [$raw_ids];
+    }
+
+    $ad_ids = array_values(array_unique(array_filter(array_map('absint', $raw_ids))));
+    $ad_ids = array_slice($ad_ids, 0, 20);
+
+    if (!$ad_ids) {
+        return new WP_Error('xp_invalid_ad_ids', 'No ad IDs supplied.', ['status' => 400]);
+    }
+
+    $meta_key = $action === 'click' ? '_ad_clicks' : ($action === 'view' ? '_ad_views' : '');
+    if ($meta_key === '') {
+        return new WP_Error('xp_invalid_tracking_action', 'Invalid tracking action.', ['status' => 400]);
+    }
+
+    $updated = [];
+    foreach ($ad_ids as $ad_id) {
+        if (get_post_type($ad_id) !== 'xp-ads') {
+            continue;
+        }
+
+        $updated[] = [
+            'ad_id' => $ad_id,
+            $action === 'click' ? 'clicks' : 'views' => xp_ads_increment_counter($ad_id, $meta_key),
+        ];
+    }
+
+    return new WP_REST_Response([
+        'success' => true,
+        'action' => $action,
+        'ads' => $updated,
+    ], 200);
+}
+
 function xp_track_ad_click_callback() {
     $ad_id = absint($_REQUEST['ad_id'] ?? 0);
     if (!$ad_id || get_post_type($ad_id) !== 'xp-ads') {
@@ -150,10 +209,7 @@ function xp_listing_ad_stats($atts) {
     global $post;
     $listing_id = $post->ID;
     $current_user_id = get_current_user_id();
-    $transient_key = "xp_ad_stats_{$listing_id}_{$current_user_id}";
-    $output = get_transient($transient_key);
-
-    if ($output === false) {
+    $output = '';
         $ads = get_posts([
             'post_type'      => 'xp-ads',
             'posts_per_page' => 50,
@@ -184,8 +240,6 @@ function xp_listing_ad_stats($atts) {
             $ctr    = $views > 0 ? round(($clicks / $views) * 100, 2) : 0;
             $output .= "<p><strong>{$ad->post_title}</strong>: Views: {$views} | Clicks: {$clicks} | CTR: {$ctr}%</p>";
         }
-        set_transient($transient_key, $output ?: '', HOUR_IN_SECONDS);
-    }
     return $output;
 }
 add_shortcode('xp_listing_ad_stats', 'xp_listing_ad_stats');
