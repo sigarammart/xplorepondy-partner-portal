@@ -27,6 +27,10 @@ const vehicleSchema = identitySchema.extend({
   hasAc: z.boolean().optional(),
   helmetsIncluded: z.boolean().optional(),
   description: z.string().max(5000).optional(),
+  totalAvailable: z.number().int().min(1).max(9999).optional(),
+  customPlans: z.array(z.object({ label: z.string().trim().min(1).max(60), price: z.number().min(0) })).max(20).optional(),
+  amenities: z.array(z.string().trim().max(60)).max(30).optional(),
+  termsConditions: z.string().max(1000).optional(),
   pricePerHour: z.number().min(0).nullable().optional(),
   pricePerDay: z.number().min(0),
   pricePerWeekday: z.number().min(0),
@@ -56,6 +60,10 @@ export type RentalVehicle = {
   has_ac: boolean;
   helmets_included: boolean;
   description: string;
+  total_available: number;
+  custom_plans: Array<{ label: string; price: number }>;
+  amenities: string[];
+  terms_conditions: string;
   price_per_hour: number | null;
   price_per_day: number;
   price_per_weekday: number;
@@ -127,6 +135,10 @@ function vehicleBody(data: z.infer<typeof vehicleSchema>) {
     has_ac: data.hasAc ?? false,
     helmets_included: data.helmetsIncluded ?? false,
     description: data.description ?? "",
+    total_available: data.totalAvailable ?? 1,
+    custom_plans: data.customPlans ?? [],
+    amenities: data.amenities ?? [],
+    terms_conditions: data.termsConditions ?? "",
     price_per_hour: data.pricePerHour ?? null,
     price_per_day: data.pricePerDay,
     price_per_weekday: data.pricePerWeekday,
