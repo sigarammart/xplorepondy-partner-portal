@@ -21,6 +21,7 @@ import { OwnerStatusManager } from "@/components/owner-status-manager";
 import { ListingModeratorsManager } from "@/components/listing-moderators-manager";
 import { RentalVehiclesManager } from "@/components/rental-vehicles-manager";
 import { authEnabled, signOut } from "@/lib/auth/client";
+import { Armchair, CalendarCheck, ChevronUp, Home, MapPin, PanelsTopLeft } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
   validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "moderators" | "rentals"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
@@ -981,35 +982,102 @@ function ListingOwnerDashboardPage() {
       ) : (
         <div className="xp-partner-app-layout">
           <aside className="xp-partner-sidebar">
+            <div className="xp-partner-sidebar-brand">
+              <Link to="/dashboard" search={{}} aria-label="Xplore Pondy Partner dashboard" className="xp-partner-sidebar-logo"><Logo /></Link>
+              <span>PARTNER</span>
+            </div>
             <div className="xp-partner-sidebar-label">WORKSPACE</div>
-            <nav aria-label="Partner portal navigation">
-              {dashboardNav.map((item) => (
-                <Link key={item.key} to="/dashboard" search={item.view === "menu" ? {} : { view: item.view, ...(item.bookingType ? { bookingType: item.bookingType } : {}) }} aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : activeView === item.key ? "page" : undefined} className={"xp-partner-nav-link " + (item.child ? "ml-3 !min-h-10 !border-transparent !bg-transparent !pl-7 !text-sm hover:!bg-muted" : "")}>
-                  <item.icon className="size-4" /><span>{item.label}</span>{item.count !== undefined && <span className="xp-partner-nav-count">{item.key === "table-reservations" && (item.pendingCount ?? 0) > 0 ? `${item.pendingCount} Pending (${item.count})` : item.count}</span>}
+            <nav aria-label="Partner portal navigation" className="xp-partner-sidebar-nav">
+              {dashboardNav.filter((item) => !item.child && item.key !== "events" && item.key !== "experiences" && item.key !== "bookings").map((item) => (
+                <Link
+                  key={item.key}
+                  to="/dashboard"
+                  search={item.view === "menu" ? {} : { view: item.view, ...(item.bookingType ? { bookingType: item.bookingType } : {}) }}
+                  aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : activeView === item.key ? "page" : undefined}
+                  className="xp-partner-nav-link"
+                >
+                  <item.icon className="size-5 shrink-0" strokeWidth={1.8} />
+                  <span>{item.label}</span>
+                  {item.count !== undefined && <span className="xp-partner-nav-count">{item.count.toLocaleString("en-IN")}</span>}
                 </Link>
               ))}
-              <Link to="/qr-scan" className="xp-partner-nav-link"><QrCode className="size-4" /><span>Scan QR tickets</span></Link>
-              <Link to="/reservation-setup" search={{}} className="xp-partner-nav-link"><Settings2 className="size-4" /><span>Reservation setup</span></Link>
+              <div className="xp-partner-sidebar-divider" />
+              {([
+                { key: "events", label: "Events", icon: CalendarDays, count: events.length },
+                { key: "experiences", label: "Experiences", icon: Ticket, count: experiences.length },
+                { key: "bookings", label: "Bookings", icon: ClipboardList, count: totalBookings },
+              ] as const).map((group) => {
+                const active = activeView === group.key || (group.key === "bookings" && activeView === "bookings");
+                const expanded = group.key === "bookings"
+                  ? active
+                  : group.key === "events"
+                    ? active
+                    : active;
+                const children = group.key === "bookings"
+                  ? [
+                      { key: "table-reservations", label: "Table Reservations", icon: Armchair, count: dashboard?.reservations.length ?? 0, pendingCount: dashboard?.reservations.filter((reservation) => reservation.status === "pending").length ?? 0, bookingType: "table" as const },
+                      { key: "event-bookings", label: "Event Bookings", icon: CalendarCheck, count: eventBookings.length, bookingType: "events" as const },
+                      { key: "experience-bookings", label: "Experience Bookings", icon: Ticket, count: experienceBookings.length, bookingType: "experiences" as const },
+                    ]
+                  : group.key === "events"
+                    ? [{ key: "event-management", label: "Manage events", icon: CalendarDays, count: group.count, bookingType: undefined }]
+                    : [{ key: "experience-management", label: "Manage experiences", icon: Ticket, count: group.count, bookingType: undefined }];
+                return (
+                  <div key={group.key} className="xp-partner-nav-group">
+                    <Link
+                      to="/dashboard"
+                      search={{ view: group.key as "events" | "experiences" | "bookings" }}
+                      aria-current={active && group.key !== "bookings" ? "page" : undefined}
+                      className={"xp-partner-nav-link xp-partner-nav-group-link" + (active ? " is-expanded" : "")}
+                    >
+                      <group.icon className="size-5 shrink-0" strokeWidth={1.8} />
+                      <span>{group.label}</span>
+                      <span className="xp-partner-nav-count">{group.count.toLocaleString("en-IN")}</span>
+                      {expanded ? <ChevronUp className="size-4 shrink-0" /> : <ChevronDown className="size-4 shrink-0" />}
+                    </Link>
+                    {expanded && (
+                      <div className="xp-partner-nav-children">
+                        {children.map((child) => (
+                          <Link
+                            key={child.key}
+                            to="/dashboard"
+                            search={group.key === "bookings" ? { view: "bookings", bookingType: child.bookingType } : { view: group.key as "events" | "experiences" }}
+                            aria-current={group.key === "bookings" && activeView === "bookings" && searchBookingType === child.bookingType ? "page" : undefined}
+                            className="xp-partner-nav-child"
+                          >
+                            <child.icon className="size-5 shrink-0" strokeWidth={1.8} />
+                            <span>{child.label}</span>
+                            {child.key === "table-reservations" && child.pendingCount > 0
+                              ? <span className="xp-partner-nav-pending">{child.pendingCount} Pending ({child.count})</span>
+                              : <span className="xp-partner-nav-count">{child.count}</span>}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <div className="xp-partner-sidebar-divider" />
+              <Link to="/dashboard" search={{ view: "notifications" }} aria-current={activeView === "notifications" ? "page" : undefined} className="xp-partner-nav-link">
+                <Bell className="size-5 shrink-0" strokeWidth={1.8} /><span>Notifications</span>
+                <span className="xp-partner-nav-count">{unreadNotifications}</span>
+              </Link>
+              <Link to="/qr-scan" className="xp-partner-nav-link"><QrCode className="size-5 shrink-0" strokeWidth={1.8} /><span>Scan QR Tickets</span></Link>
+              <Link to="/reservation-setup" search={{}} className="xp-partner-nav-link"><Settings2 className="size-5 shrink-0" strokeWidth={1.8} /><span>Reservation Setup</span></Link>
             </nav>
             <div className="xp-partner-sidebar-footer">
-              <div className="xp-partner-online-dot" /> Connected to Xplore Pondy
+              <div className="xp-partner-sidebar-status"><div className="xp-partner-online-dot" /><span>Connected to<br />Xplore Pondy</span></div>
               {loggedIn && (
                 <button
                   type="button"
                   onClick={() => {
                     useSession.getState().clearSession();
-                    if (authEnabled) {
-                      void signOut().catch(() => {
-                        window.location.href = "/login";
-                      });
-                    } else {
-                      window.location.href = "/login";
-                    }
+                    if (authEnabled) void signOut().catch(() => { window.location.href = "/login"; });
+                    else window.location.href = "/login";
                   }}
-                  className="mt-3 flex w-full items-center gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                  className="xp-partner-sidebar-signout"
                 >
-                  <LogOut className="size-4 shrink-0" />
-                  <span>Sign out</span>
+                  <LogOut className="size-5 shrink-0" /><span>Sign out</span>
                 </button>
               )}
             </div>
