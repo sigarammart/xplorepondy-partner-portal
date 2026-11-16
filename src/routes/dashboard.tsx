@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, Megaphone, ShieldCheck, CarFront, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, LogOut, Menu, QrCode, Settings2, Store, Ticket, X, XCircle, Armchair, CalendarCheck } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Camera, ChartNoAxesCombined, Megaphone, ShieldCheck, CarFront, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ClipboardList, ExternalLink, FilePlus2, LoaderCircle, LogOut, Menu, QrCode, Settings2, Store, Ticket, X, XCircle, Armchair, CalendarCheck, Home, MapPin, PanelsTopLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,6 @@ import { OwnerStatusManager } from "@/components/owner-status-manager";
 import { ListingModeratorsManager } from "@/components/listing-moderators-manager";
 import { RentalVehiclesManager } from "@/components/rental-vehicles-manager";
 import { authEnabled, signOut } from "@/lib/auth/client";
-import { Armchair, CalendarCheck, ChevronUp, Home, MapPin, PanelsTopLeft } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
   validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "moderators" | "rentals"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
