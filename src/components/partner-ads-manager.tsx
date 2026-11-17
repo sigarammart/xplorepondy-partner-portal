@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ImagePlus, Megaphone, Pencil, Plus, RefreshCw, Save, Search, Upload } from "lucide-react";
+import { AlertCircle, ImagePlus, Megaphone, Pencil, Plus, RefreshCw, Save, Search, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createPartnerAd, fetchPartnerAdListings, fetchPartnerAds, updatePartnerAd, uploadPartnerAdImage, type PartnerAd } from "@/lib/owner-listings";
@@ -445,6 +445,20 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
       </div>
 
       <div className="rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:p-6">
+        <div className="mb-4 rounded-2xl border border-primary/25 bg-primary/5 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <h3 className="font-semibold">Ad statistics &amp; tracking</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Ad views and clicks continue to be tracked without caching. Dashboard statistics refresh every 6 hours.</p>
+              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <li>• Views, clicks and CTR use the 6-hour statistics cache.</li>
+                <li>• Vendor listing ad statistics and dashboard ad notices use the same 6-hour cache.</li>
+                <li>• Ad delivery and availability are not cached for 6 hours, so expired or maxed-out ads can still be disabled correctly.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <div className="flex items-center justify-between gap-3"><div><h3 className="font-display text-xl font-semibold">Your campaigns</h3><p className="mt-1 text-sm text-muted-foreground">Views, clicks and CTR are read from the WordPress XP Ads tracker.</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{ads.length} campaign{ads.length === 1 ? "" : "s"}</span></div>
         <div className="mt-5 rounded-2xl border border-border/70 bg-background p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
