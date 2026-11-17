@@ -20,9 +20,9 @@ const POSITIONS = [
   ["listing_loop_between", "Between Listings", "1000 × 250 px", "1 slot per archive page"],
   ["sidebar_top", "Sidebar Top", "300 × 250 px", "6 slots · 2 displayed at a time · 4 in rotation"],
   ["sidebar_bottom", "Sidebar Bottom", "300 × 250 px", "1 slot"],
-  ["sidebar_map_top", "Sidebar Map Top", "300 × 180 px", "Legacy placement"],
   ["explore_map_top_ad_1", "Explore map top Ad - 1", "420 × 140 px", "1 dedicated slot · first row, left"],
   ["explore_map_top_ad_2", "Explore map top Ad - 2", "420 × 140 px", "1 dedicated slot · first row, right"],
+  ["sidebar_map_top", "Sidebar Map Top", "300 × 180 px", "Legacy placement"],
 ] as const;
 
 const AD_TYPES = [
