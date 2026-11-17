@@ -923,6 +923,12 @@ function xp_ads_partner_create(WP_REST_Request $request) {
     if (!$positions) $positions = [$position];
     update_post_meta($post_id, 'ad_position', $positions[0]);
     update_post_meta($post_id, 'ad_positions', $positions);
+    // Map-top Ad 1 and Ad 2 are fixed dedicated positions: each campaign
+    // must occupy exactly one of these slots rather than both.
+    if (array_intersect($positions, ['explore_map_top_ad_1', 'explore_map_top_ad_2']) && count($positions) !== 1) {
+        wp_delete_post($post_id, true);
+        return new WP_Error('xp_ads_invalid_map_slot', 'Choose only one Explore map ad position per campaign.', ['status' => 400]);
+    }
     update_post_meta($post_id, 'ad_status', 'pending');
     update_post_meta($post_id, 'xp_ad_user_id', [['user_id' => (int) $user->ID]]);
 
@@ -998,6 +1004,9 @@ function xp_ads_partner_update(WP_REST_Request $request) {
         $positions = array_values(array_filter(array_map('sanitize_key', (array) $data['positions'])));
         $positions = array_values(array_intersect($positions, $allowed_positions));
         if ($positions) {
+            if (array_intersect($positions, ['explore_map_top_ad_1', 'explore_map_top_ad_2']) && count($positions) !== 1) {
+                return new WP_Error('xp_ads_invalid_map_slot', 'Choose only one Explore map ad position per campaign.', ['status' => 400]);
+            }
             update_post_meta($id, 'ad_positions', $positions);
             update_post_meta($id, 'ad_position', $positions[0]);
         }
