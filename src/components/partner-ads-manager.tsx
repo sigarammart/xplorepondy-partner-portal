@@ -14,15 +14,15 @@ type Props = {
 };
 
 const POSITIONS = [
-  ["homepage_top", "Homepage Top", "1200 × 240 px", "3 slots · 1 displayed at a time · rotation"],
-  ["homepage_sub", "Homepage Sub", "1200 × 240 px", "3 slots · displayed side by side in a three-column row"],
+  ["homepage_top", "Homepage Top", "1200 × 300 px", "3 slots · 1 displayed at a time · rotation"],
+  ["homepage_sub", "Homepage Sub", "500 × 250 px", "3 slots · displayed side by side in a three-column row"],
   ["explore_top", "Explore Top", "800 × 200 px", "3 slots · 1 displayed at a time · rotation"],
-  ["listing_loop_between", "Between Listings", "1000 × 250 px", "1 slot per archive page"],
-  ["sidebar_top", "Sidebar Top", "300 × 250 px", "6 slots · 2 displayed at a time · 4 in rotation"],
-  ["sidebar_bottom", "Sidebar Bottom", "300 × 250 px", "1 slot"],
-  ["explore_map_top_ad_1", "Explore map top Ad - 1", "420 × 140 px", "1 dedicated slot · first row, left"],
-  ["explore_map_top_ad_2", "Explore map top Ad - 2", "420 × 140 px", "1 dedicated slot · first row, right"],
-  ["sidebar_map_top", "Sidebar Map Top", "300 × 180 px", "Legacy placement"],
+  ["listing_loop_between", "Between Listings", "800 × 200 px", "1 slot per archive page"],
+  ["sidebar_top", "Sidebar Top", "450 × 150 px", "6 slots · 2 displayed at a time · 4 in rotation"],
+  ["sidebar_bottom", "Sidebar Bottom", "450 × 150 px", "1 slot"],
+  ["explore_map_top_ad_1", "Explore map top Ad - 1", "600 × 200 px", "1 dedicated slot · first row, left"],
+  ["explore_map_top_ad_2", "Explore map top Ad - 2", "600 × 200 px", "1 dedicated slot · first row, right"],
+  ["sidebar_map_top", "Sidebar Map Top", "450 × 150 px", "Legacy placement"],
 ] as const;
 
 const AD_TYPES = [
