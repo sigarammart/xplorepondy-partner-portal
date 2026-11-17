@@ -912,14 +912,14 @@ function xp_ads_partner_create(WP_REST_Request $request) {
     $title = sanitize_text_field($data['title'] ?? '');
     $image_url = esc_url_raw($data['image_url'] ?? '');
     $position = sanitize_key($data['position'] ?? '');
-    $allowed_positions = ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'homepage_sub'];
+    $allowed_positions = ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'explore_map_top_ad_1', 'explore_map_top_ad_2', 'homepage_sub'];
     if (!$title || !$image_url || !in_array($position, $allowed_positions, true)) return new WP_Error('xp_ads_invalid', 'Title, creative image and a valid placement are required.', ['status' => 400]);
 
     $post_id = wp_insert_post(['post_type' => 'xp-ads', 'post_title' => $title, 'post_status' => 'pending', 'post_author' => (int) $user->ID], true);
     if (is_wp_error($post_id)) return $post_id;
     update_post_meta($post_id, 'ad_image_url', $image_url);
     $positions = array_values(array_filter(array_map('sanitize_key', (array) ($data['positions'] ?? [$position]))));
-    $positions = array_values(array_intersect($positions, ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'homepage_sub']));
+    $positions = array_values(array_intersect($positions, ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'explore_map_top_ad_1', 'explore_map_top_ad_2', 'homepage_sub']));
     if (!$positions) $positions = [$position];
     update_post_meta($post_id, 'ad_position', $positions[0]);
     update_post_meta($post_id, 'ad_positions', $positions);
@@ -982,7 +982,7 @@ function xp_ads_partner_update(WP_REST_Request $request) {
         'max_views' => ['xp_ad_max_views', 'int'],
         'max_clicks' => ['xp_ad_max_clicks', 'int'],
     ];
-    $allowed_positions = ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'homepage_sub'];
+    $allowed_positions = ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'explore_map_top_ad_1', 'explore_map_top_ad_2', 'homepage_sub'];
     foreach ($map as $field => [$meta_key, $type]) {
         if (!array_key_exists($field, $data)) continue;
         $value = $data[$field];
