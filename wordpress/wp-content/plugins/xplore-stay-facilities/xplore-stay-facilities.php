@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Stay Facilities
  * Description: Retrieves available Google Places attributes for Stay listings using their existing _place_id and stores reviewable Xplore facility suggestions.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Xplore Pondy
  * Text Domain: xplore-stay-facilities
  */
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
 }
 
 final class Xplore_Stay_Facilities {
-    const VERSION = '1.0.0';
+    const VERSION = '1.0.1';
     const OPTION_KEY = 'xplore_stay_facilities_google_api_key';
     const RAW_META = '_xplore_google_place_details';
     const SUGGESTIONS_META = '_xplore_stay_facility_suggestions';
@@ -207,7 +207,6 @@ final class Xplore_Stay_Facilities {
                 </p>
                 <p class="description"><?php esc_html_e('Selected items are added to the existing JetEngine fields. Existing selections are preserved.', 'xplore-stay-facilities'); ?></p>
             <?php endif; ?>
-        <?php endif; ?>
         <?php elseif (is_array($raw) && !empty($raw)) : ?>
             <p class="description"><?php esc_html_e('Google returned details, but no mapped facility attributes were found.', 'xplore-stay-facilities'); ?></p>
         <?php endif; ?>
