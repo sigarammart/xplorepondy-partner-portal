@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.4
+ * Version: 1.4.5
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.4';
+        const VERSION = '1.4.5';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -554,7 +554,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
              * This avoids any dependency on the custom claims table during
              * public submission.
              */
-            $existing = get_posts([
+            $pending_existing = get_posts([
                 'post_type' => 'xplore_listing_claim',
                 'post_status' => 'publish',
                 'posts_per_page' => 1,
@@ -573,16 +573,77 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                     ],
                     [
                         'key' => '_claim_status',
-                        'value' => ['pending', 'approved'],
-                        'compare' => 'IN',
+                        'value' => 'pending',
+                        'compare' => '=',
                     ],
                 ],
             ]);
 
-            if (!empty($existing)) {
-                return new \WP_Error(
-                    'xplore_claim_duplicate',
-                    __('A claim for this listing from this email is already under review.', 'xplore-listing-verification'),
+            // Reuse a pending claim for the same listing/email. This lets a
+            // claimant correct a claim whose details were corrupted by an
+            // older WordPress fatal-error response instead of being blocked
+            // by the duplicate-claim check.
+            if (!empty($pending_existing)) {
+                $claim_id = (int) $pending_existing[0];
+
+                update_post_meta($claim_id, '_first_name', $first_name);
+                update_post_meta($claim_id, '_last_name', $last_name);
+                update_post_meta($claim_id, '_email', strtolower($email));
+                update_post_meta($claim_id, '_phone', $phone);
+                update_post_meta($claim_id, '_details', $details);
+                update_post_meta($claim_id, '_claim_status', 'pending');
+                update_post_meta($claim_id, '_admin_read_at', '');
+
+                wp_update_post([
+                    'ID' => $claim_id,
+                    'post_title' => sprintf(
+                        __('Claim: %1$s — %2$s', 'xplore-listing-verification'),
+                        get_the_title($listing_id),
+                        trim($first_name . ' ' . $last_name)
+                    ),
+                ]);
+
+                return rest_ensure_response([
+                    'ok' => true,
+                    'claim' => [
+                        'id' => $claim_id,
+                        'listing_id' => $listing_id,
+                        'status' => 'pending',
+                        'storage' => 'wordpress_cpt',
+                        'updated_existing' => true,
+                    ],
+                ]);
+            }
+
+            $approved_existing = get_posts([
+                'post_type' => 'xplore_listing_claim',
+                'post_status' => 'publish',
+                'posts_per_page' => 1,
+                'fields' => 'ids',
+                'meta_query' => [
+                    'relation' => 'AND',
+                    [
+                        'key' => '_listing_id',
+                        'value' => (string) $listing_id,
+                        'compare' => '=',
+                    ],
+                    [
+                        'key' => '_email',
+                        'value' => strtolower($email),
+                        'compare' => '=',
+                    ],
+                    [
+                        'key' => '_claim_status',
+                        'value' => 'approved',
+                        'compare' => '=',
+                    ],
+                ],
+            ]);
+
+            if (!empty($approved_existing)) {
+                return new WP_Error(
+                    'xplore_claim_already_approved',
+                    __('A claim for this listing from this email has already been approved.', 'xplore-listing-verification'),
                     ['status' => 409]
                 );
             }
