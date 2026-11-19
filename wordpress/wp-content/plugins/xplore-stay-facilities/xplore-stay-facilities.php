@@ -109,15 +109,31 @@ final class Xplore_Stay_Facilities {
             <p class="description"><?php esc_html_e('No _place_id value was found on this listing.', 'xplore-stay-facilities'); ?></p>
         <?php endif; ?>
 
+        <?php $has_api_key = (bool) get_option(self::OPTION_KEY); ?>
         <form method="post" action="<?php echo esc_url($action_url); ?>">
             <input type="hidden" name="action" value="xplore_stay_facilities_sync">
             <input type="hidden" name="listing_id" value="<?php echo esc_attr($post->ID); ?>">
             <?php wp_nonce_field('xplore_stay_facilities_sync_' . $post->ID); ?>
-            <?php submit_button(__('Fetch Google Facilities', 'xplore-stay-facilities'), 'secondary', 'submit', false, ['disabled' => !$place_id || !get_option(self::OPTION_KEY)]); ?>
+            <?php
+            if ($place_id && $has_api_key) {
+                submit_button(__('Fetch Google Facilities', 'xplore-stay-facilities'), 'secondary', 'submit', false);
+            } elseif ($place_id) {
+                submit_button(__('Configure Google API Key', 'xplore-stay-facilities'), 'secondary', 'xplore_configure_google_key', false);
+            } else {
+                submit_button(__('Fetch Google Facilities', 'xplore-stay-facilities'), 'secondary', 'submit', false, ['disabled' => true]);
+            }
+            ?>
         </form>
 
-        <?php if (!get_option(self::OPTION_KEY)) : ?>
-            <p class="description"><?php esc_html_e('Add your Google Places API key under Settings → Stay Facilities first.', 'xplore-stay-facilities'); ?></p>
+        <?php if ($place_id && !$has_api_key) : ?>
+            <p class="description">
+                <?php
+                printf(
+                    wp_kses_post(__('Google Places API key is not configured. <a href="%s">Configure it under Settings → Stay Facilities</a>.', 'xplore-stay-facilities')),
+                    esc_url(admin_url('options-general.php?page=xplore-stay-facilities'))
+                );
+                ?>
+            </p>
         <?php endif; ?>
 
         <?php if ($synced_at) : ?>
@@ -156,6 +172,10 @@ final class Xplore_Stay_Facilities {
     }
 
     public static function handle_sync() {
+        if (isset($_POST['xplore_configure_google_key'])) {
+            wp_safe_redirect(admin_url('options-general.php?page=xplore-stay-facilities'));
+            exit;
+        }
         $listing_id = isset($_POST['listing_id']) ? absint($_POST['listing_id']) : 0;
         if (!$listing_id || get_post_type($listing_id) !== 'listing') {
             wp_die(esc_html__('Invalid Stay listing.', 'xplore-stay-facilities'), '', ['response' => 400]);
