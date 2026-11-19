@@ -964,7 +964,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             $listing_id = absint($listing['listing_id'] ?? 0);
 
             if (!$listing_id || get_post_type($listing_id) !== 'listing') {
-                return new \\WP_Error(
+                return new \WP_Error(
                     'xplore_claim_listing_unresolved',
                     __('This claim cannot be approved because its listing could not be linked. Please verify the listing record first.', 'xplore-listing-verification'),
                     ['status' => 409]
@@ -975,7 +975,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             $owner = $email ? get_user_by('email', $email) : false;
 
             if (!$owner || !user_can($owner, 'read')) {
-                return new \\WP_Error(
+                return new \WP_Error(
                     'xplore_claim_owner_account_missing',
                     __('This claim cannot be approved because the claimant does not have an eligible WordPress account with that email.', 'xplore-listing-verification'),
                     ['status' => 409]
@@ -988,7 +988,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             ], true);
 
             if (is_wp_error($updated) || !$updated) {
-                return new \\WP_Error(
+                return new \WP_Error(
                     'xplore_claim_owner_assignment_failed',
                     __('The listing could not be assigned to the claimant account.', 'xplore-listing-verification'),
                     ['status' => 500]
