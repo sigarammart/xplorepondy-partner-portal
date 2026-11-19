@@ -26,6 +26,7 @@ final class Xplore_Stay_Facilities {
         add_action('admin_enqueue_scripts', [__CLASS__, 'admin_assets']);
         add_action('admin_post_xplore_stay_facilities_sync', [__CLASS__, 'handle_sync']);
         add_action('wp_ajax_xplore_stay_save_api_key', [__CLASS__, 'ajax_save_api_key']);
+        add_action('wp_ajax_xplore_stay_fetch_facilities', [__CLASS__, 'ajax_fetch_facilities']);
         add_action('rest_api_init', [__CLASS__, 'register_routes']);
     }
 
@@ -205,8 +206,36 @@ jQuery(function($){
         if(!key){$status.text('Enter an API key first.');return;}
         $btn.prop('disabled',true); $status.text('Saving…');
         $.post(window.XploreStayFacilities.ajaxUrl,{action:'xplore_stay_save_api_key',nonce:window.XploreStayFacilities.nonce,listing_id:$btn.data('listing-id'),api_key:key})
-        .done(function(r){if(r.success){$status.text('Saved. Reloading…');window.location.reload();}else{$status.text(r.data&&r.data.message?r.data.message:'Could not save the key.');}})
+        .done(function(r){
+            if(r.success){
+                $status.text('✓ API key saved successfully. Reloading…');
+                setTimeout(function(){window.location.reload();},700);
+            }else{
+                $status.text(r.data&&r.data.message?r.data.message:'Could not save the key.');
+            }
+        })
         .fail(function(){ $status.text('Could not save the key.'); })
+        .always(function(){ $btn.prop('disabled',false); });
+    });
+
+    $(document).on('click', '.xplore-fetch-facilities', function(){
+        var $btn=$(this), $box=$btn.closest('#xplore_stay_facilities_google'), $status=$box.find('.xplore-facilities-status');
+        $btn.prop('disabled',true); $status.text('Fetching from Google Places…');
+        $.post(window.XploreStayFacilities.ajaxUrl,{action:'xplore_stay_fetch_facilities',nonce:window.XploreStayFacilities.nonce,listing_id:$btn.data('listing-id')})
+        .done(function(r){
+            if(r.success){
+                var count=(r.data&&r.data.suggestions)?r.data.suggestions.length:0;
+                $status.text('✓ Google data fetched. '+count+' suggestion(s) found. Reloading…');
+                setTimeout(function(){window.location.reload();},700);
+            }else{
+                $status.text(r.data&&r.data.message?r.data.message:'Google Places request failed.');
+            }
+        })
+        .fail(function(xhr){
+            var msg='Google Places request failed.';
+            if(xhr.responseJSON&&xhr.responseJSON.data&&xhr.responseJSON.data.message){msg=xhr.responseJSON.data.message;}
+            $status.text(msg);
+        })
         .always(function(){ $btn.prop('disabled',false); });
     });
 });
@@ -239,6 +268,27 @@ JS
         }
         update_option(self::OPTION_KEY, $key, false);
         wp_send_json_success(['message' => __('Google Places API key saved.', 'xplore-stay-facilities')]);
+    }
+
+    public static function ajax_fetch_facilities() {
+        check_ajax_referer('xplore_stay_facilities_ajax', 'nonce');
+        $listing_id = isset($_POST['listing_id']) ? absint($_POST['listing_id']) : 0;
+        if (!$listing_id || get_post_type($listing_id) !== 'listing' || !current_user_can('edit_post', $listing_id) || !current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('You are not allowed to fetch facilities for this listing.', 'xplore-stay-facilities')], 403);
+        }
+
+        $result = self::sync_listing($listing_id);
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()], (int) ($result->get_error_data()['status'] ?? 400));
+        }
+
+        $suggestions = get_post_meta($listing_id, self::SUGGESTIONS_META, true);
+        $synced_at = get_post_meta($listing_id, self::SYNCED_META, true);
+        wp_send_json_success([
+            'message' => sprintf(__('Google facilities fetched successfully. %d suggestion(s) found.', 'xplore-stay-facilities'), is_array($suggestions) ? count($suggestions) : 0),
+            'suggestions' => is_array($suggestions) ? $suggestions : [],
+            'synced_at' => $synced_at,
+        ]);
     }
 
     public static function handle_sync() {
