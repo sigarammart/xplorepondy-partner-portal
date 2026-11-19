@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.5.0
+ * Version: 1.5.1
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.5.0';
+        const VERSION = '1.5.1';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -132,7 +132,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                     'email' => (string) get_post_meta($legacy_id, '_email', true),
                     'phone' => (string) get_post_meta($legacy_id, '_phone', true),
                     'details' => (string) get_post_meta($legacy_id, '_details', true),
-                    'status' => (string) get_post_meta($legacy_id, '_claim_status', true) ?: 'pending',
+                    'status' => $claim_status,
                     'admin_read_at' => (string) get_post_meta($legacy_id, '_admin_read_at', true) ?: null,
                     'created_at' => $created ?: current_time('mysql'),
                     'updated_at' => $created ?: current_time('mysql'),
@@ -870,6 +870,18 @@ if (!class_exists('XPLORE_Listing_Verification')) {
 
             foreach ($legacy_ids as $legacy_id) {
                 $listing = self::legacy_claim_listing_details($legacy_id);
+                $claim_status = (string) get_post_meta($legacy_id, '_claim_status', true) ?: 'pending';
+
+                // Older approvals transferred ownership without setting the
+                // verification flag. Reconcile those approved claims so their
+                // listings immediately show as verified and remain in My Listings.
+                if ($claim_status === 'approved') {
+                    $ownership = self::assign_claim_listing_owner($legacy_id);
+                    if (is_wp_error($ownership)) {
+                        error_log('[Xplore Listing Verification] Could not sync approved claim #' . (int) $legacy_id . ': ' . $ownership->get_error_message());
+                    }
+                    $listing = self::legacy_claim_listing_details($legacy_id);
+                }
 
                 $items[] = [
                     'id' => (int) $legacy_id,
@@ -995,8 +1007,12 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 );
             }
 
+            update_post_meta($listing_id, '_verified', '1');
+            update_post_meta($listing_id, '_verification_claim_id', $claim_id);
             update_post_meta($claim_id, '_approved_owner_user_id', (int) $owner->ID);
-            update_post_meta($claim_id, '_claim_approved_at', current_time('mysql'));
+            if (!get_post_meta($claim_id, '_claim_approved_at', true)) {
+                update_post_meta($claim_id, '_claim_approved_at', current_time('mysql'));
+            }
 
             return [
                 'listing_id' => $listing_id,
