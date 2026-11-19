@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.3.0
+ * Version: 1.3.1
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.3.0';
+        const VERSION = '1.3.1';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -22,9 +22,9 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             add_filter('the_content', [__CLASS__, 'append_to_listing_content'], 20);
             add_action('wp_enqueue_scripts', [__CLASS__, 'register_styles']);
             add_action('admin_menu', [__CLASS__, 'admin_menu']);
+            // Keep the legacy CPT registered for backwards compatibility,
+            // but do not query/migrate legacy claims during normal requests.
             add_action('init', [__CLASS__, 'register_claim_post_type']);
-            add_action('init', [__CLASS__, 'ensure_claim_table'], 5);
-            add_action('init', [__CLASS__, 'maybe_migrate_legacy_claims'], 6);
             add_action('rest_api_init', [__CLASS__, 'register_claim_routes']);
         }
 
@@ -403,6 +403,11 @@ if (!class_exists('XPLORE_Listing_Verification')) {
         public static function submit_claim(\WP_REST_Request $request) {
             global $wpdb;
 
+            // Create/repair the claims table lazily on the actual claim request.
+            // This avoids running dbDelta() and the legacy migration on every
+            // normal WordPress page request.
+            self::ensure_claim_table();
+
             $listing_id = absint($request->get_param('listing_id'));
             $listing = get_post($listing_id);
 
@@ -486,14 +491,17 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             }
 
             $claim_id = (int) $wpdb->insert_id;
-            $row = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM {$table} WHERE id = %d LIMIT 1",
-                $claim_id
-            ));
-
+            // Keep the submit response deliberately small. The Partner Portal
+            // only needs confirmation; claim details are fetched by the admin
+            // endpoint. This also avoids running any post/meta/template logic
+            // during the public submission request.
             return rest_ensure_response([
                 'ok' => true,
-                'claim' => self::claim_payload($row),
+                'claim' => [
+                    'id' => $claim_id,
+                    'listing_id' => $listing_id,
+                    'status' => 'pending',
+                ],
             ]);
         }
 
