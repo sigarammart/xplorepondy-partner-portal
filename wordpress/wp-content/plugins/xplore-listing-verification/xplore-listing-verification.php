@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status with a claim-listing link for Listeo listings.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.0.0';
+        const VERSION = '1.1.0';
         const SHORTCODE = 'xplore_listing_verification';
 
         public static function init() {
@@ -21,6 +21,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             add_filter('the_content', [__CLASS__, 'append_to_listing_content'], 20);
             add_action('wp_enqueue_scripts', [__CLASS__, 'register_styles']);
             add_action('admin_menu', [__CLASS__, 'admin_menu']);
+            add_action('wp_footer', [__CLASS__, 'maybe_auto_open_listeo_claim']);
         }
 
         private static function is_listing($post_id) {
@@ -87,8 +88,9 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 $output .= '</span>';
 
                 if ($args['show_claim'] === 'yes') {
-                    // Preserve Listeo's native listing claim workflow.
-                    $output .= '<a class="xplore-listing-verification__claim" href="' . esc_url(get_permalink($post_id)) . '">';
+                    // Return to the listing page and request the native Listeo claim UI.
+                    $claim_url = add_query_arg('xplore_claim', '1', get_permalink($post_id));
+                    $output .= '<a class="xplore-listing-verification__claim" href="' . esc_url($claim_url) . '">';
                     $output .= esc_html__('Claim this listing', 'xplore-listing-verification');
                     $output .= '</a>';
                 }
@@ -192,6 +194,54 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             ');
         }
 
+        /**
+         * Opens Listeo's native claim control for visitors following our claim link.
+         * Claim submission, records, moderation and ownership lifecycle remain in Listeo Core.
+         */
+        public static function maybe_auto_open_listeo_claim() {
+            if (!is_singular('listing') || self::is_verified(get_the_ID())) { return; }
+            if (empty($_GET['xplore_claim']) || sanitize_text_field(wp_unslash($_GET['xplore_claim'])) !== '1') { return; }
+            ?>
+            <script>
+            (function () {
+                function isVisible(el) {
+                    if (!el || el.closest('.xplore-listing-verification')) return false;
+                    var s = window.getComputedStyle(el), r = el.getBoundingClientRect();
+                    return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+                }
+                function openClaim() {
+                    var selectors = ['.claim-listing', '.claim-listing-button', '.listing-claim', '.claim-listing-link', '[data-target*="claim"]', '[data-modal*="claim"]', '[href*="claim-listing"]'];
+                    for (var i = 0; i < selectors.length; i++) {
+                        var nodes = document.querySelectorAll(selectors[i]);
+                        for (var j = 0; j < nodes.length; j++) {
+                            if (isVisible(nodes[j])) { nodes[j].click(); return true; }
+                        }
+                    }
+                    var controls = document.querySelectorAll('a,button,[role="button"]');
+                    for (var k = 0; k < controls.length; k++) {
+                        var node = controls[k];
+                        if (!isVisible(node)) continue;
+                        var label = (node.textContent || '').replace(/\s+/g, ' ').trim();
+                        if (/^claim(?: this)? listing$/i.test(label)) { node.click(); return true; }
+                    }
+                    return false;
+                }
+                function start() {
+                    var tries = 0;
+                    var timer = window.setInterval(function () {
+                        tries++;
+                        if (openClaim() || tries >= 20) {
+                            window.clearInterval(timer);
+                            try { var u = new URL(window.location.href); u.searchParams.delete('xplore_claim'); window.history.replaceState({}, document.title, u.toString()); } catch (e) {}
+                        }
+                    }, 250);
+                }
+                if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+                else start();
+            }());
+            </script>
+            <?php
+        }
         public static function admin_menu() {
             add_options_page(
                 __('Xplore Listing Verification', 'xplore-listing-verification'),
@@ -241,6 +291,9 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                         </button>
                     </p>
                 </form>
+
+                <h2><?php esc_html_e('Listeo Claim Integration', 'xplore-listing-verification'); ?></h2>
+                <p><?php esc_html_e('The claim link adds xplore_claim=1 and asks this plugin to open Listeo Core’s native claim form. Claim submissions and ownership decisions remain managed by Listeo.', 'xplore-listing-verification'); ?></p>
 
                 <h2><?php esc_html_e('Shortcode', 'xplore-listing-verification'); ?></h2>
                 <p><code>[xplore_listing_verification]</code> — <?php esc_html_e('current listing', 'xplore-listing-verification'); ?></p>
