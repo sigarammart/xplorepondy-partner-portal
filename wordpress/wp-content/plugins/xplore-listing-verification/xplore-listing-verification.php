@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.5
+ * Version: 1.4.6
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.5';
+        const VERSION = '1.4.6';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -349,7 +349,8 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             return true;
         }
 
-        private static function admin_bridge_permission(\WP_REST_Request $request) {
+        // WordPress invokes this method from its REST server, so it must be public.
+        public static function admin_bridge_permission(\WP_REST_Request $request) {
             $bridge = self::bridge_permission($request);
 
             if (is_wp_error($bridge)) {
