@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.1
+ * Version: 1.4.2
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.1';
+        const VERSION = '1.4.2';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -665,35 +665,18 @@ if (!class_exists('XPLORE_Listing_Verification')) {
         }
 
         public static function admin_claims(\WP_REST_Request $request) {
-            global $wpdb;
-
-            if (!self::ensure_claim_table()) {
-                error_log('[Xplore Listing Verification] Admin claim table unavailable; using legacy claim CPT.');
-            }
-
+            /*
+             * WordPress CPT is the authoritative claim record.
+             *
+             * The dedicated table is only a best-effort mirror used for older
+             * deployments/analytics. Returning it first caused stale mirror
+             * data to win over a newer successful claim, which could make the
+             * Partner Portal display an old WordPress critical-error HTML page
+             * as the claimant's verification details.
+             */
             $limit = min(100, max(1, absint($request->get_param('limit') ?: 50)));
             $unread_only = sanitize_text_field((string) $request->get_param('unread')) === '1';
-            $table = self::table_name();
-            $items = [];
 
-            $table_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
-
-            if ($table_exists) {
-                $where = $unread_only ? 'WHERE admin_read_at IS NULL' : '';
-                $rows = $wpdb->get_results(
-                    $wpdb->prepare(
-                        "SELECT * FROM {$table} {$where} ORDER BY created_at DESC LIMIT %d",
-                        $limit
-                    )
-                );
-                $items = array_values(array_filter(array_map([__CLASS__, 'claim_payload'], $rows)));
-            }
-
-            // Also expose claims saved through the legacy fallback. The CPT is
-            // the primary persistence record for public submissions, so when a
-            // table mirror exists for the same listing/email, use the CPT's
-            // claimant details to repair any stale/broken mirror data while
-            // retaining the table ID for admin actions.
             $legacy_args = [
                 'post_type' => 'xplore_listing_claim',
                 'post_status' => 'publish',
@@ -701,6 +684,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 'orderby' => 'date',
                 'order' => 'DESC',
             ];
+
             if ($unread_only) {
                 $legacy_args['meta_query'] = [[
                     'key' => '_admin_read_at',
@@ -709,19 +693,20 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             }
 
             $legacy_ids = get_posts($legacy_args);
-            $legacy_by_key = [];
+            $items = [];
+
             foreach ($legacy_ids as $legacy_id) {
                 $listing_id = (int) get_post_meta($legacy_id, '_listing_id', true);
                 $email = strtolower(trim((string) get_post_meta($legacy_id, '_email', true)));
-                $key = $listing_id . '|' . $email;
-                $legacy_by_key[$key] = [
+
+                $items[] = [
                     'id' => (int) $legacy_id,
                     'listing_id' => $listing_id,
                     'listing_title' => get_the_title($listing_id) ?: __('Unknown listing', 'xplore-listing-verification'),
                     'listing_url' => $listing_id ? get_permalink($listing_id) : '',
                     'first_name' => (string) get_post_meta($legacy_id, '_first_name', true),
                     'last_name' => (string) get_post_meta($legacy_id, '_last_name', true),
-                    'email' => (string) get_post_meta($legacy_id, '_email', true),
+                    'email' => $email,
                     'phone' => (string) get_post_meta($legacy_id, '_phone', true),
                     'details' => self::claim_details_for_display(get_post_meta($legacy_id, '_details', true)),
                     'status' => (string) get_post_meta($legacy_id, '_claim_status', true) ?: 'pending',
@@ -730,34 +715,11 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 ];
             }
 
-            foreach ($items as $index => $item) {
-                $key = (int) ($item['listing_id'] ?? 0) . '|' . strtolower(trim((string) ($item['email'] ?? '')));
-                if (isset($legacy_by_key[$key])) {
-                    $legacy = $legacy_by_key[$key];
-                    // Keep the dedicated-table ID so read/status actions remain
-                    // compatible with the existing admin endpoints.
-                    $items[$index] = array_merge($item, [
-                        'listing_title' => $legacy['listing_title'],
-                        'listing_url' => $legacy['listing_url'],
-                        'first_name' => $legacy['first_name'],
-                        'last_name' => $legacy['last_name'],
-                        'email' => $legacy['email'],
-                        'phone' => $legacy['phone'],
-                        'details' => $legacy['details'],
-                        'status' => $legacy['status'],
-                        'read_at' => $legacy['read_at'],
-                        'created_at' => $legacy['created_at'],
-                    ]);
-                    unset($legacy_by_key[$key]);
-                }
-            }
-
-            // Add legacy-only claims when the optional table mirror was not
-            // created successfully.
-            foreach ($legacy_by_key as $legacy) {
-                $items[] = $legacy;
-            }
-
+            /*
+             * Do not merge the optional mirror into these records. The public
+             * submission path always creates the CPT first; therefore the CPT
+             * contains the freshest claimant details.
+             */
             usort($items, static function ($a, $b) {
                 return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
             });
@@ -774,6 +736,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             return rest_ensure_response([
                 'items' => $items,
                 'unread' => $unread,
+                'source' => 'wordpress_cpt',
             ]);
         }
 
