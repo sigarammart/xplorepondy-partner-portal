@@ -21,7 +21,7 @@ final class Xplore_Stay_Facilities {
     const REST_NAMESPACE = 'xplore-stay/v1';
 
     public static function init() {
-        add_action('admin_menu', [__CLASS__, 'admin_menu']);
+        add_action('admin_menu', [__CLASS__, 'admin_menu'], 99);
         add_action('add_meta_boxes', [__CLASS__, 'add_meta_box']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'admin_assets']);
         add_action('admin_post_xplore_stay_facilities_sync', [__CLASS__, 'handle_sync']);
@@ -122,7 +122,7 @@ final class Xplore_Stay_Facilities {
             </form>
         <?php elseif ($place_id) : ?>
             <p>
-                <a class="button button-secondary" href="<?php echo esc_url(admin_url('edit.php?post_type=listing&page=xplore-stay-facilities')); ?>">
+                <a class="button button-secondary" href="<?php echo esc_url(menu_page_url('xplore-stay-facilities', false)); ?>">
                     <?php esc_html_e('Configure Google API Key', 'xplore-stay-facilities'); ?>
                 </a>
             </p>
