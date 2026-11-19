@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.7
+ * Version: 1.4.8
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.7';
+        const VERSION = '1.4.8';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -600,6 +600,8 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 update_post_meta($claim_id, '_first_name', $first_name);
                 update_post_meta($claim_id, '_last_name', $last_name);
                 update_post_meta($claim_id, '_email', strtolower($email));
+                update_post_meta($claim_id, '_listing_title', (string) get_the_title($listing_id));
+                update_post_meta($claim_id, '_listing_url', (string) get_permalink($listing_id));
                 update_post_meta($claim_id, '_phone', $phone);
                 update_post_meta($claim_id, '_details', $details);
                 update_post_meta($claim_id, '_claim_status', 'pending');
@@ -767,6 +769,72 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             return wp_strip_all_tags($details);
         }
 
+        /**
+         * Recover listing details for claims created before listing metadata was
+         * persisted. Legacy claim titles use "Claim: {listing} — {claimant}".
+         */
+        private static function legacy_claim_listing_details($claim_id) {
+            $claim_id = absint($claim_id);
+            $listing_id = absint(get_post_meta($claim_id, '_listing_id', true));
+            $stored_title = sanitize_text_field((string) get_post_meta($claim_id, '_listing_title', true));
+            $stored_url = esc_url_raw((string) get_post_meta($claim_id, '_listing_url', true));
+            $listing = $listing_id ? get_post($listing_id) : null;
+
+            if (!$stored_title && $listing && $listing->post_type === 'listing') {
+                $stored_title = get_the_title($listing_id);
+            }
+
+            if (!$stored_title) {
+                $claim = get_post($claim_id);
+                $claim_title = $claim ? sanitize_text_field((string) $claim->post_title) : '';
+                if (preg_match('/^Claim:\\s*(.+)\\s+—\\s+.+$/u', $claim_title, $matches)) {
+                    $stored_title = trim($matches[1]);
+                }
+            }
+
+            if (!$listing || $listing->post_type !== 'listing') {
+                $matches = $stored_title ? get_posts([
+                    'post_type' => 'listing',
+                    'post_status' => 'any',
+                    'posts_per_page' => 2,
+                    'fields' => 'ids',
+                    'title' => $stored_title,
+                    'suppress_filters' => true,
+                ]) : [];
+
+                // Only attach a recovered ID when the title identifies exactly
+                // one listing, avoiding an arbitrary match for duplicate names.
+                if (count($matches) === 1) {
+                    $listing_id = absint($matches[0]);
+                    $listing = get_post($listing_id);
+                    if ($listing && $listing->post_type === 'listing') {
+                        $stored_url = get_permalink($listing_id);
+                        update_post_meta($claim_id, '_listing_id', $listing_id);
+                        update_post_meta($claim_id, '_listing_title', get_the_title($listing_id));
+                        update_post_meta($claim_id, '_listing_url', $stored_url);
+                    } else {
+                        $listing = null;
+                    }
+                } else {
+                    $listing = null;
+                }
+            }
+
+            if ($listing && $listing->post_type === 'listing') {
+                return [
+                    'listing_id' => $listing_id,
+                    'listing_title' => get_the_title($listing_id),
+                    'listing_url' => get_permalink($listing_id),
+                ];
+            }
+
+            return [
+                'listing_id' => $listing_id,
+                'listing_title' => $stored_title ?: __('Unknown listing', 'xplore-listing-verification'),
+                'listing_url' => $stored_url,
+            ];
+        }
+
         public static function admin_claims(\WP_REST_Request $request) {
             /*
              * WordPress CPT is the authoritative claim record.
@@ -799,32 +867,16 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             $items = [];
 
             foreach ($legacy_ids as $legacy_id) {
-                $listing_id = absint(get_post_meta($legacy_id, '_listing_id', true));
-                $stored_listing_title = sanitize_text_field((string) get_post_meta($legacy_id, '_listing_title', true));
-                $stored_listing_url = esc_url_raw((string) get_post_meta($legacy_id, '_listing_url', true));
-                $linked_listing = $listing_id ? get_post($listing_id) : null;
-
-                // Resolve by the stored ID first; use the persisted title/URL as
-                // a fallback for old claims whose listing link was saved in a
-                // non-standard format or whose listing is no longer published.
-                $listing_title = ($linked_listing && $linked_listing->post_type === 'listing')
-                    ? get_the_title($listing_id)
-                    : $stored_listing_title;
-                if (!$listing_title && $listing_id) {
-                    $listing_title = get_the_title($listing_id);
-                }
-                $listing_url = ($linked_listing && $linked_listing->post_type === 'listing')
-                    ? get_permalink($listing_id)
-                    : $stored_listing_url;
+                $listing = self::legacy_claim_listing_details($legacy_id);
 
                 $items[] = [
                     'id' => (int) $legacy_id,
-                    'listing_id' => $listing_id,
-                    'listing_title' => $listing_title ?: __('Unknown listing', 'xplore-listing-verification'),
-                    'listing_url' => $listing_url ?: '',
+                    'listing_id' => $listing['listing_id'],
+                    'listing_title' => $listing['listing_title'],
+                    'listing_url' => $listing['listing_url'],
                     'first_name' => (string) get_post_meta($legacy_id, '_first_name', true),
                     'last_name' => (string) get_post_meta($legacy_id, '_last_name', true),
-                    'email' => $email,
+                    'email' => strtolower(trim((string) get_post_meta($legacy_id, '_email', true))),
                     'phone' => (string) get_post_meta($legacy_id, '_phone', true),
                     'details' => self::claim_details_for_display(get_post_meta($legacy_id, '_details', true)),
                     'status' => (string) get_post_meta($legacy_id, '_claim_status', true) ?: 'pending',
