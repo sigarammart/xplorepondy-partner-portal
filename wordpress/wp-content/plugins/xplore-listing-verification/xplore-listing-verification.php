@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.3
+ * Version: 1.4.4
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.3';
+        const VERSION = '1.4.4';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -539,7 +539,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             $last_name = sanitize_text_field((string) $request->get_param('last_name'));
             $email = sanitize_email((string) $request->get_param('email'));
             $phone = sanitize_text_field((string) $request->get_param('phone'));
-            $details = sanitize_textarea_field((string) $request->get_param('details'));
+            $details = self::sanitize_claim_details((string) $request->get_param('details'));
 
             if (!$first_name || !$last_name || !$email || !$details) {
                 return new \WP_Error(
@@ -649,16 +649,47 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             ]);
         }
 
+        /**
+         * Sanitize claimant-entered verification details before they are ever
+         * persisted. In particular, never persist a WordPress fatal-error
+         * document or arbitrary HTML as the claimant's message.
+         */
+        private static function sanitize_claim_details($details) {
+            $details = is_string($details) ? trim($details) : '';
+
+            if ($details === '') {
+                return '';
+            }
+
+            // A previous broken bridge could accidentally submit the complete
+            // WordPress fatal-error page as the details value. Do not store it.
+            if (
+                stripos($details, 'critical error on this website') !== false ||
+                stripos($details, 'learn more about troubleshooting wordpress') !== false
+            ) {
+                error_log('[Xplore Listing Verification] Rejected WordPress fatal-error HTML from claim details.');
+                return '';
+            }
+
+            // Textarea input should be plain text. Strip any markup that may
+            // have been supplied by a client outside the normal app form.
+            $details = wp_strip_all_tags($details);
+            $details = sanitize_textarea_field($details);
+            return trim($details);
+        }
+
         private static function claim_details_for_display($details) {
             $details = is_string($details) ? trim($details) : '';
             if ($details === '') {
                 return '';
             }
 
-            // Never allow a WordPress fatal-error HTML page to become the
-            // claimant's visible verification message in the Partner Portal.
-            if (stripos($details, 'critical error on this website') !== false) {
-                return __('Claim details were not captured correctly. Please review the claim record in WordPress.', 'xplore-listing-verification');
+            // Defensive cleanup for claims created by older plugin versions.
+            if (
+                stripos($details, 'critical error on this website') !== false ||
+                stripos($details, 'learn more about troubleshooting wordpress') !== false
+            ) {
+                return __('Claim details were not captured correctly. Please ask the claimant to submit the verification details again.', 'xplore-listing-verification');
             }
 
             return wp_strip_all_tags($details);
