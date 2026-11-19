@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.8
+ * Version: 1.4.9
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.8';
+        const VERSION = '1.4.9';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -852,6 +852,8 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 'post_type' => 'xplore_listing_claim',
                 'post_status' => 'publish',
                 'posts_per_page' => $limit,
+                // The loop below reads post meta by ID; get_posts otherwise returns WP_Post objects.
+                'fields' => 'ids',
                 'orderby' => 'date',
                 'order' => 'DESC',
             ];
