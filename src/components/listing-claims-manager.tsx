@@ -14,6 +14,7 @@ export function ListingClaimsManager({ email, identityToken }: { email: string; 
   const [items, setItems] = useState<ListingClaimNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [verifyOnApproval, setVerifyOnApproval] = useState<Record<number, boolean>>({});
   const [error, setError] = useState("");
 
   async function refresh() {
@@ -31,10 +32,10 @@ export function ListingClaimsManager({ email, identityToken }: { email: string; 
 
   useEffect(() => { void refresh(); }, [email, identityToken]);
 
-  async function setStatus(claimId: number, status: "approved" | "rejected") {
+  async function setStatus(claimId: number, status: "approved" | "rejected", verifiedListing = false) {
     setBusyId(claimId);
     try {
-      await updateListingClaimStatus({ data: { email, identityToken, claimId, status } });
+      await updateListingClaimStatus({ data: { email, identityToken, claimId, status, verifiedListing } });
       setItems((current) => current.map((item) => item.id === claimId ? { ...item, status, read_at: item.read_at ?? new Date().toISOString() } : item));
       toast.success(status === "approved" ? "Listing claim approved." : "Listing claim rejected.");
     } catch (reason) {
@@ -91,8 +92,20 @@ export function ListingClaimsManager({ email, identityToken }: { email: string; 
                   </p>
                   <p className="mt-3 whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-sm">{claim.details}</p>
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
-                  <Button size="sm" disabled={busyId === claim.id || claim.status === "approved"} onClick={() => void setStatus(claim.id, "approved")}>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {claim.status !== "approved" && (
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-2.5 py-2 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(verifyOnApproval[claim.id])}
+                        onChange={(event) => setVerifyOnApproval((current) => ({ ...current, [claim.id]: event.target.checked }))}
+                        disabled={busyId === claim.id}
+                        className="size-4 accent-primary"
+                      />
+                      <span>Mark listing as verified</span>
+                    </label>
+                  )}
+                  <Button size="sm" disabled={busyId === claim.id || claim.status === "approved"} onClick={() => void setStatus(claim.id, "approved", Boolean(verifyOnApproval[claim.id]))}>
                     Approve
                   </Button>
                   <Button size="sm" variant="outline" disabled={busyId === claim.id || claim.status === "rejected"} onClick={() => void setStatus(claim.id, "rejected")}>
