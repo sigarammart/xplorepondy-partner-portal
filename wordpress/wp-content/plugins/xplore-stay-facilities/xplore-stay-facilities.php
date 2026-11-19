@@ -134,7 +134,7 @@ final class Xplore_Stay_Facilities {
             </form>
         <?php elseif ($place_id) : ?>
             <p>
-                <a class="button button-secondary" href="<?php echo esc_url(menu_page_url('xplore-stay-facilities', false)); ?>">
+                <a class="button button-secondary" href="<?php echo esc_url(admin_url('admin.php?page=xplore-stay-facilities')); ?>">
                     <?php esc_html_e('Configure Google API Key', 'xplore-stay-facilities'); ?>
                 </a>
             </p>
