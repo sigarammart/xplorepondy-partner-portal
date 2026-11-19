@@ -396,7 +396,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 'last_name' => (string) $row->last_name,
                 'email' => (string) $row->email,
                 'phone' => (string) $row->phone,
-                'details' => (string) $row->details,
+                'details' => self::claim_details_for_display($row->details),
                 'status' => (string) $row->status,
                 'read_at' => $row->admin_read_at ? (string) $row->admin_read_at : null,
                 'created_at' => mysql_to_rfc3339((string) $row->created_at),
@@ -649,6 +649,21 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             ]);
         }
 
+        private static function claim_details_for_display($details) {
+            $details = is_string($details) ? trim($details) : '';
+            if ($details === '') {
+                return '';
+            }
+
+            // Never allow a WordPress fatal-error HTML page to become the
+            // claimant's visible verification message in the Partner Portal.
+            if (stripos($details, 'critical error on this website') !== false) {
+                return __('Claim details were not captured correctly. Please review the claim record in WordPress.', 'xplore-listing-verification');
+            }
+
+            return wp_strip_all_tags($details);
+        }
+
         public static function admin_claims(\WP_REST_Request $request) {
             global $wpdb;
 
@@ -674,7 +689,11 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 $items = array_values(array_filter(array_map([__CLASS__, 'claim_payload'], $rows)));
             }
 
-            // Also expose claims saved through the legacy fallback.
+            // Also expose claims saved through the legacy fallback. The CPT is
+            // the primary persistence record for public submissions, so when a
+            // table mirror exists for the same listing/email, use the CPT's
+            // claimant details to repair any stale/broken mirror data while
+            // retaining the table ID for admin actions.
             $legacy_args = [
                 'post_type' => 'xplore_listing_claim',
                 'post_status' => 'publish',
@@ -690,9 +709,12 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             }
 
             $legacy_ids = get_posts($legacy_args);
+            $legacy_by_key = [];
             foreach ($legacy_ids as $legacy_id) {
                 $listing_id = (int) get_post_meta($legacy_id, '_listing_id', true);
-                $items[] = [
+                $email = strtolower(trim((string) get_post_meta($legacy_id, '_email', true)));
+                $key = $listing_id . '|' . $email;
+                $legacy_by_key[$key] = [
                     'id' => (int) $legacy_id,
                     'listing_id' => $listing_id,
                     'listing_title' => get_the_title($listing_id) ?: __('Unknown listing', 'xplore-listing-verification'),
@@ -701,11 +723,39 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                     'last_name' => (string) get_post_meta($legacy_id, '_last_name', true),
                     'email' => (string) get_post_meta($legacy_id, '_email', true),
                     'phone' => (string) get_post_meta($legacy_id, '_phone', true),
-                    'details' => (string) get_post_meta($legacy_id, '_details', true),
+                    'details' => self::claim_details_for_display(get_post_meta($legacy_id, '_details', true)),
                     'status' => (string) get_post_meta($legacy_id, '_claim_status', true) ?: 'pending',
                     'read_at' => get_post_meta($legacy_id, '_admin_read_at', true) ?: null,
                     'created_at' => get_post_time('c', false, $legacy_id),
                 ];
+            }
+
+            foreach ($items as $index => $item) {
+                $key = (int) ($item['listing_id'] ?? 0) . '|' . strtolower(trim((string) ($item['email'] ?? '')));
+                if (isset($legacy_by_key[$key])) {
+                    $legacy = $legacy_by_key[$key];
+                    // Keep the dedicated-table ID so read/status actions remain
+                    // compatible with the existing admin endpoints.
+                    $items[$index] = array_merge($item, [
+                        'listing_title' => $legacy['listing_title'],
+                        'listing_url' => $legacy['listing_url'],
+                        'first_name' => $legacy['first_name'],
+                        'last_name' => $legacy['last_name'],
+                        'email' => $legacy['email'],
+                        'phone' => $legacy['phone'],
+                        'details' => $legacy['details'],
+                        'status' => $legacy['status'],
+                        'read_at' => $legacy['read_at'],
+                        'created_at' => $legacy['created_at'],
+                    ]);
+                    unset($legacy_by_key[$key]);
+                }
+            }
+
+            // Add legacy-only claims when the optional table mirror was not
+            // created successfully.
+            foreach ($legacy_by_key as $legacy) {
+                $items[] = $legacy;
             }
 
             usort($items, static function ($a, $b) {
