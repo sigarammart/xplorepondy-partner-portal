@@ -27,6 +27,7 @@ final class Xplore_Stay_Facilities {
         add_action('admin_post_xplore_stay_facilities_sync', [__CLASS__, 'handle_sync']);
         add_action('wp_ajax_xplore_stay_save_api_key', [__CLASS__, 'ajax_save_api_key']);
         add_action('wp_ajax_xplore_stay_fetch_facilities', [__CLASS__, 'ajax_fetch_facilities']);
+        add_action('wp_ajax_xplore_stay_apply_facilities', [__CLASS__, 'ajax_apply_facilities']);
         add_action('rest_api_init', [__CLASS__, 'register_routes']);
     }
 
@@ -171,14 +172,26 @@ final class Xplore_Stay_Facilities {
         <?php if (is_array($suggestions) && $suggestions) : ?>
             <hr>
             <p><strong><?php esc_html_e('Facility suggestions', 'xplore-stay-facilities'); ?></strong></p>
-            <ul style="margin-left:18px;list-style:disc;">
-                <?php foreach ($suggestions as $suggestion) : ?>
-                    <li><?php echo esc_html($suggestion['label'] ?? $suggestion['id'] ?? ''); ?>
-                        <?php if (!empty($suggestion['detail'])) : ?><span class="description"> — <?php echo esc_html($suggestion['detail']); ?></span><?php endif; ?>
-                    </li>
+            <div class="xplore-facility-suggestions">
+                <?php foreach ($suggestions as $suggestion) :
+                    $label = is_array($suggestion) ? ($suggestion['label'] ?? $suggestion['id'] ?? '') : $suggestion;
+                    if (!$label) continue;
+                    $mapped = in_array($label, self::facility_options(), true);
+                ?>
+                    <label style="display:block;margin:5px 0;">
+                        <input type="checkbox" class="xplore-facility-option" value="<?php echo esc_attr($label); ?>" <?php disabled(!$mapped); ?>>
+                        <?php echo esc_html($label); ?>
+                        <?php if (!$mapped) : ?><em style="color:#777;"> — not mapped to Hotel Facilities</em><?php endif; ?>
+                    </label>
                 <?php endforeach; ?>
-            </ul>
-            <p class="description"><?php esc_html_e('These are suggestions only. Review and add the verified items to the listing’s existing JetEngine facilities field.', 'xplore-stay-facilities'); ?></p>
+            </div>
+            <p>
+                <button type="button" class="button button-primary xplore-apply-facilities" data-listing-id="<?php echo esc_attr($post->ID); ?>">
+                    <?php esc_html_e('Add Selected Facilities', 'xplore-stay-facilities'); ?>
+                </button>
+                <span class="xplore-facilities-apply-status" style="margin-left:6px;"></span>
+            </p>
+            <p class="description"><?php esc_html_e('Selected items are added to the existing hotel_facilities field. Existing selections are preserved.', 'xplore-stay-facilities'); ?></p>
         <?php elseif (is_array($raw) && !empty($raw)) : ?>
             <p class="description"><?php esc_html_e('Google returned details, but no mapped facility attributes were found.', 'xplore-stay-facilities'); ?></p>
         <?php endif; ?>
@@ -216,6 +229,18 @@ jQuery(function($){
         })
         .fail(function(){ $status.text('Could not save the key.'); })
         .always(function(){ $btn.prop('disabled',false); });
+    });
+
+    $(document).on('click', '.xplore-apply-facilities', function(){
+        var $btn=$(this), $box=$btn.closest('#xplore_stay_facilities_google'), vals=[];
+        $box.find('.xplore-facility-option:checked').each(function(){vals.push($(this).val());});
+        var $status=$box.find('.xplore-facilities-apply-status');
+        if(!vals.length){$status.text('Select at least one mapped facility.');return;}
+        $btn.prop('disabled',true);$status.text('Adding selected facilities…');
+        $.post(window.XploreStayFacilities.ajaxUrl,{action:'xplore_stay_apply_facilities',nonce:window.XploreStayFacilities.nonce,listing_id:$btn.data('listing-id'),facilities:vals})
+        .done(function(r){if(r.success){$status.text('✓ '+r.data.message);$box.find('.xplore-facility-option:checked').prop('checked',false);}else{$status.text(r.data&&r.data.message?r.data.message:'Could not update Hotel Facilities.');}})
+        .fail(function(){$status.text('Could not update Hotel Facilities.');})
+        .always(function(){$btn.prop('disabled',false);});
     });
 
     $(document).on('click', '.xplore-fetch-facilities', function(){
@@ -268,6 +293,30 @@ JS
         }
         update_option(self::OPTION_KEY, $key, false);
         wp_send_json_success(['message' => __('Google Places API key saved.', 'xplore-stay-facilities')]);
+    }
+
+    private static function facility_options() {
+        return ['Parking','Restaurant','Pets Allowed','24/7 Front Desk','Fitness Center','Spa and Wellness','Smoking Area','Swimming Pool','Airport Transfer','Night Club','Good for Children','Wheelchair Accessible','Credit Cards Accepted','Debit Cards Accepted','Contactless Payment'];
+    }
+
+    private static function get_hotel_facilities($listing_id) {
+        $value = get_post_meta($listing_id, 'hotel_facilities', true);
+        return is_array($value) ? array_values(array_filter(array_map('sanitize_text_field', $value))) : [];
+    }
+
+    public static function ajax_apply_facilities() {
+        check_ajax_referer('xplore_stay_facilities_ajax', 'nonce');
+        $listing_id = isset($_POST['listing_id']) ? absint($_POST['listing_id']) : 0;
+        $selected = isset($_POST['facilities']) && is_array($_POST['facilities']) ? array_map('sanitize_text_field', wp_unslash($_POST['facilities'])) : [];
+        if (!$listing_id || get_post_type($listing_id) !== 'listing' || !current_user_can('edit_post', $listing_id) || !current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('You are not allowed to update facilities for this listing.', 'xplore-stay-facilities')], 403);
+        }
+        $allowed = self::facility_options();
+        $selected = array_values(array_unique(array_intersect($allowed, $selected)));
+        $existing = self::get_hotel_facilities($listing_id);
+        $merged = array_values(array_unique(array_merge($existing, $selected)));
+        update_post_meta($listing_id, 'hotel_facilities', $merged);
+        wp_send_json_success(['message' => sprintf(__('Added %d facility option(s) to Hotel Facilities.', 'xplore-stay-facilities'), count($merged) - count($existing)), 'facilities' => $merged]);
     }
 
     public static function ajax_fetch_facilities() {
