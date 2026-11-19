@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.0
+ * Version: 1.4.1
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.0';
+        const VERSION = '1.4.1';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -404,10 +404,21 @@ if (!class_exists('XPLORE_Listing_Verification')) {
         }
 
         public static function register_claim_routes() {
+            /*
+             * Keep authentication inside the claim callback. This gives us one
+             * controlled error path instead of allowing a permission callback
+             * failure to be rendered as WordPress's generic critical-error HTML.
+             */
             register_rest_route('xplore/v1', '/listing-claims', [
                 'methods' => 'POST',
                 'callback' => [__CLASS__, 'submit_claim'],
-                'permission_callback' => [__CLASS__, 'bridge_permission'],
+                'permission_callback' => '__return_true',
+            ]);
+
+            register_rest_route('xplore/v1', '/listing-claims/health', [
+                'methods' => 'GET',
+                'callback' => [__CLASS__, 'claim_health'],
+                'permission_callback' => '__return_true',
             ]);
 
             register_rest_route('xplore/v1', '/listing-claims/admin', [
@@ -460,17 +471,42 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             return (int) $post_id;
         }
 
-        public static function submit_claim(\WP_REST_Request $request) {
-            global $wpdb;
+        public static function claim_health(\WP_REST_Request $request) {
+            return rest_ensure_response([
+                'ok' => true,
+                'plugin' => 'xplore-listing-verification',
+                'version' => self::VERSION,
+                'claim_route' => 'registered',
+                'bridge_configured' => self::bridge_secret() !== '',
+                'php_version' => PHP_VERSION,
+                'wordpress_version' => get_bloginfo('version'),
+            ]);
+        }
 
+        public static function submit_claim(\WP_REST_Request $request) {
             try {
+                $auth = self::bridge_permission($request);
+                if (is_wp_error($auth)) {
+                    return $auth;
+                }
+
                 return self::submit_claim_internal($request);
             } catch (\Throwable $e) {
-                error_log('[Xplore Listing Verification] Unhandled claim submission error: ' . $e->getMessage());
+                error_log(
+                    '[Xplore Listing Verification] Unhandled claim submission error: ' .
+                    $e->getMessage() .
+                    ' in ' . $e->getFile() .
+                    ':' . $e->getLine()
+                );
+
                 return new \WP_Error(
                     'xplore_claim_unhandled_error',
                     __('The listing claim service encountered a temporary server error. Please try again shortly.', 'xplore-listing-verification'),
-                    ['status' => 503]
+                    [
+                        'status' => 503,
+                        'stage' => 'submit_claim',
+                        'plugin_version' => self::VERSION,
+                    ]
                 );
             }
         }
