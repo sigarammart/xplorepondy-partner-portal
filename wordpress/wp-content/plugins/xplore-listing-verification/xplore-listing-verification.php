@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.3.2
+ * Version: 1.3.3
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.3.2';
+        const VERSION = '1.3.3';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -429,6 +429,37 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             ]);
         }
 
+        private static function save_claim_legacy_post($listing_id, $first_name, $last_name, $email, $phone, $details) {
+            $title = sprintf(
+                /* translators: 1: listing title, 2: claimant name */
+                __('Claim: %1$s — %2$s', 'xplore-listing-verification'),
+                get_the_title($listing_id),
+                trim($first_name . ' ' . $last_name)
+            );
+
+            $post_id = wp_insert_post([
+                'post_type' => 'xplore_listing_claim',
+                'post_status' => 'publish',
+                'post_title' => $title,
+            ], true);
+
+            if (is_wp_error($post_id)) {
+                error_log('[Xplore Listing Verification] Legacy claim fallback failed: ' . $post_id->get_error_message());
+                return $post_id;
+            }
+
+            update_post_meta($post_id, '_listing_id', $listing_id);
+            update_post_meta($post_id, '_first_name', $first_name);
+            update_post_meta($post_id, '_last_name', $last_name);
+            update_post_meta($post_id, '_email', strtolower($email));
+            update_post_meta($post_id, '_phone', $phone);
+            update_post_meta($post_id, '_details', $details);
+            update_post_meta($post_id, '_claim_status', 'pending');
+            update_post_meta($post_id, '_admin_read_at', '');
+
+            return (int) $post_id;
+        }
+
         public static function submit_claim(\WP_REST_Request $request) {
             global $wpdb;
 
@@ -532,13 +563,40 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             );
 
             if ($inserted === false) {
-                error_log('[Xplore Listing Verification] Claim insert failed: ' . $wpdb->last_error);
-
-                return new \WP_Error(
-                    'xplore_claim_storage_failed',
-                    __('We could not save your claim right now. Please try again.', 'xplore-listing-verification'),
-                    ['status' => 500]
+                // The dedicated table is the preferred storage, but older
+                // WordPress installations may have restricted DB permissions
+                // or a pre-existing incompatible table. Fall back to the
+                // registered WordPress claim CPT so the claimant is never
+                // blocked by the custom table.
+                $fallback_id = self::save_claim_legacy_post(
+                    $listing_id,
+                    $first_name,
+                    $last_name,
+                    $email,
+                    $phone,
+                    $details
                 );
+
+                if (is_wp_error($fallback_id)) {
+                    error_log('[Xplore Listing Verification] Claim insert failed: ' . $wpdb->last_error);
+                    return new \WP_Error(
+                        'xplore_claim_storage_failed',
+                        __('We could not save your claim right now. Please try again.', 'xplore-listing-verification'),
+                        ['status' => 500]
+                    );
+                }
+
+                error_log('[Xplore Listing Verification] Custom claim table insert failed; saved claim to legacy CPT. DB error: ' . $wpdb->last_error);
+
+                return rest_ensure_response([
+                    'ok' => true,
+                    'claim' => [
+                        'id' => (int) $fallback_id,
+                        'listing_id' => $listing_id,
+                        'status' => 'pending',
+                        'storage' => 'legacy_cpt',
+                    ],
+                ]);
             }
 
             $claim_id = (int) $wpdb->insert_id;
@@ -559,24 +617,74 @@ if (!class_exists('XPLORE_Listing_Verification')) {
         public static function admin_claims(\WP_REST_Request $request) {
             global $wpdb;
 
+            if (!self::ensure_claim_table()) {
+                error_log('[Xplore Listing Verification] Admin claim table unavailable; using legacy claim CPT.');
+            }
+
             $limit = min(100, max(1, absint($request->get_param('limit') ?: 50)));
             $unread_only = sanitize_text_field((string) $request->get_param('unread')) === '1';
             $table = self::table_name();
+            $items = [];
 
-            $where = $unread_only ? 'WHERE admin_read_at IS NULL' : '';
+            $table_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)) === $table;
 
-            $rows = $wpdb->get_results(
-                $wpdb->prepare(
-                    "SELECT * FROM {$table} {$where} ORDER BY created_at DESC LIMIT %d",
-                    $limit
-                )
-            );
+            if ($table_exists) {
+                $where = $unread_only ? 'WHERE admin_read_at IS NULL' : '';
+                $rows = $wpdb->get_results(
+                    $wpdb->prepare(
+                        "SELECT * FROM {$table} {$where} ORDER BY created_at DESC LIMIT %d",
+                        $limit
+                    )
+                );
+                $items = array_values(array_filter(array_map([__CLASS__, 'claim_payload'], $rows)));
+            }
 
-            $items = array_values(array_filter(array_map([__CLASS__, 'claim_payload'], $rows)));
+            // Also expose claims saved through the legacy fallback.
+            $legacy_args = [
+                'post_type' => 'xplore_listing_claim',
+                'post_status' => 'publish',
+                'posts_per_page' => $limit,
+                'orderby' => 'date',
+                'order' => 'DESC',
+            ];
+            if ($unread_only) {
+                $legacy_args['meta_query'] = [[
+                    'key' => '_admin_read_at',
+                    'compare' => 'NOT EXISTS',
+                ]];
+            }
 
-            $unread = (int) $wpdb->get_var(
-                "SELECT COUNT(*) FROM {$table} WHERE admin_read_at IS NULL"
-            );
+            $legacy_ids = get_posts($legacy_args);
+            foreach ($legacy_ids as $legacy_id) {
+                $listing_id = (int) get_post_meta($legacy_id, '_listing_id', true);
+                $items[] = [
+                    'id' => (int) $legacy_id,
+                    'listing_id' => $listing_id,
+                    'listing_title' => get_the_title($listing_id) ?: __('Unknown listing', 'xplore-listing-verification'),
+                    'listing_url' => $listing_id ? get_permalink($listing_id) : '',
+                    'first_name' => (string) get_post_meta($legacy_id, '_first_name', true),
+                    'last_name' => (string) get_post_meta($legacy_id, '_last_name', true),
+                    'email' => (string) get_post_meta($legacy_id, '_email', true),
+                    'phone' => (string) get_post_meta($legacy_id, '_phone', true),
+                    'details' => (string) get_post_meta($legacy_id, '_details', true),
+                    'status' => (string) get_post_meta($legacy_id, '_claim_status', true) ?: 'pending',
+                    'read_at' => get_post_meta($legacy_id, '_admin_read_at', true) ?: null,
+                    'created_at' => get_post_time('c', false, $legacy_id),
+                ];
+            }
+
+            usort($items, static function ($a, $b) {
+                return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+            });
+
+            $items = array_slice($items, 0, $limit);
+
+            $unread = 0;
+            foreach ($items as $item) {
+                if (empty($item['read_at'])) {
+                    $unread++;
+                }
+            }
 
             return rest_ensure_response([
                 'items' => $items,
