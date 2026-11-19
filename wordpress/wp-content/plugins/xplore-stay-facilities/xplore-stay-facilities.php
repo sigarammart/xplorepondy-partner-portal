@@ -25,6 +25,7 @@ final class Xplore_Stay_Facilities {
         add_action('add_meta_boxes', [__CLASS__, 'add_meta_box']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'admin_assets']);
         add_action('admin_post_xplore_stay_facilities_sync', [__CLASS__, 'handle_sync']);
+        add_action('admin_init', [__CLASS__, 'save_inline_api_key']);
         add_action('rest_api_init', [__CLASS__, 'register_routes']);
     }
 
@@ -133,11 +134,29 @@ final class Xplore_Stay_Facilities {
                 <?php submit_button(__('Fetch Google Facilities', 'xplore-stay-facilities'), 'secondary', 'submit', false); ?>
             </form>
         <?php elseif ($place_id) : ?>
-            <p>
-                <a class="button button-secondary" href="<?php echo esc_url(admin_url('admin.php?page=xplore-stay-facilities')); ?>">
-                    <?php esc_html_e('Configure Google API Key', 'xplore-stay-facilities'); ?>
-                </a>
-            </p>
+            <form method="post" action="<?php echo esc_url(admin_url('post.php')); ?>">
+                <input type="hidden" name="post_ID" value="<?php echo esc_attr($post->ID); ?>">
+                <input type="hidden" name="action" value="editpost">
+                <?php wp_nonce_field('xplore_stay_facilities_inline_key_' . $post->ID); ?>
+                <p>
+                    <label for="xplore_stay_google_api_key_<?php echo esc_attr($post->ID); ?>">
+                        <strong><?php esc_html_e('Google Places API key', 'xplore-stay-facilities'); ?></strong>
+                    </label>
+                    <input type="password"
+                        class="widefat"
+                        id="xplore_stay_google_api_key_<?php echo esc_attr($post->ID); ?>"
+                        name="xplore_stay_google_api_key"
+                        value=""
+                        autocomplete="new-password"
+                        placeholder="<?php esc_attr_e('Enter API key', 'xplore-stay-facilities'); ?>">
+                </p>
+                <p>
+                    <button type="submit" class="button button-secondary">
+                        <?php esc_html_e('Save API Key', 'xplore-stay-facilities'); ?>
+                    </button>
+                </p>
+            </form>
+            <p class="description"><?php esc_html_e('The key is saved in WordPress and used server-side. Once saved, reload this listing and Fetch Google Facilities will be enabled.', 'xplore-stay-facilities'); ?></p>
         <?php else : ?>
             <p>
                 <button type="button" class="button button-secondary" disabled><?php esc_html_e('Fetch Google Facilities', 'xplore-stay-facilities'); ?></button>
@@ -183,6 +202,19 @@ final class Xplore_Stay_Facilities {
             return;
         }
         wp_add_inline_style('common', '#xplore_stay_facilities_google .notice{margin:8px 0;}#xplore_stay_facilities_google code{white-space:normal;}');
+    }
+
+    public static function save_inline_api_key() {
+        if (empty($_POST['xplore_stay_google_api_key'])) {
+            return;
+        }
+        $listing_id = isset($_POST['post_ID']) ? absint($_POST['post_ID']) : 0;
+        if (!$listing_id || get_post_type($listing_id) !== 'listing' || !current_user_can('edit_post', $listing_id) || !current_user_can('manage_options')) {
+            return;
+        }
+        check_admin_referer('xplore_stay_facilities_inline_key_' . $listing_id);
+        $key = sanitize_text_field(wp_unslash($_POST['xplore_stay_google_api_key']));
+        update_option(self::OPTION_KEY, $key, false);
     }
 
     public static function handle_sync() {
