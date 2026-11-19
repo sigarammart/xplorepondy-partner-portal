@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.2
+ * Version: 1.4.3
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.2';
+        const VERSION = '1.4.3';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -753,8 +753,17 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 );
             }
 
-            $table = self::table_name();
+            /*
+             * Claim IDs returned by /admin are WordPress CPT IDs. Prefer the
+             * CPT when it exists so a numeric ID collision with the optional
+             * mirror table cannot update the wrong claim.
+             */
+            if (get_post_type($claim_id) === 'xplore_listing_claim') {
+                update_post_meta($claim_id, '_admin_read_at', current_time('mysql'));
+                return rest_ensure_response(['ok' => true]);
+            }
 
+            $table = self::table_name();
             $updated = $wpdb->update(
                 $table,
                 ['admin_read_at' => current_time('mysql'), 'updated_at' => current_time('mysql')],
@@ -763,19 +772,12 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 ['%d']
             );
 
-            if ($updated === false || $updated === 0) {
-                $legacy_id = absint($claim_id);
-                if ($legacy_id && get_post_type($legacy_id) === 'xplore_listing_claim') {
-                    update_post_meta($legacy_id, '_admin_read_at', current_time('mysql'));
-                    return rest_ensure_response(['ok' => true]);
-                }
-                if ($updated === false) {
-                    return new \WP_Error(
-                        'xplore_claim_update_failed',
-                        __('Claim could not be updated.', 'xplore-listing-verification'),
-                        ['status' => 500]
-                    );
-                }
+            if ($updated === false) {
+                return new \WP_Error(
+                    'xplore_claim_update_failed',
+                    __('Claim could not be updated.', 'xplore-listing-verification'),
+                    ['status' => 500]
+                );
             }
 
             return rest_ensure_response(['ok' => true]);
@@ -803,9 +805,27 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 );
             }
 
-            $table = self::table_name();
+            /*
+             * Claim IDs returned by /admin are WordPress CPT IDs. Prefer the
+             * CPT when it exists so status changes cannot hit a mirror row with
+             * the same numeric ID.
+             */
             $now = current_time('mysql');
+            if (get_post_type($claim_id) === 'xplore_listing_claim') {
+                update_post_meta($claim_id, '_claim_status', $status);
+                update_post_meta($claim_id, '_admin_read_at', $now);
 
+                return rest_ensure_response([
+                    'ok' => true,
+                    'status' => $status,
+                    'claim' => [
+                        'id' => $claim_id,
+                        'status' => $status,
+                    ],
+                ]);
+            }
+
+            $table = self::table_name();
             $updated = $wpdb->update(
                 $table,
                 [
@@ -818,23 +838,12 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 ['%d']
             );
 
-            if ($updated === false || $updated === 0) {
-                $legacy_id = absint($claim_id);
-                if ($legacy_id && get_post_type($legacy_id) === 'xplore_listing_claim') {
-                    update_post_meta($legacy_id, '_claim_status', $status);
-                    update_post_meta($legacy_id, '_admin_read_at', $now);
-                    return rest_ensure_response([
-                        'ok' => true,
-                        'status' => $status,
-                    ]);
-                }
-                if ($updated === false) {
-                    return new \WP_Error(
-                        'xplore_claim_update_failed',
-                        __('Claim could not be updated.', 'xplore-listing-verification'),
-                        ['status' => 500]
-                    );
-                }
+            if ($updated === false) {
+                return new \WP_Error(
+                    'xplore_claim_update_failed',
+                    __('Claim could not be updated.', 'xplore-listing-verification'),
+                    ['status' => 500]
+                );
             }
 
             $row = $wpdb->get_row($wpdb->prepare(
