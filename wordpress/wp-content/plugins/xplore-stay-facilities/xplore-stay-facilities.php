@@ -41,9 +41,7 @@ final class Xplore_Stay_Facilities {
             'dashicons-admin-tools',
             58
         );
-        add_submenu_page(
-        // Keep the settings page under the Listing post-type menu so the
-        // configuration link always resolves inside the existing listing admin.
+        // Also expose the page beneath Listings for discoverability.
         add_submenu_page(
             'edit.php?post_type=listing',
             __('Stay Facilities', 'xplore-stay-facilities'),
