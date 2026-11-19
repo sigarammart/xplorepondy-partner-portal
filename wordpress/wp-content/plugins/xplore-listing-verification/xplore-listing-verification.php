@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.3.1
+ * Version: 1.3.2
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.3.1';
+        const VERSION = '1.3.2';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -39,7 +39,20 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             $table = self::table_name();
             $charset = $wpdb->get_charset_collate();
 
-            $sql = "CREATE TABLE {$table} (
+            // Do not run dbDelta() on every claim if the table already exists.
+            // More importantly, verify the table actually exists before trying
+            // to insert. This turns a missing-table failure into a controlled
+            // REST error instead of an HTTP 500/HTML critical-error response.
+            $exists = $wpdb->get_var($wpdb->prepare(
+                'SHOW TABLES LIKE %s',
+                $table
+            ));
+
+            if ($exists === $table) {
+                return true;
+            }
+
+            $sql = "CREATE TABLE IF NOT EXISTS {$table} (
                 id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
                 listing_id bigint(20) unsigned NOT NULL,
                 first_name varchar(60) NOT NULL,
@@ -59,8 +72,24 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 KEY created_at (created_at)
             ) {$charset};";
 
-            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-            dbDelta($sql);
+            $created = $wpdb->query($sql);
+
+            if ($created === false) {
+                error_log('[Xplore Listing Verification] Claim table creation failed: ' . $wpdb->last_error);
+                return false;
+            }
+
+            $exists = $wpdb->get_var($wpdb->prepare(
+                'SHOW TABLES LIKE %s',
+                $table
+            ));
+
+            if ($exists !== $table) {
+                error_log('[Xplore Listing Verification] Claim table is still missing after creation attempt: ' . $table);
+                return false;
+            }
+
+            return true;
         }
 
         /**
@@ -403,10 +432,32 @@ if (!class_exists('XPLORE_Listing_Verification')) {
         public static function submit_claim(\WP_REST_Request $request) {
             global $wpdb;
 
+            try {
+                return self::submit_claim_internal($request);
+            } catch (\Throwable $e) {
+                error_log('[Xplore Listing Verification] Unhandled claim submission error: ' . $e->getMessage());
+                return new \WP_Error(
+                    'xplore_claim_unhandled_error',
+                    __('The listing claim service encountered a temporary server error. Please try again shortly.', 'xplore-listing-verification'),
+                    ['status' => 503]
+                );
+            }
+        }
+
+        private static function submit_claim_internal(\WP_REST_Request $request) {
+            global $wpdb;
+
             // Create/repair the claims table lazily on the actual claim request.
-            // This avoids running dbDelta() and the legacy migration on every
-            // normal WordPress page request.
-            self::ensure_claim_table();
+            // This keeps normal WordPress page requests lightweight while making
+            // the public REST submission path fail safely if the table cannot
+            // be created.
+            if (!self::ensure_claim_table()) {
+                return new \WP_Error(
+                    'xplore_claim_storage_unavailable',
+                    __('The listing claim service is temporarily unavailable. Please try again shortly.', 'xplore-listing-verification'),
+                    ['status' => 503]
+                );
+            }
 
             $listing_id = absint($request->get_param('listing_id'));
             $listing = get_post($listing_id);
