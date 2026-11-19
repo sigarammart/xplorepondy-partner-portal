@@ -29,6 +29,19 @@ final class Xplore_Stay_Facilities {
     }
 
     public static function admin_menu() {
+        // Register the page as a real admin.php page as well as a Listings submenu.
+        // This gives the listing editor a stable destination independent of the
+        // parent CPT menu implementation.
+        add_menu_page(
+            __('Xplore Stay Facilities', 'xplore-stay-facilities'),
+            __('Stay Facilities', 'xplore-stay-facilities'),
+            'manage_options',
+            'xplore-stay-facilities',
+            [__CLASS__, 'settings_page'],
+            'dashicons-admin-tools',
+            58
+        );
+        add_submenu_page(
         // Keep the settings page under the Listing post-type menu so the
         // configuration link always resolves inside the existing listing admin.
         add_submenu_page(
