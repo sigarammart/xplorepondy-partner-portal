@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ImagePlus, Megaphone, Pencil, Plus, RefreshCw, Save, Search, Upload } from "lucide-react";
+import { AlertCircle, ImagePlus, Megaphone, Pencil, Plus, RefreshCw, Save, Search, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createPartnerAd, fetchPartnerAdListings, fetchPartnerAds, updatePartnerAd, uploadPartnerAdImage, type PartnerAd } from "@/lib/owner-listings";
@@ -14,13 +14,15 @@ type Props = {
 };
 
 const POSITIONS = [
-  ["homepage_top", "Homepage Top", "1200 × 240 px", "3 slots · 1 displayed at a time · rotation"],
-  ["homepage_sub", "Homepage Sub", "1200 × 240 px", "3 slots · displayed side by side in a three-column row"],
+  ["homepage_top", "Homepage Top", "1200 × 300 px", "3 slots · 1 displayed at a time · rotation"],
+  ["homepage_sub", "Homepage Sub", "500 × 250 px", "3 slots · displayed side by side in a three-column row"],
   ["explore_top", "Explore Top", "800 × 200 px", "3 slots · 1 displayed at a time · rotation"],
-  ["listing_loop_between", "Between Listings", "1000 × 250 px", "1 slot per archive page"],
-  ["sidebar_top", "Sidebar Top", "300 × 250 px", "6 slots · 2 displayed at a time · 4 in rotation"],
-  ["sidebar_bottom", "Sidebar Bottom", "300 × 250 px", "1 slot"],
-  ["sidebar_map_top", "Sidebar Map Top", "300 × 180 px", "5 slots · 1 displayed at a time · rotation"],
+  ["listing_loop_between", "Between Listings", "800 × 200 px", "1 slot per archive page"],
+  ["sidebar_top", "Sidebar Top", "450 × 150 px", "6 slots · 2 displayed at a time · 4 in rotation"],
+  ["sidebar_bottom", "Sidebar Bottom", "450 × 150 px", "1 slot"],
+  ["explore_map_top_ad_1", "Explore map top Ad - 1", "600 × 200 px", "1 dedicated slot · first row, left"],
+  ["explore_map_top_ad_2", "Explore map top Ad - 2", "600 × 200 px", "1 dedicated slot · first row, right"],
+  ["sidebar_map_top", "Sidebar Map Top", "450 × 150 px", "Legacy placement"],
 ] as const;
 
 const AD_TYPES = [
@@ -274,8 +276,8 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
         ad_type: form.ad_type || undefined,
         link_type: form.link_type || undefined,
         custom_url: form.custom_url.trim() || undefined,
-        position: form.position as "homepage_top" | "explore_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top",
-        positions: [form.position] as Array<"homepage_top" | "explore_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top">,
+        position: form.position as "homepage_top" | "explore_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top" | "explore_map_top_ad_1" | "explore_map_top_ad_2",
+        positions: [form.position] as Array<"homepage_top" | "explore_top" | "listing_loop_between" | "sidebar_top" | "sidebar_bottom" | "sidebar_map_top" | "explore_map_top_ad_1" | "explore_map_top_ad_2">,
         listing_id: form.listing_ids[0] ? Number(form.listing_ids[0]) : undefined,
         listing_ids: form.listing_ids.map(Number),
         start_date: form.start_date || undefined,
@@ -443,6 +445,20 @@ export function PartnerAdsManager({ email, identityToken, listings, isAdministra
       </div>
 
       <div className="rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:p-6">
+        <div className="mb-4 rounded-2xl border border-primary/25 bg-primary/5 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div className="min-w-0">
+              <h3 className="font-semibold">Ad statistics &amp; tracking</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Ad views and clicks continue to be tracked without caching. Dashboard statistics refresh every 6 hours.</p>
+              <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                <li>• Views, clicks and CTR use the 6-hour statistics cache.</li>
+                <li>• Vendor listing ad statistics and dashboard ad notices use the same 6-hour cache.</li>
+                <li>• Ad delivery and availability are not cached for 6 hours, so expired or maxed-out ads can still be disabled correctly.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
         <div className="flex items-center justify-between gap-3"><div><h3 className="font-display text-xl font-semibold">Your campaigns</h3><p className="mt-1 text-sm text-muted-foreground">Views, clicks and CTR are read from the WordPress XP Ads tracker.</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{ads.length} campaign{ads.length === 1 ? "" : "s"}</span></div>
         <div className="mt-5 rounded-2xl border border-border/70 bg-background p-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

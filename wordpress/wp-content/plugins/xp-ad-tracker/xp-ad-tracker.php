@@ -67,6 +67,65 @@ function xp_track_ad_views_callback() {
 }
 
 
+/**
+ * Cross-origin REST tracking endpoint for app.xplorepondy.com.
+ *
+ * The public app cannot depend on the WordPress admin-ajax URL being
+ * accessible from every browser/network. Keep the existing AJAX endpoints
+ * for WordPress pages, but expose the same increment operation through the
+ * normal WP REST stack so the PWA can send fire-and-forget impressions.
+ */
+add_action('rest_api_init', function () {
+    register_rest_route('xplore/v1', '/ads/track', [
+        'methods' => WP_REST_Server::CREATABLE,
+        'permission_callback' => '__return_true',
+        'callback' => 'xp_ads_public_track',
+    ]);
+});
+
+function xp_ads_public_track(WP_REST_Request $request) {
+    $action = sanitize_key((string) $request->get_param('action'));
+    $raw_ids = $request->get_param('ad_ids');
+
+    if ($raw_ids === null || $raw_ids === '') {
+        $raw_ids = $request->get_param('ad_id');
+    }
+
+    if (!is_array($raw_ids)) {
+        $raw_ids = [$raw_ids];
+    }
+
+    $ad_ids = array_values(array_unique(array_filter(array_map('absint', $raw_ids))));
+    $ad_ids = array_slice($ad_ids, 0, 20);
+
+    if (!$ad_ids) {
+        return new WP_Error('xp_invalid_ad_ids', 'No ad IDs supplied.', ['status' => 400]);
+    }
+
+    $meta_key = $action === 'click' ? '_ad_clicks' : ($action === 'view' ? '_ad_views' : '');
+    if ($meta_key === '') {
+        return new WP_Error('xp_invalid_tracking_action', 'Invalid tracking action.', ['status' => 400]);
+    }
+
+    $updated = [];
+    foreach ($ad_ids as $ad_id) {
+        if (get_post_type($ad_id) !== 'xp-ads') {
+            continue;
+        }
+
+        $updated[] = [
+            'ad_id' => $ad_id,
+            ($action === 'click' ? 'clicks' : 'views') => xp_ads_increment_counter($ad_id, $meta_key),
+        ];
+    }
+
+    return new WP_REST_Response([
+        'success' => true,
+        'action' => $action,
+        'ads' => $updated,
+    ], 200);
+}
+
 function xp_track_ad_click_callback() {
     $ad_id = absint($_REQUEST['ad_id'] ?? 0);
     if (!$ad_id || get_post_type($ad_id) !== 'xp-ads') {
@@ -143,6 +202,40 @@ add_shortcode('xp_ad_ctr', function() {
     return 'CTR: ' . xp_get_ad_ctr(get_the_ID());
 });
 
+
+/**
+ * Cached ad statistics for dashboards.
+ *
+ * Tracking itself remains uncached: every valid impression/click increments
+ * the database counter. Dashboard/reporting reads are cached for 6 hours so
+ * partner/admin pages do not repeatedly query postmeta for every ad.
+ */
+function xp_ads_get_cached_stats($post_id) {
+    $post_id = absint($post_id);
+    if (!$post_id) {
+        return ['views' => 0, 'clicks' => 0, 'ctr' => 0];
+    }
+
+    $cache_key = 'xp_ads_stats_v1_' . $post_id;
+    $cached = get_transient($cache_key);
+
+    if (is_array($cached) && isset($cached['views'], $cached['clicks'], $cached['ctr'])) {
+        return $cached;
+    }
+
+    $views  = (int) get_post_meta($post_id, '_ad_views', true);
+    $clicks = (int) get_post_meta($post_id, '_ad_clicks', true);
+    $stats = [
+        'views'  => $views,
+        'clicks' => $clicks,
+        'ctr'    => $views > 0 ? round(($clicks / $views) * 100, 2) : 0,
+    ];
+
+    set_transient($cache_key, $stats, 6 * HOUR_IN_SECONDS);
+
+    return $stats;
+}
+
 // 4) Vendor Ad Stats Shortcode
 function xp_listing_ad_stats($atts) {
     if (!is_user_logged_in()) return '';
@@ -150,11 +243,8 @@ function xp_listing_ad_stats($atts) {
     global $post;
     $listing_id = $post->ID;
     $current_user_id = get_current_user_id();
-    $transient_key = "xp_ad_stats_{$listing_id}_{$current_user_id}";
-    $output = get_transient($transient_key);
-
-    if ($output === false) {
-        $ads = get_posts([
+    $output = '';
+    $ads = get_posts([
             'post_type'      => 'xp-ads',
             'posts_per_page' => 50,
             'no_found_rows'  => true,
@@ -166,8 +256,7 @@ function xp_listing_ad_stats($atts) {
             ]
         ]);
 
-        $output = '';
-        foreach ($ads as $ad) {
+    foreach ($ads as $ad) {
             $repeater = get_post_meta($ad->ID, 'xp_ad_user_id', true);
             if (!is_array($repeater)) continue;
 
@@ -179,13 +268,12 @@ function xp_listing_ad_stats($atts) {
             }
             if (!$found) continue;
 
-            $views  = (int) get_post_meta($ad->ID, '_ad_views', true);
-            $clicks = (int) get_post_meta($ad->ID, '_ad_clicks', true);
-            $ctr    = $views > 0 ? round(($clicks / $views) * 100, 2) : 0;
+            $stats = xp_ads_get_cached_stats($ad->ID);
+            $views  = $stats['views'];
+            $clicks = $stats['clicks'];
+            $ctr    = $stats['ctr'];
             $output .= "<p><strong>{$ad->post_title}</strong>: Views: {$views} | Clicks: {$clicks} | CTR: {$ctr}%</p>";
         }
-        set_transient($transient_key, $output ?: '', HOUR_IN_SECONDS);
-    }
     return $output;
 }
 add_shortcode('xp_listing_ad_stats', 'xp_listing_ad_stats');
@@ -337,8 +425,9 @@ function xp_ad_is_publicly_active($post_id) {
     if ($start && $now < $start) return false;
     if ($end && $now >= $end) return false;
 
-    $views = (int) get_post_meta($post_id, '_ad_views', true);
-    $clicks = (int) get_post_meta($post_id, '_ad_clicks', true);
+    $stats = xp_ads_get_cached_stats($post_id);
+    $views = $stats['views'];
+    $clicks = $stats['clicks'];
     $max_views = (int) get_post_meta($post_id, 'xp_ad_max_views', true);
     $max_clicks = (int) get_post_meta($post_id, 'xp_ad_max_clicks', true);
 
@@ -486,9 +575,10 @@ add_action('wp_ajax_get_dashboard_notices', function () {
     foreach ($ads_query->posts as $ad) {
         $ad_id    = $ad->ID;
         $ad_title = esc_html(get_the_title($ad_id));
-        $views    = (int) get_post_meta($ad_id, '_ad_views', true);
-        $clicks   = (int) get_post_meta($ad_id, '_ad_clicks', true);
-        $ctr      = $views > 0 ? number_format(($clicks / $views) * 100, 2) : '0.00';
+        $stats    = xp_ads_get_cached_stats($ad_id);
+        $views    = $stats['views'];
+        $clicks   = $stats['clicks'];
+        $ctr      = number_format($stats['ctr'], 2);
 
         $notices[] = [
             'class' => 'info',
@@ -630,7 +720,7 @@ function xp_ads_rest_payload($post_id) {
         'max_clicks' => (int) get_post_meta($post_id, 'xp_ad_max_clicks', true),
         'views' => $views,
         'clicks' => $clicks,
-        'ctr' => $views > 0 ? round(($clicks / $views) * 100, 2) : 0,
+        'ctr' => $stats['ctr'],
         'created_at' => get_post_time('c', true, $post_id),
     ];
 }
@@ -822,17 +912,23 @@ function xp_ads_partner_create(WP_REST_Request $request) {
     $title = sanitize_text_field($data['title'] ?? '');
     $image_url = esc_url_raw($data['image_url'] ?? '');
     $position = sanitize_key($data['position'] ?? '');
-    $allowed_positions = ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'homepage_sub'];
+    $allowed_positions = ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'explore_map_top_ad_1', 'explore_map_top_ad_2', 'homepage_sub'];
     if (!$title || !$image_url || !in_array($position, $allowed_positions, true)) return new WP_Error('xp_ads_invalid', 'Title, creative image and a valid placement are required.', ['status' => 400]);
 
     $post_id = wp_insert_post(['post_type' => 'xp-ads', 'post_title' => $title, 'post_status' => 'pending', 'post_author' => (int) $user->ID], true);
     if (is_wp_error($post_id)) return $post_id;
     update_post_meta($post_id, 'ad_image_url', $image_url);
     $positions = array_values(array_filter(array_map('sanitize_key', (array) ($data['positions'] ?? [$position]))));
-    $positions = array_values(array_intersect($positions, ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'homepage_sub']));
+    $positions = array_values(array_intersect($positions, ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'explore_map_top_ad_1', 'explore_map_top_ad_2', 'homepage_sub']));
     if (!$positions) $positions = [$position];
     update_post_meta($post_id, 'ad_position', $positions[0]);
     update_post_meta($post_id, 'ad_positions', $positions);
+    // Map-top Ad 1 and Ad 2 are fixed dedicated positions: each campaign
+    // must occupy exactly one of these slots rather than both.
+    if (array_intersect($positions, ['explore_map_top_ad_1', 'explore_map_top_ad_2']) && count($positions) !== 1) {
+        wp_delete_post($post_id, true);
+        return new WP_Error('xp_ads_invalid_map_slot', 'Choose only one Explore map ad position per campaign.', ['status' => 400]);
+    }
     update_post_meta($post_id, 'ad_status', 'pending');
     update_post_meta($post_id, 'xp_ad_user_id', [['user_id' => (int) $user->ID]]);
 
@@ -892,7 +988,7 @@ function xp_ads_partner_update(WP_REST_Request $request) {
         'max_views' => ['xp_ad_max_views', 'int'],
         'max_clicks' => ['xp_ad_max_clicks', 'int'],
     ];
-    $allowed_positions = ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'homepage_sub'];
+    $allowed_positions = ['homepage_top', 'explore_top', 'listing_loop_between', 'sidebar_top', 'sidebar_bottom', 'sidebar_map_top', 'explore_map_top_ad_1', 'explore_map_top_ad_2', 'homepage_sub'];
     foreach ($map as $field => [$meta_key, $type]) {
         if (!array_key_exists($field, $data)) continue;
         $value = $data[$field];
@@ -908,6 +1004,9 @@ function xp_ads_partner_update(WP_REST_Request $request) {
         $positions = array_values(array_filter(array_map('sanitize_key', (array) $data['positions'])));
         $positions = array_values(array_intersect($positions, $allowed_positions));
         if ($positions) {
+            if (array_intersect($positions, ['explore_map_top_ad_1', 'explore_map_top_ad_2']) && count($positions) !== 1) {
+                return new WP_Error('xp_ads_invalid_map_slot', 'Choose only one Explore map ad position per campaign.', ['status' => 400]);
+            }
             update_post_meta($id, 'ad_positions', $positions);
             update_post_meta($id, 'ad_position', $positions[0]);
         }
