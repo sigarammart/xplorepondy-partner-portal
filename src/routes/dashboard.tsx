@@ -24,9 +24,9 @@ import { RentalVehiclesManager } from "@/components/rental-vehicles-manager";
 import { authEnabled, signOut } from "@/lib/auth/client";
 
 export const Route = createFileRoute("/dashboard")({
-  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "moderators" | "rentals"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
-    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "statistics", "status", "ads", "moderators", "rentals"].includes(String(search.view))
-      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "ads" | "moderators" | "rentals"
+  validateSearch: (search: Record<string, unknown>): { view?: "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "admin-claims" | "statistics" | "status" | "moderators" | "rentals"; bookingType?: "table" | "events" | "experiences"; bookingId?: number; listingId?: number } => ({
+    view: ["bookings", "listings", "events", "experiences", "notifications", "admin-listings", "admin-claims", "statistics", "status", "ads", "moderators", "rentals"].includes(String(search.view))
+      ? search.view as "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "admin-claims" | "statistics" | "status" | "ads" | "moderators" | "rentals"
       : undefined,
     bookingType: ["table", "events", "experiences"].includes(String(search.bookingType))
       ? search.bookingType as "table" | "events" | "experiences"
@@ -494,7 +494,7 @@ function ListingOwnerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "statistics" | "status" | "moderators" | "rentals">(searchView ?? "menu");
+  const [view, setView] = useState<"menu" | "bookings" | "listings" | "events" | "experiences" | "notifications" | "admin-listings" | "admin-claims" | "statistics" | "status" | "moderators" | "rentals">(searchView ?? "menu");
   const [statisticsListingFilter, setStatisticsListingFilter] = useState("all");
   const [statisticsListingSearch, setStatisticsListingSearch] = useState("");
   const [statisticsListingDropdownOpen, setStatisticsListingDropdownOpen] = useState(false);
@@ -941,7 +941,7 @@ function ListingOwnerDashboardPage() {
                 key={item.key}
                 to="/dashboard"
                 search={item.view === "menu" ? {} : { view: item.view, ...(item.bookingType ? { bookingType: item.bookingType } : {}) }}
-                aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : activeView === item.key ? "page" : undefined}
+                aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : (item.key === "admin-listings" ? activeView === "admin-listings" || activeView === "admin-claims" : activeView === item.key) ? "page" : undefined}
                 onClick={() => setMobileMenuOpen(false)}
                 className={"flex items-center gap-3 rounded-xl py-2 text-sm font-medium text-foreground transition hover:bg-muted aria-[current=page]:bg-primary/10 aria-[current=page]:text-primary " + (item.child ? "min-h-10 pl-10 pr-3 text-[13px]" : "min-h-11 px-3")}
               >
@@ -993,7 +993,7 @@ function ListingOwnerDashboardPage() {
                   key={item.key}
                   to="/dashboard"
                   search={item.view === "menu" ? {} : { view: item.view, ...(item.bookingType ? { bookingType: item.bookingType } : {}) }}
-                  aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : activeView === item.key ? "page" : undefined}
+                  aria-current={item.bookingType ? activeView === "bookings" && searchBookingType === item.bookingType ? "page" : undefined : (item.key === "admin-listings" ? activeView === "admin-listings" || activeView === "admin-claims" : activeView === item.key) ? "page" : undefined}
                   className="xp-partner-nav-link"
                 >
                   <item.icon className="size-5 shrink-0" strokeWidth={1.8} />
@@ -1085,9 +1085,22 @@ function ListingOwnerDashboardPage() {
 
           <main className="xp-partner-main">
             <div className="xp-partner-page-heading">
-              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "listings" ? "My Listings" : activeView === "statistics" ? "Statistics" : activeView === "status" ? "My Status" : activeView === "rentals" ? "Rental Vehicles" : activeView === "ads" ? "XP Ads" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
+              <div><div className="xp-partner-eyebrow">PARTNER WORKSPACE</div><h1>{activeView === "overview" ? "Welcome back" : activeView === "admin-listings" ? "Administrator — All Listings" : activeView === "admin-claims" ? "Listing Claims" : activeView === "listings" ? "My Listings" : activeView === "statistics" ? "Statistics" : activeView === "status" ? "My Status" : activeView === "rentals" ? "Rental Vehicles" : activeView === "ads" ? "XP Ads" : activeView === "events" ? "Events" : activeView === "experiences" ? "Experiences" : activeView === "bookings" ? "Bookings & Reservations" : "Notifications"}</h1><p>{email ? `Signed in as ${email}` : "Manage your business across Xplore Pondy."}</p></div>
               <div className="xp-partner-page-actions"><span className="xp-partner-date">{new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</span><Button variant="outline" size="sm" disabled={refreshing} onClick={() => { setRefreshing(true); setRefreshKey((key) => key + 1); toast.success("Refreshing dashboard data…"); window.setTimeout(() => setRefreshing(false), 900); }}><LoaderCircle className={`mr-2 size-4 ${refreshing ? "animate-spin" : ""}`} />{refreshing ? "Refreshing…" : "Refresh data"}</Button></div>
             </div>
+
+            {isAdministrator && (view === "admin-listings" || view === "admin-claims") && (
+              <nav aria-label="Admin listing pages" className="mt-5 flex flex-wrap gap-2 border-b border-border/70 pb-3">
+                <Link to="/dashboard" search={{ view: "admin-listings" }} aria-current={view === "admin-listings" ? "page" : undefined} className={"rounded-xl px-4 py-2 text-sm font-medium transition " + (view === "admin-listings" ? "bg-primary text-primary-foreground" : "border border-border/70 text-muted-foreground hover:bg-muted")}>All Listings</Link>
+                <Link to="/dashboard" search={{ view: "admin-claims" }} aria-current={view === "admin-claims" ? "page" : undefined} className={"rounded-xl px-4 py-2 text-sm font-medium transition " + (view === "admin-claims" ? "bg-primary text-primary-foreground" : "border border-border/70 text-muted-foreground hover:bg-muted")}>Listing Claims</Link>
+              </nav>
+            )}
+
+            {view === "admin-claims" && isAdministrator && (
+              <section className="mt-5">
+                <ListingClaimsManager email={email} identityToken={identityToken ?? undefined} />
+              </section>
+            )}
 
             {activeView === "overview" && (
               <>
@@ -1567,7 +1580,6 @@ function ListingOwnerDashboardPage() {
 
             {view === "notifications" && (
               <section className="mt-5">
-                {isAdministrator && <ListingClaimsManager email={email} identityToken={identityToken ?? undefined} />}
 <div className="xp-partner-panel-header"><div><h2>Notifications inbox</h2><p>Updates related to your events, experiences and table reservations.</p></div><Button variant="outline" size="sm" disabled={refreshing} onClick={() => { setRefreshing(true); setRefreshKey((key) => key + 1); toast.success("Refreshing notifications…"); window.setTimeout(() => setRefreshing(false), 900); }}>Refresh inbox</Button></div>{ownerNotificationsLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading notifications…</p> : ownerNotificationsError ? <p role="alert" className="mt-4 text-sm text-destructive">{ownerNotificationsError}</p> : totalNotifications === 0 ? <div className="xp-partner-empty mt-4"><Bell className="size-6" /><span>No notifications yet. New booking and reservation updates will appear here.</span></div> : <div className="xp-partner-notice-list mt-3">{[...ownerEventNotifications.map((item) => ({ key: `event-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "bookings" as const, bookingType: "events" as const } })), ...ownerNotifications.map((item) => ({ key: `notice-${item.id}`, title: item.title, body: item.body, date: item.created_at, unread: !item.read_at, target: { view: "bookings" as const, bookingType: "table" as const } }))].map((item) => <Link key={item.key} to="/dashboard" search={item.target} className="xp-partner-notice"><span className={`xp-partner-notice-icon ${item.unread ? "unread" : ""}`}><Bell className="size-4" /></span><span className="min-w-0 flex-1"><strong>{item.title}</strong><span>{item.body}</span><small>{formatDisplayDateTime(item.date)}</small></span>{item.unread && <i aria-label="Unread" />}</Link>)}</div>}</section>
             )}
           </main>
