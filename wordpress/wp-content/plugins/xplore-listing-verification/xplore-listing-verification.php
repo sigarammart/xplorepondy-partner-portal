@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.6
+ * Version: 1.4.7
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.6';
+        const VERSION = '1.4.7';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -453,6 +453,14 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 'post_type' => 'xplore_listing_claim',
                 'post_status' => 'publish',
                 'post_title' => $title,
+                // Persist an explicit listing relation on the claim record.
+                // WordPress's public ID/title resolver can then reliably join
+                // the claim back to the directory listing.
+                'meta_input' => [
+                    '_listing_id' => (int) $listing_id,
+                    '_listing_title' => (string) get_the_title($listing_id),
+                    '_listing_url' => (string) get_permalink($listing_id),
+                ],
             ], true);
 
             if (is_wp_error($post_id)) {
@@ -460,7 +468,9 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 return $post_id;
             }
 
-            update_post_meta($post_id, '_listing_id', $listing_id);
+            update_post_meta($post_id, '_listing_id', (int) $listing_id);
+            update_post_meta($post_id, '_listing_title', (string) get_the_title($listing_id));
+            update_post_meta($post_id, '_listing_url', (string) get_permalink($listing_id));
             update_post_meta($post_id, '_first_name', $first_name);
             update_post_meta($post_id, '_last_name', $last_name);
             update_post_meta($post_id, '_email', strtolower($email));
@@ -789,14 +799,29 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             $items = [];
 
             foreach ($legacy_ids as $legacy_id) {
-                $listing_id = (int) get_post_meta($legacy_id, '_listing_id', true);
-                $email = strtolower(trim((string) get_post_meta($legacy_id, '_email', true)));
+                $listing_id = absint(get_post_meta($legacy_id, '_listing_id', true));
+                $stored_listing_title = sanitize_text_field((string) get_post_meta($legacy_id, '_listing_title', true));
+                $stored_listing_url = esc_url_raw((string) get_post_meta($legacy_id, '_listing_url', true));
+                $linked_listing = $listing_id ? get_post($listing_id) : null;
+
+                // Resolve by the stored ID first; use the persisted title/URL as
+                // a fallback for old claims whose listing link was saved in a
+                // non-standard format or whose listing is no longer published.
+                $listing_title = ($linked_listing && $linked_listing->post_type === 'listing')
+                    ? get_the_title($listing_id)
+                    : $stored_listing_title;
+                if (!$listing_title && $listing_id) {
+                    $listing_title = get_the_title($listing_id);
+                }
+                $listing_url = ($linked_listing && $linked_listing->post_type === 'listing')
+                    ? get_permalink($listing_id)
+                    : $stored_listing_url;
 
                 $items[] = [
                     'id' => (int) $legacy_id,
                     'listing_id' => $listing_id,
-                    'listing_title' => get_the_title($listing_id) ?: __('Unknown listing', 'xplore-listing-verification'),
-                    'listing_url' => $listing_id ? get_permalink($listing_id) : '',
+                    'listing_title' => $listing_title ?: __('Unknown listing', 'xplore-listing-verification'),
+                    'listing_url' => $listing_url ?: '',
                     'first_name' => (string) get_post_meta($legacy_id, '_first_name', true),
                     'last_name' => (string) get_post_meta($legacy_id, '_last_name', true),
                     'email' => $email,
