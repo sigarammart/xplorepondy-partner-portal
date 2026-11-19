@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status with a claim-listing link for Listeo listings.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.1.0';
+        const VERSION = '1.2.0';
         const SHORTCODE = 'xplore_listing_verification';
 
         public static function init() {
@@ -22,6 +22,8 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             add_action('wp_enqueue_scripts', [__CLASS__, 'register_styles']);
             add_action('admin_menu', [__CLASS__, 'admin_menu']);
             add_action('wp_footer', [__CLASS__, 'maybe_auto_open_listeo_claim']);
+            add_action('init', [__CLASS__, 'register_claim_post_type']);
+            add_action('rest_api_init', [__CLASS__, 'register_claim_routes']);
         }
 
         private static function is_listing($post_id) {
@@ -242,6 +244,228 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             </script>
             <?php
         }
+
+        public static function register_claim_post_type() {
+            register_post_type('xplore_listing_claim', [
+                'labels' => [
+                    'name' => __('Listing Claims', 'xplore-listing-verification'),
+                    'singular_name' => __('Listing Claim', 'xplore-listing-verification'),
+                ],
+                'public' => false,
+                'show_ui' => false,
+                'show_in_menu' => false,
+                'supports' => ['title'],
+                'capability_type' => 'post',
+                'map_meta_cap' => true,
+            ]);
+        }
+
+        private static function bridge_secret() {
+            $secret = defined('WP_SOCIAL_SESSION_BRIDGE_SECRET')
+                ? (string) WP_SOCIAL_SESSION_BRIDGE_SECRET
+                : (string) get_option('xplore_listing_verification_bridge_secret', '');
+            return trim($secret);
+        }
+
+        private static function bridge_permission(\WP_REST_Request $request) {
+            $secret = self::bridge_secret();
+            if (!$secret) {
+                return new \WP_Error('xplore_claim_bridge_not_configured', __('Claim bridge is not configured.', 'xplore-listing-verification'), ['status' => 503]);
+            }
+
+            $provided = (string) $request->get_header('x-xplore-pwa-secret');
+            if (!$provided || !hash_equals($secret, $provided)) {
+                return new \WP_Error('rest_forbidden', __('Invalid claim bridge credentials.', 'xplore-listing-verification'), ['status' => 401]);
+            }
+
+            return true;
+        }
+
+        private static function admin_bridge_permission(\WP_REST_Request $request) {
+            $bridge = self::bridge_permission($request);
+            if (is_wp_error($bridge)) return $bridge;
+
+            $email = sanitize_email((string) $request->get_param('admin_email'));
+            if (!$email) {
+                return new \WP_Error('xplore_claim_admin_required', __('Administrator email is required.', 'xplore-listing-verification'), ['status' => 400]);
+            }
+
+            $user = get_user_by('email', $email);
+            if (!$user || !user_can($user, 'manage_options')) {
+                return new \WP_Error('rest_forbidden', __('This account is not authorized to manage listing claims.', 'xplore-listing-verification'), ['status' => 403]);
+            }
+
+            return true;
+        }
+
+        private static function claim_payload($claim_id) {
+            $claim = get_post($claim_id);
+            if (!$claim || $claim->post_type !== 'xplore_listing_claim') return null;
+
+            $listing_id = (int) get_post_meta($claim_id, '_listing_id', true);
+            $listing = $listing_id ? get_post($listing_id) : null;
+
+            return [
+                'id' => $claim_id,
+                'listing_id' => $listing_id,
+                'listing_title' => $listing ? $listing->post_title : __('Unknown listing', 'xplore-listing-verification'),
+                'listing_url' => $listing ? get_permalink($listing_id) : '',
+                'first_name' => (string) get_post_meta($claim_id, '_first_name', true),
+                'last_name' => (string) get_post_meta($claim_id, '_last_name', true),
+                'email' => (string) get_post_meta($claim_id, '_email', true),
+                'phone' => (string) get_post_meta($claim_id, '_phone', true),
+                'details' => (string) get_post_meta($claim_id, '_details', true),
+                'status' => (string) get_post_meta($claim_id, '_claim_status', true) ?: 'pending',
+                'read_at' => (string) get_post_meta($claim_id, '_admin_read_at', true) ?: null,
+                'created_at' => get_post_time('c', true, $claim),
+            ];
+        }
+
+        public static function register_claim_routes() {
+            register_rest_route('xplore/v1', '/listing-claims', [
+                'methods' => 'POST',
+                'callback' => [__CLASS__, 'submit_claim'],
+                'permission_callback' => [__CLASS__, 'bridge_permission'],
+            ]);
+
+            register_rest_route('xplore/v1', '/listing-claims/admin', [
+                'methods' => 'GET',
+                'callback' => [__CLASS__, 'admin_claims'],
+                'permission_callback' => [__CLASS__, 'admin_bridge_permission'],
+            ]);
+
+            register_rest_route('xplore/v1', '/listing-claims/admin/read', [
+                'methods' => 'POST',
+                'callback' => [__CLASS__, 'mark_claim_read'],
+                'permission_callback' => [__CLASS__, 'admin_bridge_permission'],
+            ]);
+
+            register_rest_route('xplore/v1', '/listing-claims/admin/status', [
+                'methods' => 'POST',
+                'callback' => [__CLASS__, 'update_claim_status'],
+                'permission_callback' => [__CLASS__, 'admin_bridge_permission'],
+            ]);
+        }
+
+        public static function submit_claim(\WP_REST_Request $request) {
+            $listing_id = absint($request->get_param('listing_id'));
+            $listing = get_post($listing_id);
+
+            if (!$listing || $listing->post_type !== 'listing') {
+                return new \WP_Error('xplore_claim_invalid_listing', __('Listing could not be found.', 'xplore-listing-verification'), ['status' => 404]);
+            }
+
+            if (self::is_verified($listing_id)) {
+                return new \WP_Error('xplore_claim_already_verified', __('This listing is already verified.', 'xplore-listing-verification'), ['status' => 409]);
+            }
+
+            $first_name = sanitize_text_field((string) $request->get_param('first_name'));
+            $last_name = sanitize_text_field((string) $request->get_param('last_name'));
+            $email = sanitize_email((string) $request->get_param('email'));
+            $phone = sanitize_text_field((string) $request->get_param('phone'));
+            $details = sanitize_textarea_field((string) $request->get_param('details'));
+
+            if (!$first_name || !$last_name || !$email || !$details) {
+                return new \WP_Error('xplore_claim_missing_fields', __('First name, last name, email and verification details are required.', 'xplore-listing-verification'), ['status' => 400]);
+            }
+
+            $duplicate = get_posts([
+                'post_type' => 'xplore_listing_claim',
+                'post_status' => 'publish',
+                'posts_per_page' => 1,
+                'fields' => 'ids',
+                'meta_query' => [
+                    'relation' => 'AND',
+                    ['key' => '_listing_id', 'value' => $listing_id, 'compare' => '='],
+                    ['key' => '_email', 'value' => $email, 'compare' => '='],
+                    ['key' => '_claim_status', 'value' => ['pending', 'approved'], 'compare' => 'IN'],
+                ],
+            ]);
+
+            if ($duplicate) {
+                return new \WP_Error('xplore_claim_duplicate', __('A claim for this listing from this email is already under review.', 'xplore-listing-verification'), ['status' => 409]);
+            }
+
+            $claim_id = wp_insert_post([
+                'post_type' => 'xplore_listing_claim',
+                'post_status' => 'publish',
+                'post_title' => sprintf('%s — %s', $listing->post_title, $email),
+            ], true);
+
+            if (is_wp_error($claim_id)) return $claim_id;
+
+            update_post_meta($claim_id, '_listing_id', $listing_id);
+            update_post_meta($claim_id, '_first_name', $first_name);
+            update_post_meta($claim_id, '_last_name', $last_name);
+            update_post_meta($claim_id, '_email', $email);
+            update_post_meta($claim_id, '_phone', $phone);
+            update_post_meta($claim_id, '_details', $details);
+            update_post_meta($claim_id, '_claim_status', 'pending');
+            delete_post_meta($claim_id, '_admin_read_at');
+
+            return rest_ensure_response([
+                'ok' => true,
+                'claim' => self::claim_payload($claim_id),
+            ]);
+        }
+
+        public static function admin_claims(\WP_REST_Request $request) {
+            $limit = min(100, max(1, absint($request->get_param('limit') ?: 50)));
+            $unread_only = sanitize_text_field((string) $request->get_param('unread')) === '1';
+
+            $args = [
+                'post_type' => 'xplore_listing_claim',
+                'post_status' => 'publish',
+                'posts_per_page' => $limit,
+                'orderby' => 'date',
+                'order' => 'DESC',
+            ];
+
+            if ($unread_only) {
+                $args['meta_query'] = [[
+                    'key' => '_admin_read_at',
+                    'compare' => 'NOT EXISTS',
+                ]];
+            }
+
+            $posts = get_posts($args);
+            $items = array_values(array_filter(array_map([__CLASS__, 'claim_payload'], $posts)));
+            $unread = count(array_filter($items, static function($item) {
+                return empty($item['read_at']);
+            }));
+
+            return rest_ensure_response(['items' => $items, 'unread' => $unread]);
+        }
+
+        public static function mark_claim_read(\WP_REST_Request $request) {
+            $claim_id = absint($request->get_param('claim_id'));
+            if (!$claim_id || get_post_type($claim_id) !== 'xplore_listing_claim') {
+                return new \WP_Error('xplore_claim_not_found', __('Claim could not be found.', 'xplore-listing-verification'), ['status' => 404]);
+            }
+            update_post_meta($claim_id, '_admin_read_at', current_time('mysql'));
+            return rest_ensure_response(['ok' => true]);
+        }
+
+        public static function update_claim_status(\WP_REST_Request $request) {
+            $claim_id = absint($request->get_param('claim_id'));
+            $status = sanitize_key((string) $request->get_param('status'));
+            if (!$claim_id || get_post_type($claim_id) !== 'xplore_listing_claim') {
+                return new \WP_Error('xplore_claim_not_found', __('Claim could not be found.', 'xplore-listing-verification'), ['status' => 404]);
+            }
+            if (!in_array($status, ['pending', 'approved', 'rejected'], true)) {
+                return new \WP_Error('xplore_claim_invalid_status', __('Invalid claim status.', 'xplore-listing-verification'), ['status' => 400]);
+            }
+
+            update_post_meta($claim_id, '_claim_status', $status);
+            if ($status !== 'pending') update_post_meta($claim_id, '_admin_read_at', current_time('mysql'));
+
+            return rest_ensure_response([
+                'ok' => true,
+                'status' => $status,
+                'claim' => self::claim_payload($claim_id),
+            ]);
+        }
+
         public static function admin_menu() {
             add_options_page(
                 __('Xplore Listing Verification', 'xplore-listing-verification'),
@@ -291,6 +515,9 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                         </button>
                     </p>
                 </form>
+
+                <h2><?php esc_html_e('Xplore Claim API', 'xplore-listing-verification'); ?></h2>
+                <p><?php esc_html_e('Xplore PWA claim submissions are stored in WordPress as listing claims and exposed to the Partner Portal administrator notification inbox. The PWA server authenticates these requests with WP_SOCIAL_SESSION_BRIDGE_SECRET.', 'xplore-listing-verification'); ?></p>
 
                 <h2><?php esc_html_e('Listeo Claim Integration', 'xplore-listing-verification'); ?></h2>
                 <p><?php esc_html_e('The claim link adds xplore_claim=1 and asks this plugin to open Listeo Core’s native claim form. Claim submissions and ownership decisions remain managed by Listeo.', 'xplore-listing-verification'); ?></p>
