@@ -173,25 +173,39 @@ final class Xplore_Stay_Facilities {
             <hr>
             <p><strong><?php esc_html_e('Facility suggestions', 'xplore-stay-facilities'); ?></strong></p>
             <div class="xplore-facility-suggestions">
-                <?php foreach ($suggestions as $suggestion) :
-                    $label = is_array($suggestion) ? ($suggestion['label'] ?? $suggestion['id'] ?? '') : $suggestion;
-                    if (!$label) continue;
-                    $mapped = in_array($label, self::facility_options(), true);
+                <?php
+                $rendered = [];
+                foreach ($suggestions as $suggestion) :
+                    $source_label = is_array($suggestion) ? ($suggestion['label'] ?? $suggestion['id'] ?? '') : $suggestion;
+                    if (!$source_label) continue;
+                    $targets = self::map_google_facility($source_label);
+                    foreach ($targets as $target) :
+                        if (isset($rendered[$target])) continue;
+                        $rendered[$target] = true;
                 ?>
                     <label style="display:block;margin:5px 0;">
-                        <input type="checkbox" class="xplore-facility-option" value="<?php echo esc_attr($label); ?>" <?php disabled(!$mapped); ?>>
-                        <?php echo esc_html($label); ?>
-                        <?php if (!$mapped) : ?><em style="color:#777;"> — not mapped to Hotel Facilities</em><?php endif; ?>
+                        <input type="checkbox" class="xplore-facility-option" value="<?php echo esc_attr($target); ?>">
+                        <?php echo esc_html($target); ?>
+                        <?php if (strtolower(trim($source_label)) !== strtolower($target)) : ?>
+                            <span style="color:#777;"> — Google: <?php echo esc_html($source_label); ?></span>
+                        <?php endif; ?>
                     </label>
                 <?php endforeach; ?>
+                <?php endforeach; ?>
+                <?php if (!$rendered) : ?>
+                    <p class="description"><?php esc_html_e('Google returned facility information, but none matched the approved Hotel Facilities options.', 'xplore-stay-facilities'); ?></p>
+                <?php endif; ?>
             </div>
-            <p>
-                <button type="button" class="button button-primary xplore-apply-facilities" data-listing-id="<?php echo esc_attr($post->ID); ?>">
-                    <?php esc_html_e('Add Selected Facilities', 'xplore-stay-facilities'); ?>
-                </button>
-                <span class="xplore-facilities-apply-status" style="margin-left:6px;"></span>
-            </p>
-            <p class="description"><?php esc_html_e('Selected items are added to the existing hotel_facilities field. Existing selections are preserved.', 'xplore-stay-facilities'); ?></p>
+            <?php if ($rendered) : ?>
+                <p>
+                    <button type="button" class="button button-primary xplore-apply-facilities" data-listing-id="<?php echo esc_attr($post->ID); ?>">
+                        <?php esc_html_e('Add Selected Facilities', 'xplore-stay-facilities'); ?>
+                    </button>
+                    <span class="xplore-facilities-apply-status" style="margin-left:6px;"></span>
+                </p>
+                <p class="description"><?php esc_html_e('Selected items are added to the existing hotel_facilities field. Existing selections are preserved.', 'xplore-stay-facilities'); ?></p>
+            <?php endif; ?>
+        <?php endif; ?>
         <?php elseif (is_array($raw) && !empty($raw)) : ?>
             <p class="description"><?php esc_html_e('Google returned details, but no mapped facility attributes were found.', 'xplore-stay-facilities'); ?></p>
         <?php endif; ?>
@@ -297,6 +311,39 @@ JS
 
     private static function facility_options() {
         return ['Parking','Restaurant','Pets Allowed','24/7 Front Desk','Fitness Center','Spa and Wellness','Smoking Area','Swimming Pool','Airport Transfer','Night Club','Good for Children','Wheelchair Accessible','Credit Cards Accepted','Debit Cards Accepted','Contactless Payment'];
+    }
+
+    private static function map_google_facility($label) {
+        $normalized = strtolower(trim(wp_strip_all_tags((string) $label)));
+        $map = [
+            'parking' => ['Parking'],
+            'restaurant' => ['Restaurant'],
+            'pets allowed' => ['Pets Allowed'],
+            'pet friendly' => ['Pets Allowed'],
+            '24/7 front desk' => ['24/7 Front Desk'],
+            '24 hour front desk' => ['24/7 Front Desk'],
+            'fitness center' => ['Fitness Center'],
+            'fitness centre' => ['Fitness Center'],
+            'spa and wellness' => ['Spa and Wellness'],
+            'spa' => ['Spa and Wellness'],
+            'smoking area' => ['Smoking Area'],
+            'swimming pool' => ['Swimming Pool'],
+            'airport transfer' => ['Airport Transfer'],
+            'airport shuttle' => ['Airport Transfer'],
+            'night club' => ['Night Club'],
+            'good for children' => ['Good for Children'],
+            'wheelchair accessible' => ['Wheelchair Accessible'],
+            'credit cards accepted' => ['Credit Cards Accepted'],
+            'debit cards accepted' => ['Debit Cards Accepted'],
+            'contactless payment' => ['Contactless Payment'],
+            'payment options' => ['Credit Cards Accepted', 'Debit Cards Accepted', 'Contactless Payment'],
+        ];
+        foreach ($map as $source => $targets) {
+            if ($normalized === $source || strpos($normalized, $source) !== false) {
+                return $targets;
+            }
+        }
+        return [];
     }
 
     private static function get_hotel_facilities($listing_id) {
