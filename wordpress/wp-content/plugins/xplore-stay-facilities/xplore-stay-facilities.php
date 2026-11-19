@@ -25,7 +25,7 @@ final class Xplore_Stay_Facilities {
         add_action('add_meta_boxes', [__CLASS__, 'add_meta_box']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'admin_assets']);
         add_action('admin_post_xplore_stay_facilities_sync', [__CLASS__, 'handle_sync']);
-        add_action('admin_init', [__CLASS__, 'save_inline_api_key']);
+        add_action('wp_ajax_xplore_stay_save_api_key', [__CLASS__, 'ajax_save_api_key']);
         add_action('rest_api_init', [__CLASS__, 'register_routes']);
     }
 
@@ -127,36 +127,27 @@ final class Xplore_Stay_Facilities {
 
         <?php $has_api_key = (bool) get_option(self::OPTION_KEY); ?>
         <?php if ($place_id && $has_api_key) : ?>
-            <form method="post" action="<?php echo esc_url($action_url); ?>">
-                <input type="hidden" name="action" value="xplore_stay_facilities_sync">
-                <input type="hidden" name="listing_id" value="<?php echo esc_attr($post->ID); ?>">
-                <?php wp_nonce_field('xplore_stay_facilities_sync_' . $post->ID); ?>
-                <?php submit_button(__('Fetch Google Facilities', 'xplore-stay-facilities'), 'secondary', 'submit', false); ?>
-            </form>
+            <p>
+                <button type="button" class="button button-secondary xplore-fetch-facilities" data-listing-id="<?php echo esc_attr($post->ID); ?>">
+                    <?php esc_html_e('Fetch Google Facilities', 'xplore-stay-facilities'); ?>
+                </button>
+                <span class="xplore-facilities-status" style="margin-left:6px;"></span>
+            </p>
         <?php elseif ($place_id) : ?>
-            <form method="post" action="<?php echo esc_url(admin_url('post.php')); ?>">
-                <input type="hidden" name="post_ID" value="<?php echo esc_attr($post->ID); ?>">
-                <input type="hidden" name="action" value="editpost">
-                <?php wp_nonce_field('xplore_stay_facilities_inline_key_' . $post->ID); ?>
-                <p>
-                    <label for="xplore_stay_google_api_key_<?php echo esc_attr($post->ID); ?>">
-                        <strong><?php esc_html_e('Google Places API key', 'xplore-stay-facilities'); ?></strong>
-                    </label>
-                    <input type="password"
-                        class="widefat"
-                        id="xplore_stay_google_api_key_<?php echo esc_attr($post->ID); ?>"
-                        name="xplore_stay_google_api_key"
-                        value=""
-                        autocomplete="new-password"
-                        placeholder="<?php esc_attr_e('Enter API key', 'xplore-stay-facilities'); ?>">
-                </p>
-                <p>
-                    <button type="submit" class="button button-secondary">
-                        <?php esc_html_e('Save API Key', 'xplore-stay-facilities'); ?>
-                    </button>
-                </p>
-            </form>
-            <p class="description"><?php esc_html_e('The key is saved in WordPress and used server-side. Once saved, reload this listing and Fetch Google Facilities will be enabled.', 'xplore-stay-facilities'); ?></p>
+            <p>
+                <label for="xplore_stay_google_api_key_<?php echo esc_attr($post->ID); ?>">
+                    <strong><?php esc_html_e('Google Places API key', 'xplore-stay-facilities'); ?></strong>
+                </label>
+                <input type="password" class="widefat" id="xplore_stay_google_api_key_<?php echo esc_attr($post->ID); ?>"
+                    autocomplete="new-password" placeholder="<?php esc_attr_e('Enter API key', 'xplore-stay-facilities'); ?>">
+            </p>
+            <p>
+                <button type="button" class="button button-secondary xplore-save-api-key" data-listing-id="<?php echo esc_attr($post->ID); ?>">
+                    <?php esc_html_e('Save API Key', 'xplore-stay-facilities'); ?>
+                </button>
+                <span class="xplore-facilities-status" style="margin-left:6px;"></span>
+            </p>
+            <p class="description"><?php esc_html_e('The key is saved server-side. This button does not leave the listing page.', 'xplore-stay-facilities'); ?></p>
         <?php else : ?>
             <p>
                 <button type="button" class="button button-secondary" disabled><?php esc_html_e('Fetch Google Facilities', 'xplore-stay-facilities'); ?></button>
@@ -202,6 +193,25 @@ final class Xplore_Stay_Facilities {
             return;
         }
         wp_add_inline_style('common', '#xplore_stay_facilities_google .notice{margin:8px 0;}#xplore_stay_facilities_google code{white-space:normal;}');
+        wp_enqueue_script('jquery');
+        wp_add_inline_script('jquery', 'window.XploreStayFacilities = ' . wp_json_encode([
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('xplore_stay_facilities_ajax'),
+        ]) . ';');
+        wp_add_inline_script('jquery', <<<'JS'
+jQuery(function($){
+    $(document).on('click', '.xplore-save-api-key', function(){
+        var $btn=$(this), $box=$btn.closest('#xplore_stay_facilities_google'), key=$box.find('input[id^="xplore_stay_google_api_key_"]').val(), $status=$box.find('.xplore-facilities-status');
+        if(!key){$status.text('Enter an API key first.');return;}
+        $btn.prop('disabled',true); $status.text('Saving…');
+        $.post(window.XploreStayFacilities.ajaxUrl,{action:'xplore_stay_save_api_key',nonce:window.XploreStayFacilities.nonce,listing_id:$btn.data('listing-id'),api_key:key})
+        .done(function(r){if(r.success){$status.text('Saved. Reloading…');window.location.reload();}else{$status.text(r.data&&r.data.message?r.data.message:'Could not save the key.');}})
+        .fail(function(){ $status.text('Could not save the key.'); })
+        .always(function(){ $btn.prop('disabled',false); });
+    });
+});
+JS
+);
     }
 
     public static function save_inline_api_key() {
@@ -215,6 +225,20 @@ final class Xplore_Stay_Facilities {
         check_admin_referer('xplore_stay_facilities_inline_key_' . $listing_id);
         $key = sanitize_text_field(wp_unslash($_POST['xplore_stay_google_api_key']));
         update_option(self::OPTION_KEY, $key, false);
+    }
+
+    public static function ajax_save_api_key() {
+        check_ajax_referer('xplore_stay_facilities_ajax', 'nonce');
+        $listing_id = isset($_POST['listing_id']) ? absint($_POST['listing_id']) : 0;
+        $key = isset($_POST['api_key']) ? sanitize_text_field(wp_unslash($_POST['api_key'])) : '';
+        if (!$listing_id || get_post_type($listing_id) !== 'listing' || !current_user_can('edit_post', $listing_id) || !current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('You are not allowed to save the Google API key.', 'xplore-stay-facilities')], 403);
+        }
+        if ($key === '') {
+            wp_send_json_error(['message' => __('Enter a Google Places API key.', 'xplore-stay-facilities')], 400);
+        }
+        update_option(self::OPTION_KEY, $key, false);
+        wp_send_json_success(['message' => __('Google Places API key saved.', 'xplore-stay-facilities')]);
     }
 
     public static function handle_sync() {
