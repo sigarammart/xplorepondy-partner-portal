@@ -800,12 +800,19 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 ['%d']
             );
 
-            if ($updated === false) {
-                return new \WP_Error(
-                    'xplore_claim_update_failed',
-                    __('Claim could not be updated.', 'xplore-listing-verification'),
-                    ['status' => 500]
-                );
+            if ($updated === false || $updated === 0) {
+                $legacy_id = absint($claim_id);
+                if ($legacy_id && get_post_type($legacy_id) === 'xplore_listing_claim') {
+                    update_post_meta($legacy_id, '_admin_read_at', current_time('mysql'));
+                    return rest_ensure_response(['ok' => true]);
+                }
+                if ($updated === false) {
+                    return new \WP_Error(
+                        'xplore_claim_update_failed',
+                        __('Claim could not be updated.', 'xplore-listing-verification'),
+                        ['status' => 500]
+                    );
+                }
             }
 
             return rest_ensure_response(['ok' => true]);
@@ -848,12 +855,23 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 ['%d']
             );
 
-            if ($updated === false) {
-                return new \WP_Error(
-                    'xplore_claim_update_failed',
-                    __('Claim could not be updated.', 'xplore-listing-verification'),
-                    ['status' => 500]
-                );
+            if ($updated === false || $updated === 0) {
+                $legacy_id = absint($claim_id);
+                if ($legacy_id && get_post_type($legacy_id) === 'xplore_listing_claim') {
+                    update_post_meta($legacy_id, '_claim_status', $status);
+                    update_post_meta($legacy_id, '_admin_read_at', $now);
+                    return rest_ensure_response([
+                        'ok' => true,
+                        'status' => $status,
+                    ]);
+                }
+                if ($updated === false) {
+                    return new \WP_Error(
+                        'xplore_claim_update_failed',
+                        __('Claim could not be updated.', 'xplore-listing-verification'),
+                        ['status' => 500]
+                    );
+                }
             }
 
             $row = $wpdb->get_row($wpdb->prepare(
