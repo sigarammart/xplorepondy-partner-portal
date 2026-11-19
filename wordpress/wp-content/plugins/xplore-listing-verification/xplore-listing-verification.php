@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.4.9
+ * Version: 1.5.0
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.4.9';
+        const VERSION = '1.5.0';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -955,6 +955,56 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             return rest_ensure_response(['ok' => true]);
         }
 
+        /**
+         * Assign an approved claim's listing to the claimant's WordPress account.
+         * Partner listing and reservation dashboards use post_author as ownership.
+         */
+        private static function assign_claim_listing_owner($claim_id) {
+            $listing = self::legacy_claim_listing_details($claim_id);
+            $listing_id = absint($listing['listing_id'] ?? 0);
+
+            if (!$listing_id || get_post_type($listing_id) !== 'listing') {
+                return new \\WP_Error(
+                    'xplore_claim_listing_unresolved',
+                    __('This claim cannot be approved because its listing could not be linked. Please verify the listing record first.', 'xplore-listing-verification'),
+                    ['status' => 409]
+                );
+            }
+
+            $email = sanitize_email((string) get_post_meta($claim_id, '_email', true));
+            $owner = $email ? get_user_by('email', $email) : false;
+
+            if (!$owner || !user_can($owner, 'read')) {
+                return new \\WP_Error(
+                    'xplore_claim_owner_account_missing',
+                    __('This claim cannot be approved because the claimant does not have an eligible WordPress account with that email.', 'xplore-listing-verification'),
+                    ['status' => 409]
+                );
+            }
+
+            $updated = wp_update_post([
+                'ID' => $listing_id,
+                'post_author' => (int) $owner->ID,
+            ], true);
+
+            if (is_wp_error($updated) || !$updated) {
+                return new \\WP_Error(
+                    'xplore_claim_owner_assignment_failed',
+                    __('The listing could not be assigned to the claimant account.', 'xplore-listing-verification'),
+                    ['status' => 500]
+                );
+            }
+
+            update_post_meta($claim_id, '_approved_owner_user_id', (int) $owner->ID);
+            update_post_meta($claim_id, '_claim_approved_at', current_time('mysql'));
+
+            return [
+                'listing_id' => $listing_id,
+                'owner_user_id' => (int) $owner->ID,
+                'owner_email' => strtolower((string) $owner->user_email),
+            ];
+        }
+
         public static function update_claim_status(\WP_REST_Request $request) {
             global $wpdb;
 
@@ -984,6 +1034,14 @@ if (!class_exists('XPLORE_Listing_Verification')) {
              */
             $now = current_time('mysql');
             if (get_post_type($claim_id) === 'xplore_listing_claim') {
+                $ownership = null;
+                if ($status === 'approved') {
+                    $ownership = self::assign_claim_listing_owner($claim_id);
+                    if (is_wp_error($ownership)) {
+                        return $ownership;
+                    }
+                }
+
                 update_post_meta($claim_id, '_claim_status', $status);
                 update_post_meta($claim_id, '_admin_read_at', $now);
 
@@ -993,6 +1051,8 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                     'claim' => [
                         'id' => $claim_id,
                         'status' => $status,
+                        'listing_id' => is_array($ownership) ? $ownership['listing_id'] : absint(get_post_meta($claim_id, '_listing_id', true)),
+                        'owner_email' => is_array($ownership) ? $ownership['owner_email'] : null,
                     ],
                 ]);
             }
