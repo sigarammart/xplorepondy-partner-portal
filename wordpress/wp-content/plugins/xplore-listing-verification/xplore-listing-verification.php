@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.3.3
+ * Version: 1.4.0
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.3.3';
+        const VERSION = '1.4.0';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -476,20 +476,12 @@ if (!class_exists('XPLORE_Listing_Verification')) {
         }
 
         private static function submit_claim_internal(\WP_REST_Request $request) {
-            global $wpdb;
-
-            // Create/repair the claims table lazily on the actual claim request.
-            // This keeps normal WordPress page requests lightweight while making
-            // the public REST submission path fail safely if the table cannot
-            // be created.
-            if (!self::ensure_claim_table()) {
-                return new \WP_Error(
-                    'xplore_claim_storage_unavailable',
-                    __('The listing claim service is temporarily unavailable. Please try again shortly.', 'xplore-listing-verification'),
-                    ['status' => 503]
-                );
-            }
-
+            /*
+             * Keep the public claim submission path independent of the custom
+             * database table. The table is useful for querying/analytics, but
+             * a WordPress post is the safest persistence mechanism on hosting
+             * environments where custom-table permissions/schema can differ.
+             */
             $listing_id = absint($request->get_param('listing_id'));
             $listing = get_post($listing_id);
 
@@ -523,19 +515,37 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 );
             }
 
-            $table = self::table_name();
+            /*
+             * Check existing pending/approved claims through the legacy CPT.
+             * This avoids any dependency on the custom claims table during
+             * public submission.
+             */
+            $existing = get_posts([
+                'post_type' => 'xplore_listing_claim',
+                'post_status' => 'publish',
+                'posts_per_page' => 1,
+                'fields' => 'ids',
+                'meta_query' => [
+                    'relation' => 'AND',
+                    [
+                        'key' => '_listing_id',
+                        'value' => (string) $listing_id,
+                        'compare' => '=',
+                    ],
+                    [
+                        'key' => '_email',
+                        'value' => strtolower($email),
+                        'compare' => '=',
+                    ],
+                    [
+                        'key' => '_claim_status',
+                        'value' => ['pending', 'approved'],
+                        'compare' => 'IN',
+                    ],
+                ],
+            ]);
 
-            $duplicate = $wpdb->get_var($wpdb->prepare(
-                "SELECT id FROM {$table}
-                 WHERE listing_id = %d
-                   AND email = %s
-                   AND status IN ('pending', 'approved')
-                 LIMIT 1",
-                $listing_id,
-                strtolower($email)
-            ));
-
-            if ($duplicate) {
+            if (!empty($existing)) {
                 return new \WP_Error(
                     'xplore_claim_duplicate',
                     __('A claim for this listing from this email is already under review.', 'xplore-listing-verification'),
@@ -543,73 +553,64 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 );
             }
 
-            $now = current_time('mysql');
-
-            $inserted = $wpdb->insert(
-                $table,
-                [
-                    'listing_id' => $listing_id,
-                    'first_name' => $first_name,
-                    'last_name' => $last_name,
-                    'email' => strtolower($email),
-                    'phone' => $phone,
-                    'details' => $details,
-                    'status' => 'pending',
-                    'admin_read_at' => null,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ],
-                ['%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s']
+            $claim_id = self::save_claim_legacy_post(
+                $listing_id,
+                $first_name,
+                $last_name,
+                $email,
+                $phone,
+                $details
             );
 
-            if ($inserted === false) {
-                // The dedicated table is the preferred storage, but older
-                // WordPress installations may have restricted DB permissions
-                // or a pre-existing incompatible table. Fall back to the
-                // registered WordPress claim CPT so the claimant is never
-                // blocked by the custom table.
-                $fallback_id = self::save_claim_legacy_post(
-                    $listing_id,
-                    $first_name,
-                    $last_name,
-                    $email,
-                    $phone,
-                    $details
+            if (is_wp_error($claim_id)) {
+                error_log('[Xplore Listing Verification] WordPress claim post creation failed: ' . $claim_id->get_error_message());
+                return new \WP_Error(
+                    'xplore_claim_storage_failed',
+                    __('We could not save your claim right now. Please try again.', 'xplore-listing-verification'),
+                    ['status' => 503]
                 );
-
-                if (is_wp_error($fallback_id)) {
-                    error_log('[Xplore Listing Verification] Claim insert failed: ' . $wpdb->last_error);
-                    return new \WP_Error(
-                        'xplore_claim_storage_failed',
-                        __('We could not save your claim right now. Please try again.', 'xplore-listing-verification'),
-                        ['status' => 500]
-                    );
-                }
-
-                error_log('[Xplore Listing Verification] Custom claim table insert failed; saved claim to legacy CPT. DB error: ' . $wpdb->last_error);
-
-                return rest_ensure_response([
-                    'ok' => true,
-                    'claim' => [
-                        'id' => (int) $fallback_id,
-                        'listing_id' => $listing_id,
-                        'status' => 'pending',
-                        'storage' => 'legacy_cpt',
-                    ],
-                ]);
             }
 
-            $claim_id = (int) $wpdb->insert_id;
-            // Keep the submit response deliberately small. The Partner Portal
-            // only needs confirmation; claim details are fetched by the admin
-            // endpoint. This also avoids running any post/meta/template logic
-            // during the public submission request.
+            /*
+             * Best-effort mirror into the dedicated table. Failure here must
+             * NEVER make the public claim submission fail.
+             */
+            try {
+                global $wpdb;
+                if (self::ensure_claim_table()) {
+                    $now = current_time('mysql');
+                    $wpdb->insert(
+                        self::table_name(),
+                        [
+                            'listing_id' => $listing_id,
+                            'first_name' => $first_name,
+                            'last_name' => $last_name,
+                            'email' => strtolower($email),
+                            'phone' => $phone,
+                            'details' => $details,
+                            'status' => 'pending',
+                            'admin_read_at' => null,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ],
+                        ['%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s']
+                    );
+
+                    if ($wpdb->last_error) {
+                        error_log('[Xplore Listing Verification] Optional claim-table mirror failed: ' . $wpdb->last_error);
+                    }
+                }
+            } catch (\Throwable $e) {
+                error_log('[Xplore Listing Verification] Optional claim-table mirror exception: ' . $e->getMessage());
+            }
+
             return rest_ensure_response([
                 'ok' => true,
                 'claim' => [
-                    'id' => $claim_id,
+                    'id' => (int) $claim_id,
                     'listing_id' => $listing_id,
                     'status' => 'pending',
+                    'storage' => 'wordpress_cpt',
                 ],
             ]);
         }
