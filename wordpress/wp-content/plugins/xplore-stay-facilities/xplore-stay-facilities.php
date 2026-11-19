@@ -29,8 +29,11 @@ final class Xplore_Stay_Facilities {
     }
 
     public static function admin_menu() {
-        add_options_page(
-            __('Xplore Stay Facilities', 'xplore-stay-facilities'),
+        // Keep the settings page under the Listing post-type menu so the
+        // configuration link always resolves inside the existing listing admin.
+        add_submenu_page(
+            'edit.php?post_type=listing',
+            __('Stay Facilities', 'xplore-stay-facilities'),
             __('Stay Facilities', 'xplore-stay-facilities'),
             'manage_options',
             'xplore-stay-facilities',
@@ -119,7 +122,7 @@ final class Xplore_Stay_Facilities {
             </form>
         <?php elseif ($place_id) : ?>
             <p>
-                <a class="button button-secondary" href="<?php echo esc_url(admin_url('options-general.php?page=xplore-stay-facilities')); ?>">
+                <a class="button button-secondary" href="<?php echo esc_url(admin_url('edit.php?post_type=listing&page=xplore-stay-facilities')); ?>">
                     <?php esc_html_e('Configure Google API Key', 'xplore-stay-facilities'); ?>
                 </a>
             </p>
