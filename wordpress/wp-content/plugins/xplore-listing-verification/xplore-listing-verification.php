@@ -478,8 +478,6 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 'version' => self::VERSION,
                 'claim_route' => 'registered',
                 'bridge_configured' => self::bridge_secret() !== '',
-                'php_version' => PHP_VERSION,
-                'wordpress_version' => get_bloginfo('version'),
             ]);
         }
 
