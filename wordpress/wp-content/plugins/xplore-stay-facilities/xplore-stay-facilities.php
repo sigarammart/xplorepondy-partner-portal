@@ -321,18 +321,26 @@ final class Xplore_Stay_Facilities {
 
     private static function map_facilities($place) {
         $map = [
-            'free_wifi' => ['label' => 'Free Wi-Fi', 'path' => null],
-            'parking' => ['label' => 'Parking', 'path' => 'parkingOptions'],
-            'wheelchair_accessible' => ['label' => 'Wheelchair accessibility', 'path' => 'accessibilityOptions'],
+            
+            'free_parking_lot' => ['label' => 'Free parking lot', 'path' => 'parkingOptions.freeParkingLot'],
+            'paid_parking_lot' => ['label' => 'Paid parking lot', 'path' => 'parkingOptions.paidParkingLot'],
+            'free_street_parking' => ['label' => 'Free street parking', 'path' => 'parkingOptions.freeStreetParking'],
+            'paid_street_parking' => ['label' => 'Paid street parking', 'path' => 'parkingOptions.paidStreetParking'],
+            'wheelchair_accessible_parking' => ['label' => 'Wheelchair-accessible parking', 'path' => 'accessibilityOptions.wheelchairAccessibleParking'],
+            'wheelchair_accessible_entrance' => ['label' => 'Wheelchair-accessible entrance', 'path' => 'accessibilityOptions.wheelchairAccessibleEntrance'],
+            'wheelchair_accessible_restroom' => ['label' => 'Wheelchair-accessible restroom', 'path' => 'accessibilityOptions.wheelchairAccessibleRestroom'],
+            'wheelchair_accessible_seating' => ['label' => 'Wheelchair-accessible seating', 'path' => 'accessibilityOptions.wheelchairAccessibleSeating'],
             'pet_friendly' => ['label' => 'Pets allowed', 'path' => 'allowsDogs'],
             'restroom' => ['label' => 'Restroom', 'path' => 'restroom'],
             'family_friendly' => ['label' => 'Good for children', 'path' => 'goodForChildren'],
             'group_friendly' => ['label' => 'Good for groups', 'path' => 'goodForGroups'],
             'outdoor_seating' => ['label' => 'Outdoor seating', 'path' => 'outdoorSeating'],
             'breakfast' => ['label' => 'Serves breakfast', 'path' => 'servesBreakfast'],
-            'restaurant' => ['label' => 'Serves lunch or dinner', 'path' => 'servesLunch'],
+            'serves_lunch' => ['label' => 'Serves lunch', 'path' => 'servesLunch'],
+            'serves_dinner' => ['label' => 'Serves dinner', 'path' => 'servesDinner'],
             'vegetarian_food' => ['label' => 'Vegetarian food', 'path' => 'servesVegetarianFood'],
-            'bar' => ['label' => 'Serves beer or wine', 'path' => 'servesBeer'],
+            'serves_beer' => ['label' => 'Serves beer', 'path' => 'servesBeer'],
+            'serves_wine' => ['label' => 'Serves wine', 'path' => 'servesWine'],
             'live_music' => ['label' => 'Live music', 'path' => 'liveMusic'],
         ];
 
@@ -355,8 +363,14 @@ final class Xplore_Stay_Facilities {
         return $suggestions;
     }
 
-    private static function array_get($array, $key) {
-        return is_array($array) && array_key_exists($key, $array) ? $array[$key] : null;
+    private static function array_get($array, $path) {
+        if (!is_array($array)) return null;
+        $value = $array;
+        foreach (explode('.', (string) $path) as $segment) {
+            if (!is_array($value) || !array_key_exists($segment, $value)) return null;
+            $value = $value[$segment];
+        }
+        return $value;
     }
 
     private static function has_positive_value($value) {
