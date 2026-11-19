@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Xplore Listing Verification
  * Description: Displays verified and unverified listing status and provides an in-app claim bridge for Xplore Pondy.
- * Version: 1.5.1
+ * Version: 1.5.2
  * Author: Xplore Pondy
  * Text Domain: xplore-listing-verification
  */
@@ -13,7 +13,7 @@ if (!defined('ABSPATH')) {
 
 if (!class_exists('XPLORE_Listing_Verification')) {
     final class XPLORE_Listing_Verification {
-        const VERSION = '1.5.1';
+        const VERSION = '1.5.2';
         const SHORTCODE = 'xplore_listing_verification';
         const TABLE_SUFFIX = 'xplore_listing_claims';
 
@@ -876,7 +876,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 // verification flag. Reconcile those approved claims so their
                 // listings immediately show as verified and remain in My Listings.
                 if ($claim_status === 'approved') {
-                    $ownership = self::assign_claim_listing_owner($legacy_id);
+                    $ownership = self::assign_claim_listing_owner($legacy_id, get_post_meta($legacy_id, '_verification_admin_confirmed', true) === '1');
                     if (is_wp_error($ownership)) {
                         error_log('[Xplore Listing Verification] Could not sync approved claim #' . (int) $legacy_id . ': ' . $ownership->get_error_message());
                     }
@@ -971,7 +971,7 @@ if (!class_exists('XPLORE_Listing_Verification')) {
          * Assign an approved claim's listing to the claimant's WordPress account.
          * Partner listing and reservation dashboards use post_author as ownership.
          */
-        private static function assign_claim_listing_owner($claim_id) {
+        private static function assign_claim_listing_owner($claim_id, $verify_listing = false) {
             $listing = self::legacy_claim_listing_details($claim_id);
             $listing_id = absint($listing['listing_id'] ?? 0);
 
@@ -1007,8 +1007,11 @@ if (!class_exists('XPLORE_Listing_Verification')) {
                 );
             }
 
-            update_post_meta($listing_id, '_verified', '1');
+            if ($verify_listing) {
+                update_post_meta($listing_id, '_verified', '1');
+            }
             update_post_meta($listing_id, '_verification_claim_id', $claim_id);
+            update_post_meta($claim_id, '_verification_admin_confirmed', $verify_listing ? '1' : '0');
             update_post_meta($claim_id, '_approved_owner_user_id', (int) $owner->ID);
             if (!get_post_meta($claim_id, '_claim_approved_at', true)) {
                 update_post_meta($claim_id, '_claim_approved_at', current_time('mysql'));
@@ -1052,7 +1055,8 @@ if (!class_exists('XPLORE_Listing_Verification')) {
             if (get_post_type($claim_id) === 'xplore_listing_claim') {
                 $ownership = null;
                 if ($status === 'approved') {
-                    $ownership = self::assign_claim_listing_owner($claim_id);
+                    $verify_listing = rest_sanitize_boolean($request->get_param('verified_listing'));
+                    $ownership = self::assign_claim_listing_owner($claim_id, $verify_listing);
                     if (is_wp_error($ownership)) {
                         return $ownership;
                     }
