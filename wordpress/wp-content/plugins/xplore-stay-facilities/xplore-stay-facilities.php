@@ -322,14 +322,11 @@ final class Xplore_Stay_Facilities {
     private static function map_facilities($place) {
         $map = [
             
-            'free_parking_lot' => ['label' => 'Free parking lot', 'path' => 'parkingOptions.freeParkingLot'],
-            'paid_parking_lot' => ['label' => 'Paid parking lot', 'path' => 'parkingOptions.paidParkingLot'],
-            'free_street_parking' => ['label' => 'Free street parking', 'path' => 'parkingOptions.freeStreetParking'],
-            'paid_street_parking' => ['label' => 'Paid street parking', 'path' => 'parkingOptions.paidStreetParking'],
-            'wheelchair_accessible_parking' => ['label' => 'Wheelchair-accessible parking', 'path' => 'accessibilityOptions.wheelchairAccessibleParking'],
-            'wheelchair_accessible_entrance' => ['label' => 'Wheelchair-accessible entrance', 'path' => 'accessibilityOptions.wheelchairAccessibleEntrance'],
-            'wheelchair_accessible_restroom' => ['label' => 'Wheelchair-accessible restroom', 'path' => 'accessibilityOptions.wheelchairAccessibleRestroom'],
-            'wheelchair_accessible_seating' => ['label' => 'Wheelchair-accessible seating', 'path' => 'accessibilityOptions.wheelchairAccessibleSeating'],
+
+
+            'wheelchair_accessibility' => ['label' => 'Wheelchair accessibility', 'path' => 'accessibilityOptions'],
+            'parking' => ['label' => 'Parking', 'path' => 'parkingOptions'],
+            'payment_options' => ['label' => 'Payment options', 'path' => 'paymentOptions'],
             'pet_friendly' => ['label' => 'Pets allowed', 'path' => 'allowsDogs'],
             'restroom' => ['label' => 'Restroom', 'path' => 'restroom'],
             'family_friendly' => ['label' => 'Good for children', 'path' => 'goodForChildren'],
@@ -356,11 +353,59 @@ final class Xplore_Stay_Facilities {
                     'id' => $id,
                     'label' => $config['label'],
                     'source' => 'google_places',
+                    'detail' => self::describe_value($id, $value),
                     'value' => $value,
                 ];
             }
         }
         return $suggestions;
+    }
+
+    private static function describe_value($id, $value) {
+        if (!is_array($value)) return '';
+        if ($id === 'parking') {
+            $labels = [
+                'freeParkingLot' => 'Free parking lot',
+                'paidParkingLot' => 'Paid parking lot',
+                'freeStreetParking' => 'Free street parking',
+                'paidStreetParking' => 'Paid street parking',
+                'valetParking' => 'Valet parking',
+                'freeGarageParking' => 'Free garage parking',
+                'paidGarageParking' => 'Paid garage parking',
+            ];
+            $found = [];
+            foreach ($labels as $key => $label) {
+                if (!empty($value[$key])) $found[] = $label;
+            }
+            return implode(', ', $found);
+        }
+        if ($id === 'wheelchair_accessibility') {
+            $labels = [
+                'wheelchairAccessibleParking' => 'Accessible parking',
+                'wheelchairAccessibleEntrance' => 'Accessible entrance',
+                'wheelchairAccessibleRestroom' => 'Accessible restroom',
+                'wheelchairAccessibleSeating' => 'Accessible seating',
+            ];
+            $found = [];
+            foreach ($labels as $key => $label) {
+                if (!empty($value[$key])) $found[] = $label;
+            }
+            return implode(', ', $found);
+        }
+        if ($id === 'payment_options') {
+            $labels = [
+                'acceptsCreditCards' => 'Credit cards',
+                'acceptsDebitCards' => 'Debit cards',
+                'acceptsCashOnly' => 'Cash only',
+                'acceptsNfc' => 'Contactless/NFC',
+            ];
+            $found = [];
+            foreach ($labels as $key => $label) {
+                if (!empty($value[$key])) $found[] = $label;
+            }
+            return implode(', ', $found);
+        }
+        return '';
     }
 
     private static function array_get($array, $path) {
