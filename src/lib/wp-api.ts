@@ -6816,13 +6816,19 @@ export const updateListingClaimStatus = createServerFn({ method: "POST" })
     identityToken: z.string().max(4096).optional(),
     claimId: z.number().int().positive(),
     status: z.enum(["pending", "approved", "rejected"]),
+    verifiedListing: z.boolean().optional().default(false),
   }))
   .handler(async ({ data }) => {
     setResponseHeader("Cache-Control", "no-store");
     await assertNotificationCallerEmail(data.email, data.identityToken);
     const payload = await listingClaimBridgeRequest("/admin/status", {
       method: "POST",
-      body: JSON.stringify({ admin_email: data.email.trim().toLowerCase(), claim_id: data.claimId, status: data.status }),
+      body: JSON.stringify({
+        admin_email: data.email.trim().toLowerCase(),
+        claim_id: data.claimId,
+        status: data.status,
+        verified_listing: data.verifiedListing,
+      }),
     });
     return { ok: Boolean(payload?.ok), status: String(payload?.status ?? data.status) as typeof data.status };
   });
