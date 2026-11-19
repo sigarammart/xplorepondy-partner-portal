@@ -6753,6 +6753,80 @@ export const fetchWpExperienceBookingRequests = createServerFn({ method: "GET" }
     });
   });
 
+export type ListingClaimNotification = {
+  id: number;
+  listing_id: number;
+  listing_title: string;
+  listing_url: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  details: string;
+  status: "pending" | "approved" | "rejected" | string;
+  read_at: string | null;
+  created_at: string;
+};
+
+async function listingClaimBridgeRequest(path: string, options: RequestInit = {}) {
+  const secret = process.env.WP_SOCIAL_SESSION_BRIDGE_SECRET?.trim();
+  if (!secret) throw new Error("The PWA WordPress bridge is not configured.");
+  const response = await wpFetch(WP_ORIGIN + "/wp-json/xplore/v1/listing-claims" + path, {
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      "X-Xplore-PWA-Secret": secret,
+      Authorization: "Bearer " + secret,
+      ...(options.headers ?? {}),
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(15000),
+  });
+  const payload = await response.json().catch(() => null) as { items?: unknown; unread?: number; ok?: boolean; status?: string; claim?: unknown; message?: string } | null;
+  if (!response.ok) throw new Error(typeof payload?.message === "string" ? payload.message : "Could not load listing claim notifications.");
+  return payload;
+}
+
+export const fetchListingClaimNotifications = createServerFn({ method: "GET" })
+  .validator(z.object({ email: z.string().trim().email(), identityToken: z.string().max(4096).optional() }))
+  .handler(async ({ data }) => {
+    setResponseHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    await assertNotificationCallerEmail(data.email, data.identityToken);
+    const payload = await listingClaimBridgeRequest("/admin?admin_email=" + encodeURIComponent(data.email.trim().toLowerCase()));
+    const items = Array.isArray(payload?.items) ? payload.items as ListingClaimNotification[] : [];
+    return { items, unread: Number(payload?.unread ?? 0) };
+  });
+
+export const markListingClaimNotificationRead = createServerFn({ method: "POST" })
+  .validator(z.object({ email: z.string().trim().email(), identityToken: z.string().max(4096).optional(), claimId: z.number().int().positive() }))
+  .handler(async ({ data }) => {
+    setResponseHeader("Cache-Control", "no-store");
+    await assertNotificationCallerEmail(data.email, data.identityToken);
+    const payload = await listingClaimBridgeRequest("/admin/read", {
+      method: "POST",
+      body: JSON.stringify({ admin_email: data.email.trim().toLowerCase(), claim_id: data.claimId }),
+    });
+    return { ok: Boolean(payload?.ok) };
+  });
+
+export const updateListingClaimStatus = createServerFn({ method: "POST" })
+  .validator(z.object({
+    email: z.string().trim().email(),
+    identityToken: z.string().max(4096).optional(),
+    claimId: z.number().int().positive(),
+    status: z.enum(["pending", "approved", "rejected"]),
+  }))
+  .handler(async ({ data }) => {
+    setResponseHeader("Cache-Control", "no-store");
+    await assertNotificationCallerEmail(data.email, data.identityToken);
+    const payload = await listingClaimBridgeRequest("/admin/status", {
+      method: "POST",
+      body: JSON.stringify({ admin_email: data.email.trim().toLowerCase(), claim_id: data.claimId, status: data.status }),
+    });
+    return { ok: Boolean(payload?.ok), status: String(payload?.status ?? data.status) as typeof data.status };
+  });
+
 export const fetchTableReservationNotifications = createServerFn({ method: "GET" })
   
   .validator(z.object({ email: z.string().trim().email(), identityToken: z.string().max(4096).optional() }))
