@@ -171,7 +171,7 @@ final class Xplore_Stay_Facilities {
 
         <?php if (is_array($suggestions) && $suggestions) : ?>
             <hr>
-            <p><strong><?php esc_html_e('Facility suggestions', 'xplore-stay-facilities'); ?></strong></p>
+            <p><strong><?php esc_html_e('Facility & amenity suggestions', 'xplore-stay-facilities'); ?></strong></p>
             <div class="xplore-facility-suggestions">
                 <?php
                 $rendered = [];
@@ -179,31 +179,33 @@ final class Xplore_Stay_Facilities {
                     $source_label = is_array($suggestion) ? ($suggestion['label'] ?? $suggestion['id'] ?? '') : $suggestion;
                     if (!$source_label) continue;
                     $targets = self::map_google_facility($source_label);
-                    foreach ($targets as $target) :
-                        if (isset($rendered[$target])) continue;
-                        $rendered[$target] = true;
+                    foreach ($targets as $meta_key => $values) :
+                        foreach ($values as $target) :
+                            $key = $meta_key . ':' . $target;
+                            if (isset($rendered[$key])) continue;
+                            $rendered[$key] = true;
                 ?>
                     <label style="display:block;margin:5px 0;">
-                        <input type="checkbox" class="xplore-facility-option" value="<?php echo esc_attr($target); ?>">
+                        <input type="checkbox" class="xplore-facility-option" data-field="<?php echo esc_attr($meta_key); ?>" value="<?php echo esc_attr($target); ?>">
                         <?php echo esc_html($target); ?>
+                        <small style="color:#777;"> — <?php echo esc_html($meta_key === 'hotel_amenities' ? 'Hotel Amenities' : 'Hotel Facilities'); ?></small>
                         <?php if (strtolower(trim($source_label)) !== strtolower($target)) : ?>
                             <span style="color:#777;"> — Google: <?php echo esc_html($source_label); ?></span>
                         <?php endif; ?>
                     </label>
-                <?php endforeach; ?>
-                <?php endforeach; ?>
+                <?php endforeach; endforeach; endforeach; ?>
                 <?php if (!$rendered) : ?>
-                    <p class="description"><?php esc_html_e('Google returned facility information, but none matched the approved Hotel Facilities options.', 'xplore-stay-facilities'); ?></p>
+                    <p class="description"><?php esc_html_e('Google returned facility information, but none matched the approved Hotel Facilities or Hotel Amenities options.', 'xplore-stay-facilities'); ?></p>
                 <?php endif; ?>
             </div>
             <?php if ($rendered) : ?>
                 <p>
                     <button type="button" class="button button-primary xplore-apply-facilities" data-listing-id="<?php echo esc_attr($post->ID); ?>">
-                        <?php esc_html_e('Add Selected Facilities', 'xplore-stay-facilities'); ?>
+                        <?php esc_html_e('Add Selected Facilities & Amenities', 'xplore-stay-facilities'); ?>
                     </button>
                     <span class="xplore-facilities-apply-status" style="margin-left:6px;"></span>
                 </p>
-                <p class="description"><?php esc_html_e('Selected items are added to the existing hotel_facilities field. Existing selections are preserved.', 'xplore-stay-facilities'); ?></p>
+                <p class="description"><?php esc_html_e('Selected items are added to the existing JetEngine fields. Existing selections are preserved.', 'xplore-stay-facilities'); ?></p>
             <?php endif; ?>
         <?php endif; ?>
         <?php elseif (is_array($raw) && !empty($raw)) : ?>
@@ -246,14 +248,13 @@ jQuery(function($){
     });
 
     $(document).on('click', '.xplore-apply-facilities', function(){
-        var $btn=$(this), $box=$btn.closest('#xplore_stay_facilities_google'), vals=[];
-        $box.find('.xplore-facility-option:checked').each(function(){vals.push($(this).val());});
-        var $status=$box.find('.xplore-facilities-apply-status');
-        if(!vals.length){$status.text('Select at least one mapped facility.');return;}
-        $btn.prop('disabled',true);$status.text('Adding selected facilities…');
-        $.post(window.XploreStayFacilities.ajaxUrl,{action:'xplore_stay_apply_facilities',nonce:window.XploreStayFacilities.nonce,listing_id:$btn.data('listing-id'),facilities:vals})
-        .done(function(r){if(r.success){$status.text('✓ '+r.data.message);$box.find('.xplore-facility-option:checked').prop('checked',false);}else{$status.text(r.data&&r.data.message?r.data.message:'Could not update Hotel Facilities.');}})
-        .fail(function(){$status.text('Could not update Hotel Facilities.');})
+        var $btn=$(this), $box=$btn.closest('#xplore_stay_facilities_google'), selected={hotel_facilities:[],hotel_amenities:[]}, $status=$box.find('.xplore-facilities-apply-status');
+        $box.find('.xplore-facility-option:checked').each(function(){selected[$(this).data('field')].push($(this).val());});
+        if(!selected.hotel_facilities.length && !selected.hotel_amenities.length){$status.text('Select at least one mapped item.');return;}
+        $btn.prop('disabled',true);$status.text('Adding selected items…');
+        $.post(window.XploreStayFacilities.ajaxUrl,{action:'xplore_stay_apply_facilities',nonce:window.XploreStayFacilities.nonce,listing_id:$btn.data('listing-id'),facilities:selected})
+        .done(function(r){if(r.success){$status.text('✓ '+r.data.message);$box.find('.xplore-facility-option:checked').prop('checked',false);}else{$status.text(r.data&&r.data.message?r.data.message:'Could not update JetEngine fields.');}})
+        .fail(function(){$status.text('Could not update JetEngine fields.');})
         .always(function(){$btn.prop('disabled',false);});
     });
 
@@ -310,33 +311,66 @@ JS
     }
 
     private static function facility_options() {
-        return ['Parking','Restaurant','Pets Allowed','24/7 Front Desk','Fitness Center','Spa and Wellness','Smoking Area','Swimming Pool','Airport Transfer','Night Club','Good for Children','Wheelchair Accessible','Credit Cards Accepted','Debit Cards Accepted','Contactless Payment'];
+        return [
+            'Parking','Free Parking','Restaurant','Pets Allowed','24/7 Front Desk',
+            'Fitness Center','Spa and Wellness','Smoking Area','Swimming Pool',
+            'Airport Transfer','Night Club','Good for Children','Wheelchair Accessible',
+            'Credit Cards Accepted','Debit Cards Accepted','Contactless Payment',
+            'Business Facilities','Golf Course','Beachfront','Waterfront','Garden','Breakfast',
+        ];
+    }
+
+    private static function amenity_options() {
+        return ['Kitchen','Balcony / Terrace','Fan','Internet Access'];
     }
 
     private static function map_google_facility($label) {
         $normalized = strtolower(trim(wp_strip_all_tags((string) $label)));
         $map = [
-            'parking' => ['Parking'],
-            'restaurant' => ['Restaurant'],
-            'pets allowed' => ['Pets Allowed'],
-            'pet friendly' => ['Pets Allowed'],
-            '24/7 front desk' => ['24/7 Front Desk'],
-            '24 hour front desk' => ['24/7 Front Desk'],
-            'fitness center' => ['Fitness Center'],
-            'fitness centre' => ['Fitness Center'],
-            'spa and wellness' => ['Spa and Wellness'],
-            'spa' => ['Spa and Wellness'],
-            'smoking area' => ['Smoking Area'],
-            'swimming pool' => ['Swimming Pool'],
-            'airport transfer' => ['Airport Transfer'],
-            'airport shuttle' => ['Airport Transfer'],
-            'night club' => ['Night Club'],
-            'good for children' => ['Good for Children'],
-            'wheelchair accessible' => ['Wheelchair Accessible'],
-            'credit cards accepted' => ['Credit Cards Accepted'],
-            'debit cards accepted' => ['Debit Cards Accepted'],
-            'contactless payment' => ['Contactless Payment'],
-            'payment options' => ['Credit Cards Accepted', 'Debit Cards Accepted', 'Contactless Payment'],
+            'parking' => ['hotel_facilities' => ['Parking']],
+            'car park' => ['hotel_facilities' => ['Parking']],
+            'free parking' => ['hotel_facilities' => ['Free Parking']],
+            'restaurant' => ['hotel_facilities' => ['Restaurant']],
+            'restaurants' => ['hotel_facilities' => ['Restaurant']],
+            'pets allowed' => ['hotel_facilities' => ['Pets Allowed']],
+            'pet friendly' => ['hotel_facilities' => ['Pets Allowed']],
+            '24/7 front desk' => ['hotel_facilities' => ['24/7 Front Desk']],
+            '24 hour front desk' => ['hotel_facilities' => ['24/7 Front Desk']],
+            'front desk [24-hour]' => ['hotel_facilities' => ['24/7 Front Desk']],
+            'fitness center' => ['hotel_facilities' => ['Fitness Center']],
+            'fitness centre' => ['hotel_facilities' => ['Fitness Center']],
+            'gym/fitness' => ['hotel_facilities' => ['Fitness Center']],
+            'spa and wellness' => ['hotel_facilities' => ['Spa and Wellness']],
+            'spa' => ['hotel_facilities' => ['Spa and Wellness']],
+            'spa/sauna' => ['hotel_facilities' => ['Spa and Wellness']],
+            'smoking area' => ['hotel_facilities' => ['Smoking Area']],
+            'swimming pool' => ['hotel_facilities' => ['Swimming Pool']],
+            'airport transfer' => ['hotel_facilities' => ['Airport Transfer']],
+            'airport shuttle' => ['hotel_facilities' => ['Airport Transfer']],
+            'night club' => ['hotel_facilities' => ['Night Club']],
+            'nightclub' => ['hotel_facilities' => ['Night Club']],
+            'good for children' => ['hotel_facilities' => ['Good for Children']],
+            'family/child friendly' => ['hotel_facilities' => ['Good for Children']],
+            'wheelchair accessible' => ['hotel_facilities' => ['Wheelchair Accessible']],
+            'facilities for disabled guests' => ['hotel_facilities' => ['Wheelchair Accessible']],
+            'credit cards accepted' => ['hotel_facilities' => ['Credit Cards Accepted']],
+            'debit cards accepted' => ['hotel_facilities' => ['Debit Cards Accepted']],
+            'contactless payment' => ['hotel_facilities' => ['Contactless Payment']],
+            'payment options' => ['hotel_facilities' => ['Credit Cards Accepted','Debit Cards Accepted','Contactless Payment']],
+            'business facilities' => ['hotel_facilities' => ['Business Facilities']],
+            'business facilities/services' => ['hotel_facilities' => ['Business Facilities']],
+            'golf course [on-site]' => ['hotel_facilities' => ['Golf Course']],
+            'golf course' => ['hotel_facilities' => ['Golf Course']],
+            'beachfront' => ['hotel_facilities' => ['Beachfront']],
+            'waterfront' => ['hotel_facilities' => ['Waterfront']],
+            'garden' => ['hotel_facilities' => ['Garden']],
+            'breakfast' => ['hotel_facilities' => ['Breakfast']],
+            'kitchen' => ['hotel_amenities' => ['Kitchen']],
+            'balcony/terrace' => ['hotel_amenities' => ['Balcony / Terrace']],
+            'balcony / terrace' => ['hotel_amenities' => ['Balcony / Terrace']],
+            'fan' => ['hotel_amenities' => ['Fan']],
+            'internet' => ['hotel_amenities' => ['Internet Access']],
+            'internet access' => ['hotel_amenities' => ['Internet Access']],
         ];
         foreach ($map as $source => $targets) {
             if ($normalized === $source || strpos($normalized, $source) !== false) {
@@ -354,16 +388,35 @@ JS
     public static function ajax_apply_facilities() {
         check_ajax_referer('xplore_stay_facilities_ajax', 'nonce');
         $listing_id = isset($_POST['listing_id']) ? absint($_POST['listing_id']) : 0;
-        $selected = isset($_POST['facilities']) && is_array($_POST['facilities']) ? array_map('sanitize_text_field', wp_unslash($_POST['facilities'])) : [];
+        $selected = isset($_POST['facilities']) && is_array($_POST['facilities']) ? wp_unslash($_POST['facilities']) : [];
         if (!$listing_id || get_post_type($listing_id) !== 'listing' || !current_user_can('edit_post', $listing_id) || !current_user_can('manage_options')) {
             wp_send_json_error(['message' => __('You are not allowed to update facilities for this listing.', 'xplore-stay-facilities')], 403);
         }
-        $allowed = self::facility_options();
-        $selected = array_values(array_unique(array_intersect($allowed, $selected)));
-        $existing = self::get_hotel_facilities($listing_id);
-        $merged = array_values(array_unique(array_merge($existing, $selected)));
-        update_post_meta($listing_id, 'hotel_facilities', $merged);
-        wp_send_json_success(['message' => sprintf(__('Added %d facility option(s) to Hotel Facilities.', 'xplore-stay-facilities'), count($merged) - count($existing)), 'facilities' => $merged]);
+
+        $allowed = [
+            'hotel_facilities' => self::facility_options(),
+            'hotel_amenities' => self::amenity_options(),
+        ];
+        $counts = ['hotel_facilities' => 0, 'hotel_amenities' => 0];
+
+        foreach ($allowed as $meta_key => $options) {
+            $values = [];
+            if (isset($selected[$meta_key]) && is_array($selected[$meta_key])) {
+                $values = array_values(array_unique(array_intersect($options, array_map('sanitize_text_field', $selected[$meta_key]))));
+            }
+            if (!$values) continue;
+
+            $existing = get_post_meta($listing_id, $meta_key, true);
+            $existing = is_array($existing) ? array_values(array_filter(array_map('sanitize_text_field', $existing))) : [];
+            $merged = array_values(array_unique(array_merge($existing, $values)));
+            update_post_meta($listing_id, $meta_key, $merged);
+            $counts[$meta_key] = count($merged) - count($existing);
+        }
+
+        $total = $counts['hotel_facilities'] + $counts['hotel_amenities'];
+        wp_send_json_success([
+            'message' => sprintf(__('Added %d item(s): %d hotel facilities and %d hotel amenities.', 'xplore-stay-facilities'), $total, $counts['hotel_facilities'], $counts['hotel_amenities']),
+        ]);
     }
 
     public static function ajax_fetch_facilities() {
