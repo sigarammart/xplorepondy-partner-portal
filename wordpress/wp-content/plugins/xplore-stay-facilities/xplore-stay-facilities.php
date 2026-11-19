@@ -47,7 +47,7 @@ final class Xplore_Stay_Facilities {
             __('Stay Facilities', 'xplore-stay-facilities'),
             __('Stay Facilities', 'xplore-stay-facilities'),
             'manage_options',
-            'xplore-stay-facilities',
+            'xplore-stay-facilities-settings',
             [__CLASS__, 'settings_page']
         );
     }
@@ -69,8 +69,9 @@ final class Xplore_Stay_Facilities {
         <div class="wrap">
             <h1><?php esc_html_e('Xplore Stay Facilities', 'xplore-stay-facilities'); ?></h1>
             <p><?php esc_html_e('Connect an existing Stay listing to Google Places using its _place_id. This plugin retrieves supported Place Details fields and prepares facility suggestions for an administrator to review.', 'xplore-stay-facilities'); ?></p>
-            <form method="post">
+            <form method="post" action="<?php echo esc_url(admin_url('admin.php?page=xplore-stay-facilities')); ?>">
                 <?php wp_nonce_field('xplore_stay_facilities_settings'); ?>
+                <input type="hidden" name="page" value="xplore-stay-facilities">
                 <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row"><label for="google_api_key"><?php esc_html_e('Google Places API key', 'xplore-stay-facilities'); ?></label></th>
